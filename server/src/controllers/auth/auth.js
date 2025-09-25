@@ -45,6 +45,7 @@ export const loginCustomer = async (req,reply)=>{
   }
 }
 
+
 export const loginDeliveryPartner = async (req, reply) => {
     try {
       const { email, password } = req.body;
@@ -118,9 +119,11 @@ export const fetchUser = async (req,reply)=>{
     
         if (role === "Customer") {
           user = await Customer.findById(userId);
-        } else if (role === "DeliveryPartner") {
+        }
+        else if (role === "DeliveryPartner") {
           user = await DeliveryPartner.findById(userId);
-        } else {
+        }
+        else {
           return reply.status(403).send({ message: "Invalid Role" });
         }
     
@@ -132,7 +135,41 @@ export const fetchUser = async (req,reply)=>{
           message: "User fetched successfully",
           user,
         });
-      } catch (error) {
+      }
+      catch (error) {
         return reply.status(500).send({ message: "An error occurred", error });
       }
 }
+
+export const registerUser = async (req, reply) => {
+  console.log(req.body)
+  try {
+    const { email, password, name, role, phone } = req.body;
+    let User, userExists;
+
+    if (role === 'Customer') {
+      User = Customer;
+      userExists = await User.findOne({ email });
+    } else if (role === 'DeliveryPartner') {
+      User = DeliveryPartner;
+      userExists = await User.findOne({ email });
+    } else {
+      return reply.status(400).send({ message: "Invalid role" });
+    }
+
+    if (userExists) {
+      return reply.status(400).send({ message: "User already exists" });
+    }
+
+    const newUser = new User({ email, password, name, role, phone });
+    await newUser.save();
+
+    return reply.status(201).send({
+      message: `${role} created successfully`,
+      user: newUser,
+    });
+  } catch (error) {
+    console.log(error)
+    return reply.status(500).send({ message: "Internal Server Error", error });
+  }
+};

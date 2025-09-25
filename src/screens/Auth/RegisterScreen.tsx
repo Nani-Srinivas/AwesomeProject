@@ -1,30 +1,47 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { Button } from '../../components/common/Button';
+import { apiService } from '../../services/apiService';
 
 export const RegisterScreen = ({ navigation }: { navigation: any }) => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [role, setRole] = useState('Customer'); // 'Customer' or 'DeliveryPartner'
 
   const handleRegister = async () => {
+    setNameError('');
     setEmailError('');
+    setPhoneError('');
     setPasswordError('');
     setConfirmPasswordError('');
 
     // Basic validation
     let isValid = true;
+    if (!name) {
+      setNameError('Name is required');
+      isValid = false;
+    }
     if (!email) {
       setEmailError('Email is required');
       isValid = false;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       setEmailError('Invalid email format');
+      isValid = false;
+    }
+
+    if (!phone) {
+      setPhoneError('Phone number is required');
       isValid = false;
     }
 
@@ -49,17 +66,18 @@ export const RegisterScreen = ({ navigation }: { navigation: any }) => {
     }
 
     setLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setLoading(false);
-
-    if (email && password) {
+    try {
+      const response = await apiService.post('/register', { name, email, password, role, phone });
       Alert.alert('Success', 'Account created successfully!');
-      // In a real app, you would send data to backend and then navigate to login or verification
       navigation.navigate('Login');
-    } else {
-      // This else block should ideally not be reached if validation is correct
-      Alert.alert('Error', 'Please fill all fields');
+    } catch (error: any) {
+      if (error.response && error.response.data && error.response.data.message) {
+        Alert.alert('Error', error.response.data.message);
+      } else {
+        Alert.alert('Error', 'An unexpected error occurred.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -69,6 +87,27 @@ export const RegisterScreen = ({ navigation }: { navigation: any }) => {
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>Sign up to get started</Text>
 
+        <View style={styles.roleSelector}>
+          <Text style={styles.roleText}>Customer</Text>
+          <Switch
+            trackColor={{ false: COLORS.primary, true: COLORS.primary }}
+            thumbColor={COLORS.white}
+            ios_backgroundColor={COLORS.primary}
+            onValueChange={() => setRole(role === 'Customer' ? 'DeliveryPartner' : 'Customer')}
+            value={role === 'DeliveryPartner'}
+          />
+          <Text style={styles.roleText}>Delivery Partner</Text>
+        </View>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Name"
+          placeholderTextColor={COLORS.text}
+          autoCapitalize="words"
+          value={name}
+          onChangeText={setName}
+        />
+        {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -78,7 +117,16 @@ export const RegisterScreen = ({ navigation }: { navigation: any }) => {
           value={email}
           onChangeText={setEmail}
         />
-        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}        
+        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+        <TextInput
+          style={styles.input}
+          placeholder="Phone Number"
+          placeholderTextColor={COLORS.text}
+          keyboardType="phone-pad"
+          value={phone}
+          onChangeText={setPhone}
+        />
+        {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
         <TextInput
           style={styles.input}
           placeholder="Password"
@@ -159,5 +207,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 10,
     marginLeft: 5,
+  },
+  roleSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  roleText: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginHorizontal: 10,
   },
 });

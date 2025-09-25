@@ -12,8 +12,8 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen = ({ navigation }: LoginScreenProps) => {
-  const [email, setEmail] = useState('test@example.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('deliveryboy1@gmail.com');
+  const [password, setPassword] = useState('123456');
   const [phone, setPhone] = useState('9876543210');
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
