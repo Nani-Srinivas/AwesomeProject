@@ -1,0 +1,53 @@
+# Node.js and React Native
+node_modules/
+build/
+.expo/
+.react-native/
+.yarn/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependency lock files (usually committed, but sometimes ignored)
+# package-lock.json
+# yarn.lock
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Android
+android/build/
+android/.gradle/
+android/app/build/
+android/app/.cxx/
+android/app/src/main/assets/fonts.json
+android/gradle-wrapper/
+
+# iOS
+ios/build/
+ios/.xcode.env.local
+
+# Gemini-specific files
+.gemini/
+
+# Other temporary files
+*.bak
+*.swp
+*~
