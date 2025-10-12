@@ -6,6 +6,8 @@ import Category from "../../models/Product/Category.js";
 import MasterProduct from "../../models/Product/MasterProduct.js";
 
 export const getStoreCategories = async (req, reply) => {
+  console.log('getStoreCategories controller called.');
+  console.log('req.user:', req.user);
   try {
     const createdBy = req.user?.id;
     if (!createdBy) {
@@ -131,6 +133,8 @@ export const updateStoreCategory = async (req, reply) => {
 };
 
 export const getStoreProducts = async (req, reply) => {
+  console.log('getStoreProducts controller called.');
+  console.log('req.user:', req.user);
   try {
     const createdBy = req.user?.id;
     if (!createdBy) {

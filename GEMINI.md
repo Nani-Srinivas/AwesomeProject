@@ -129,3 +129,30 @@ AwesomeServer/
 │   └───routes/
 └───...
 ```
+
+
+**Note:**gemini cli crashed! with this error message this is to understand the reason behind it even though my internet is quite good.
+check and expalin me first before doing any thing.
+
+Debug Console (ctrl+o to close)                                                                                   │
+│                                                                                                                   │
+│ ℹ File C:\Users\LionO\.cache/vscode-ripgrep/ripgrep-v13.0.0-10-x86_64-pc-windows-msvc.zip has been cached        │
+│ ℹ Authenticated via "oauth-personal".                                                                            │
+│ ✖ [ERROR] [IDEClient] IDE connection error. The connection was lost unexpectedly. Please try reconnecting by     │
+│    running /ide enable                                                                                            │
+│    fetch failed                                                                                                   │
+│ ✖ =========================================                                                                      │
+│    This is an unexpected error. Please file a bug report using the /bug tool.                                     │
+│    CRITICAL: Unhandled Promise Rejection!                                                                         │
+│    =========================================                                                                      │
+│    Reason: TypeError: fetch failed                                                                                │
+│    Stack trace:                                                                                                   │
+│    TypeError: fetch failed                                                                                        │
+│        at C:\Users\LionO\AppData\Roaming\npm\node_modules\@google\gemini-cli\node_modules\undici\index.js:124:13  │
+│        at process.processTicksAndRejections (node:internal/process/task_queues:105:5)                             │
+│        at async                                                                                                   │
+│    file:///C:/Users/LionO/AppData/Roaming/npm/node_modules/@google/gemini-cli/node_modules/@google/gemini-cli-cor │
+│    e/dist/src/ide/ide-client.js:510:30                                                                            │
+│        at async StreamableHTTPClientTransport.send                                                                │
+│    (file:///C:/Users/LionO/AppData/Roaming/npm/node_modules/@google/gemini-cli/node_modules/@modelcontextprotocol │
+│    /sdk/dist/esm/client/streamableHttp.js:272:30) (x3)  

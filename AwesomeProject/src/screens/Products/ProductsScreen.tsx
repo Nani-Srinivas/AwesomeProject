@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useEffect, useMemo} from 'react';
 import {
   View,
   Text,
@@ -6,86 +6,26 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from 'react-native';
+import {useCatalogStore} from '../../store/catalogStore';
 
-const categories = [
-  { category: 'All', image: 'https://picsum.photos/id/101/80/80' },
-  { category: 'Fresh Vegetables', image: 'https://picsum.photos/id/102/80/80' },
-  { category: 'Fresh Fruits', image: 'https://picsum.photos/id/103/80/80' },
-  { category: 'Exotics', image: 'https://picsum.photos/id/104/80/80' },
-  { category: 'Coriander & Others', image: 'https://picsum.photos/id/105/80/80' },
-  { category: 'Flowers & Leaves', image: 'https://picsum.photos/id/106/80/80' },
-];
-
-const products = [
-  {
-    name: 'Royal Gala Apple - Kashmir',
-    category: 'Fresh Fruits',
-    subcategory: 'Apples',
-    tag: "Season's best",
-    weight: '2 pieces (300-350 g)',
-    time: '23 MINS',
-    discount: '20% OFF',
-    price: 99,
-    mrp: 125,
-    image: 'https://picsum.photos/id/110/300/300',
-  },
-  {
-    name: 'Nagpur Orange (Narinja Pandu)',
-    category: 'Fresh Fruits',
-    subcategory: 'Oranges',
-    tag: "Season's best",
-    weight: '500-600 g',
-    time: '23 MINS',
-    discount: '21% OFF',
-    price: 54,
-    mrp: 69,
-    image: 'https://picsum.photos/id/111/300/300',
-  },
-  {
-    name: 'Shine Muscat Green Grapes',
-    category: 'Exotics',
-    subcategory: 'Grapes',
-    tag: 'Imported',
-    weight: '250 g',
-    time: '23 MINS',
-    discount: '27% OFF',
-    price: 145,
-    mrp: 200,
-    image: 'https://picsum.photos/id/112/300/300',
-  },
-  {
-    name: 'Zespri Sungold Kiwi',
-    category: 'Exotics',
-    subcategory: 'Kiwis',
-    tag: 'Imported',
-    weight: '2 pieces',
-    time: '23 MINS',
-    discount: '25% OFF',
-    price: 140,
-    mrp: 189,
-    image: 'https://picsum.photos/id/113/300/300',
-  },
-];
-
-const CategoryCard = ({ category, isSelected, onPress }: any) => (
+const CategoryCard = ({category, isSelected, onPress}) => (
   <TouchableOpacity
     style={[styles.categoryCard, isSelected && styles.selectedCategory]}
-    onPress={onPress}
-  >
-    <Image source={{ uri: category.image }} style={styles.categoryImage} />
+    onPress={onPress}>
+    <Image source={{uri: category.imageUrl}} style={styles.categoryImage} />
     <Text
-      style={[styles.categoryText, isSelected && styles.selectedCategoryText]}
-    >
-      {category.category}
+      style={[styles.categoryText, isSelected && styles.selectedCategoryText]}>
+      {category.name}
     </Text>
   </TouchableOpacity>
 );
 
-const ProductCard = ({ item }: any) => (
+const ProductCard = ({item}) => (
   <View style={styles.productCard}>
     <Text style={styles.tag}>{item.tag}</Text>
-    <Image source={{ uri: item.image }} style={styles.productImage} />
+    <Image source={{uri: item.images[0]}} style={styles.productImage} />
     <Text style={styles.name} numberOfLines={2}>
       {item.name}
     </Text>
@@ -103,53 +43,73 @@ const ProductCard = ({ item }: any) => (
 );
 
 export const ProductsScreen = () => {
-  const [selectedCat, setSelectedCat] = useState('All');
+  const {
+    categories,
+    products,
+    selectedCategory,
+    loading,
+    error,
+    fetchCategories,
+    fetchProducts,
+    setSelectedCategory,
+  } = useCatalogStore();
 
-  const filteredProducts = products.filter((item) => {
-    const matchesCategory =
-      selectedCat === 'All' || item.category === selectedCat;
-    return matchesCategory;
-  });
+  useEffect(() => {
+    fetchCategories();
+    fetchProducts();
+  }, [fetchCategories, fetchProducts]);
+
+  const filteredProducts = useMemo(() => {
+    if (selectedCategory === 'All') {
+      return products;
+    }
+    return products.filter(product => product.storeCategoryId._id === selectedCategory);
+  }, [products, selectedCategory]);
+
+  if (loading && categories.length === 0) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="green" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Text>Failed to load products.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* <TextInput
-        style={styles.searchBar}
-        placeholder="Search..."
-        value={searchText}
-        onChangeText={setSearchText}
-      /> */}
-
       <View style={styles.content}>
-        {/* Categories */}
         <FlatList
           data={categories}
-          renderItem={({ item }) => (
+          renderItem={({item}) => (
             <CategoryCard
               category={item}
-              isSelected={item.category === selectedCat}
-              onPress={() => setSelectedCat(item.category)}
+              isSelected={item._id === selectedCategory}
+              onPress={() => setSelectedCategory(item._id)}
             />
           )}
-          keyExtractor={(item) => item.category}
+          keyExtractor={item => item._id}
           style={styles.categoryList}
           showsVerticalScrollIndicator={false}
         />
 
-        {/* Products */}
         <FlatList
           data={filteredProducts}
-          renderItem={({ item }) => <ProductCard item={item} />}
-          keyExtractor={(item, index) => item.name + index}
+          renderItem={({item}) => <ProductCard item={item} />}
+          keyExtractor={item => item._id}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.contentContainerPadding}
           style={styles.productGrid}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.emptyListText}>
-              No products found
-            </Text>
+            <Text style={styles.emptyListText}>No products found</Text>
           }
         />
       </View>
@@ -158,15 +118,12 @@ export const ProductsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  searchBar: {
-    height: 40,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 8,
-    margin: 12,
-    paddingHorizontal: 12,
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  container: { flex: 1, backgroundColor: '#fff' },
   content: { flex: 1, flexDirection: 'row' },
   categoryList: { width: '20%', backgroundColor: '#fafafa' },
   categoryCard: {
@@ -231,10 +188,3 @@ const styles = StyleSheet.create({
   contentContainerPadding: { padding: 12 },
   emptyListText: { textAlign: 'center', marginTop: 50 },
 });
-
-
-
-
-
-
-
