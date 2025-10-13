@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput, Switch, ScrollView } from 'react-native';
-import { Button } from '../../components/common/Button';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput, Switch, ScrollView, FlatList, TouchableOpacity } from 'react-native';
+import { Button } from '../common/Button';
 import { COLORS } from '../../constants/colors';
+import { ProductSelector } from '../product/ProductSelector';
+import Feather from 'react-native-vector-icons/Feather';
+import { AddCustomerFormHeader } from './AddCustomerFormHeader';
 
 interface AddCustomerModalProps {
   isVisible: boolean;
@@ -19,121 +22,160 @@ export const AddCustomerModal = ({ isVisible, onClose, onSave, isSaving }: AddCu
   const [deliveryCost, setDeliveryCost] = useState('');
   const [advanceAmount, setAdvanceAmount] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [requiredProducts, setRequiredProducts] = useState<any[]>([]);
+  const [isProductSelectorVisible, setProductSelectorVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
     if (isVisible) {
-      // Reset form when modal becomes visible
       setName('');
       setPhone('');
       setAddress('');
       setDeliveryCost('');
       setAdvanceAmount('');
       setIsSubscribed(false);
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      setRequiredProducts([]);
+      Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
     } else {
-      Animated.timing(slideAnim, {
-        toValue: height,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(slideAnim, { toValue: height, duration: 300, useNativeDriver: true }).start();
     }
   }, [isVisible, slideAnim]);
 
-  const handleSave = () => {
-    if (name && phone) {
-      onSave({ 
-        name, 
-        phone, 
-        address: { Apartment: address }, // Simplified address
-        deliveryCost: Number(deliveryCost) || 0,
-        advanceAmount: Number(advanceAmount) || 0,
-        isSubscribed 
-      });
-    }
+  const handleProductsSelected = useCallback((products: any[]) => {
+    const productsWithQuantity = products.map(p => ({ product: p, quantity: 1 }));
+    setRequiredProducts(productsWithQuantity);
+  }, []);
+
+  const handleQuantityChange = (text: string, index: number) => {
+    const newProducts = [...requiredProducts];
+    newProducts[index].quantity = Number(text) || 0;
+    setRequiredProducts(newProducts);
   };
 
+  const handleRemoveProduct = (index: number) => {
+    const newProducts = [...requiredProducts];
+    newProducts.splice(index, 1);
+    setRequiredProducts(newProducts);
+  };
+
+  const handleSave = useCallback(() => {
+    if (name && phone) {
+      onSave({
+        name,
+        phone,
+        address: { Apartment: address },
+        deliveryCost: Number(deliveryCost) || 0,
+        advanceAmount: Number(advanceAmount) || 0,
+        isSubscribed,
+        requiredProduct: requiredProducts.map(p => ({ product: p.product._id, quantity: p.quantity }))
+      });
+    }
+  }, [name, phone, address, deliveryCost, advanceAmount, isSubscribed, requiredProducts, onSave]);
+
+  const renderListFooter = useCallback(() => (
+    <View style={styles.footerContainer}>
+      <Button title={isSaving ? 'Saving...' : 'Save Customer'} onPress={handleSave} disabled={isSaving} />
+    </View>
+  ), [isSaving, handleSave]);
+
   return (
-    <Modal
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}
-      animationType="none"
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
-          <Animated.View style={[styles.modalContent, { transform: [{ translateY: slideAnim }] }]}>
-            <TouchableWithoutFeedback>
-              <ScrollView contentContainerStyle={styles.innerContent}>
-                <Text style={styles.title}>Add New Customer</Text>
-                <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
-                <TextInput style={styles.input} placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-                <TextInput style={styles.input} placeholder="Address (Apartment/Building)" value={address} onChangeText={setAddress} />
-                <TextInput style={styles.input} placeholder="Delivery Cost" value={deliveryCost} onChangeText={setDeliveryCost} keyboardType="numeric" />
-                <TextInput style={styles.input} placeholder="Advance Amount" value={advanceAmount} onChangeText={setAdvanceAmount} keyboardType="numeric" />
-                <View style={styles.switchContainer}>
-                  <Text>Subscribed</Text>
-                  <Switch value={isSubscribed} onValueChange={setIsSubscribed} />
-                </View>
-                <Button 
-                  title={isSaving ? 'Saving...' : 'Save Customer'} 
-                  onPress={handleSave} 
-                  disabled={isSaving}
-                />
-              </ScrollView>
-            </TouchableWithoutFeedback>
-          </Animated.View>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+    <>
+      <Modal transparent={true} visible={isVisible} onRequestClose={onClose} animationType="none">
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.modalOverlay}>
+            <Animated.View style={[styles.modalContent, { transform: [{ translateY: slideAnim }] }]}>
+              <FlatList
+                data={requiredProducts}
+                keyExtractor={item => item.product._id}
+                ListHeaderComponent={
+                  <AddCustomerFormHeader
+                    name={name} setName={setName}
+                    phone={phone} setPhone={setPhone}
+                    address={address} setAddress={setAddress}
+                    deliveryCost={deliveryCost} setDeliveryCost={setDeliveryCost}
+                    advanceAmount={advanceAmount} setAdvanceAmount={setAdvanceAmount}
+                    isSubscribed={isSubscribed} setIsSubscribed={setIsSubscribed}
+                    setProductSelectorVisible={setProductSelectorVisible}
+                    requiredProducts={requiredProducts}
+                    handleQuantityChange={handleQuantityChange}
+                    handleRemoveProduct={handleRemoveProduct}
+                  />
+                }
+                ListFooterComponent={renderListFooter}
+                renderItem={({ item, index }) => (
+                  <View style={styles.productItem}>
+                    <Text style={styles.productName}>{item.product.name}</Text>
+                    <TextInput style={styles.quantityInput} value={String(item.quantity)} onChangeText={(text) => handleQuantityChange(text, index)} keyboardType="numeric" />
+                    <TouchableOpacity onPress={() => handleRemoveProduct(index)}>
+                      <Feather name="x-circle" size={22} color={COLORS.danger} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                ListEmptyComponent={<Text style={styles.emptyListText}>No products selected.</Text>}
+                contentContainerStyle={styles.innerContent}
+              />
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+      <ProductSelector
+        isVisible={isProductSelectorVisible}
+        onClose={() => setProductSelectorVisible(false)}
+        initialSelectedProducts={requiredProducts.map(p => p.product)}
+        onProductsSelected={handleProductsSelected}
+      />
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    width: '100%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    maxHeight: height * 0.75,
-  },
-  innerContent: {
-    paddingTop: 20,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: COLORS.text,
-  },
-  input: {
-    width: '100%',
-    height: 50,
-    borderColor: COLORS.primary,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    color: COLORS.text,
-    backgroundColor: COLORS.background,
-  },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  modalContent: { backgroundColor: COLORS.white, width: '100%', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, maxHeight: height * 0.9 },
+  innerContent: { paddingTop: 20, paddingBottom: 40 },
+  productItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.lightGrey },
+  productName: { flex: 1 },
+  quantityInput: { width: 50, textAlign: 'center', borderColor: COLORS.grey, borderWidth: 1, borderRadius: 5, paddingVertical: 5, marginHorizontal: 10 },
+  emptyListText: { textAlign: 'center', padding: 20, color: COLORS.grey },
   switchContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
     marginBottom: 20,
+  },
+  productListContainer: {
+    width: '100%',
+    minHeight: 50, // Ensure it has some height even if empty
+    maxHeight: 150, // Adjust as needed
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.lightGrey,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  productItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGrey,
+  },
+  productName: {
+    flex: 1,
+  },
+  quantityInput: {
+    width: 50,
+    textAlign: 'center',
+    borderColor: COLORS.grey,
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingVertical: 5,
+    marginHorizontal: 10,
+  },
+  emptyListText: {
+    textAlign: 'center',
+    padding: 20,
+    color: COLORS.grey,
   },
 });
