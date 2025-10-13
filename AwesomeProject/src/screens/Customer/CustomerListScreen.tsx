@@ -1,16 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { EditCustomerModal } from '../../components/customer/EditCustomerModal';
-
-const initialCustomers = [
-  { id: '#CST1023', name: 'John Doe', contact: '+91 9876543210', status: 'Paid' },
-  { id: '#CST1024', name: 'Jane Smith', contact: '+91 9876543211', status: 'Unpaid' },
-  { id: '#CST1025', name: 'Peter Jones', contact: '+91 9876543212', status: 'Pending' },
-  { id: '#CST1026', name: 'Mary Johnson', contact: '+91 9876543213', status: 'Paid' },
-  { id: '#CST1027', name: 'David Williams', contact: '+91 9876543214', status: 'Unpaid' },
-];
+import { AddCustomerModal } from '../../components/customer/AddCustomerModal';
+import { apiService } from '../../services/apiService';
 
 const getStatusStyle = (status: string) => {
   switch (status) {
@@ -18,43 +12,71 @@ const getStatusStyle = (status: string) => {
       return { color: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)' };
     case 'Unpaid':
       return { color: '#F44336', backgroundColor: 'rgba(244, 67, 54, 0.1)' };
-    case 'Pending':
+    default: // Assuming 'Pending' or other statuses fall here
       return { color: '#FF9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' };
-    default:
-      return { color: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)' };
   }
 };
 
-const CustomerCard = ({ customer, onPress, onEdit }: { customer: any, onPress: () => void, onEdit: (customer: any) => void }) => (
+const CustomerCard = ({ customer, onPress, onEdit, onDelete }: { customer: any, onPress: () => void, onEdit: (customer: any) => void, onDelete: (customer: any) => void }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
-    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(customer.status).color }]} />
+    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(customer.Bill).color }]} />
     <View style={styles.cardContent}>
       <Text style={styles.customerName}>{customer.name}</Text>
-      <Text style={styles.customerInfo}>Customer ID | {customer.id}</Text>
-      <Text style={styles.customerInfo}>Contact: {customer.contact}</Text>
+      <Text style={styles.customerInfo}>Customer ID | {customer._id}</Text>
+      <Text style={styles.customerInfo}>Contact: {customer.phone}</Text>
     </View>
-    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(customer.status).backgroundColor }]}>
-      <Text style={[styles.statusText, { color: getStatusStyle(customer.status).color }]}>
-        {customer.status}
+    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(customer.Bill).backgroundColor }]}>
+      <Text style={[styles.statusText, { color: getStatusStyle(customer.Bill).color }]}>
+        {customer.Bill}
       </Text>
     </View>
-    <TouchableOpacity onPress={() => onEdit(customer)} style={styles.editButton}>
-      <Feather name="edit-2" size={20} color={COLORS.text} />
-    </TouchableOpacity>
+    <View style={styles.actionsContainer}>
+      <TouchableOpacity onPress={() => onEdit(customer)} style={styles.actionButton}>
+        <Feather name="edit-2" size={20} color={COLORS.text} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => onDelete(customer)} style={styles.actionButton}>
+        <Feather name="trash-2" size={20} color={COLORS.danger} />
+      </TouchableOpacity>
+    </View>
   </TouchableOpacity>
 );
 
 export const CustomerListScreen = ({ navigation, route }: { navigation: any, route: any }) => {
   const [filter, setFilter] = useState(route.params?.filter || 'All');
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isAddModalVisible, setAddModalVisible] = useState(false);
+
+  const fetchCustomers = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await apiService.get('/customer');
+      if (response.data.success) {
+        setCustomers(response.data.data);
+      } else {
+        setError(response.data.message || 'Failed to fetch customers.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while fetching customers.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     if (filter === 'All') {
       return customers;
     }
-    return customers.filter((customer) => customer.status === filter);
+    return customers.filter((customer: any) => customer.Bill === filter);
   }, [filter, customers]);
 
   const handleCustomerPress = (customer: any) => {
@@ -66,14 +88,84 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
     setEditModalVisible(true);
   };
 
-  const handleSaveCustomer = (updatedCustomer: any) => {
-    setCustomers(prev =>
-      prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c))
-    );
-    setEditModalVisible(false);
-    setEditingCustomer(null);
-    Alert.alert('Success', `Customer "${updatedCustomer.name}" has been updated.`);
+  const handleSaveCustomer = async (updatedCustomer: any) => {
+    try {
+      setIsSaving(true);
+      const response = await apiService.patch(`/customer/update/${updatedCustomer._id}`, updatedCustomer);
+
+      if (response.data.success) {
+        setCustomers(prev =>
+          prev.map((c: any) => (c._id === updatedCustomer._id ? response.data.data : c))
+        );
+        setEditModalVisible(false);
+        setEditingCustomer(null);
+        Alert.alert('Success', `Customer "${response.data.data.name}" has been updated.`);
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to update customer.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'An error occurred while updating.');
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  const handleAddNewCustomer = async (newCustomer: { name: string; phone: string }) => {
+    try {
+      setIsSaving(true);
+      const response = await apiService.post('/customer/create', newCustomer);
+
+      if (response.data.success) {
+        setCustomers(prev => [response.data.data, ...prev]);
+        setAddModalVisible(false);
+        Alert.alert('Success', `Customer "${response.data.data.name}" has been added.`);
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to add customer.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'An error occurred while adding the customer.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeletePress = (customer: any) => {
+    Alert.alert(
+      'Delete Customer',
+      `Are you sure you want to delete ${customer.name}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await apiService.delete(`/customer/delete/${customer._id}`);
+              if (response.data.success) {
+                setCustomers(prev => prev.filter((c: any) => c._id !== customer._id));
+                Alert.alert('Success', `Customer "${customer.name}" has been deleted.`);
+              } else {
+                Alert.alert('Error', response.data.message || 'Failed to delete customer.');
+              }
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'An error occurred while deleting.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (isLoading) {
+    return <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />;
+  }
+
+  if (error) {
+    return <View style={styles.container}><Text style={styles.errorText}>{error}</Text></View>;
+  }
 
   return (
     <View style={styles.container}>
@@ -84,8 +176,8 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         <TouchableOpacity style={[styles.filterTab, filter === 'Paid' && styles.activeTab]} onPress={() => setFilter('Paid')}>
           <Text style={[styles.filterText, filter === 'Paid' && styles.activeFilterText]}>Paid</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterTab, filter === 'Pending' && styles.activeTab]} onPress={() => setFilter('Pending')}>
-          <Text style={[styles.filterText, filter === 'Pending' && styles.activeFilterText]}>Pending</Text>
+        <TouchableOpacity style={[styles.filterTab, filter === 'Unpaid' && styles.activeTab]} onPress={() => setFilter('Unpaid')}>
+          <Text style={[styles.filterText, filter === 'Unpaid' && styles.activeFilterText]}>Unpaid</Text>
         </TouchableOpacity>
       </View>
       <FlatList
@@ -95,10 +187,13 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
             customer={item}
             onPress={() => handleCustomerPress(item)}
             onEdit={handleEditPress}
+            onDelete={handleDeletePress}
           />
         )}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 16 }}
+        keyExtractor={(item: any) => item._id}
+        contentContainerStyle={{ paddingBottom: 80 }} // Increased padding for FAB
+        onRefresh={fetchCustomers}
+        refreshing={isLoading}
       />
       {editingCustomer && (
         <EditCustomerModal
@@ -106,8 +201,20 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
           onClose={() => setEditModalVisible(false)}
           customer={editingCustomer}
           onSave={handleSaveCustomer}
+          isSaving={isSaving}
         />
       )}
+
+      <AddCustomerModal 
+        isVisible={isAddModalVisible}
+        onClose={() => setAddModalVisible(false)}
+        onSave={handleAddNewCustomer}
+        isSaving={isSaving} // We can reuse the isSaving state for now
+      />
+
+      <TouchableOpacity style={styles.fab} onPress={() => setAddModalVisible(true)}>
+        <Feather name="plus" size={24} color={COLORS.white} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -187,9 +294,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  editButton: {
+  actionsContainer: {
     position: 'absolute',
     bottom: 16,
     right: 16,
+    flexDirection: 'row',
+  },
+  actionButton: {
+    marginLeft: 15,
+  },
+  fab: {
+    position: 'absolute',
+    right: 30,
+    bottom: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });

@@ -3,17 +3,16 @@ import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFe
 import { Button } from '../../components/common/Button';
 import { COLORS } from '../../constants/colors';
 
-interface EditCustomerModalProps {
+interface AddCustomerModalProps {
   isVisible: boolean;
   onClose: () => void;
-  customer: any;
-  onSave: (updatedCustomer: any) => void;
+  onSave: (newCustomer: any) => void;
   isSaving: boolean;
 }
 
 const { height } = Dimensions.get('window');
 
-export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSaving }: EditCustomerModalProps) => {
+export const AddCustomerModal = ({ isVisible, onClose, onSave, isSaving }: AddCustomerModalProps) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -23,13 +22,14 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
-    if (isVisible && customer) {
-      setName(customer.name || '');
-      setPhone(customer.phone || '');
-      setAddress(customer.address?.Apartment || '');
-      setDeliveryCost(String(customer.deliveryCost || ''));
-      setAdvanceAmount(String(customer.advanceAmount || ''));
-      setIsSubscribed(customer.isSubscribed || false);
+    if (isVisible) {
+      // Reset form when modal becomes visible
+      setName('');
+      setPhone('');
+      setAddress('');
+      setDeliveryCost('');
+      setAdvanceAmount('');
+      setIsSubscribed(false);
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
@@ -42,18 +42,17 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
         useNativeDriver: true,
       }).start();
     }
-  }, [isVisible, customer, slideAnim]);
+  }, [isVisible, slideAnim]);
 
   const handleSave = () => {
     if (name && phone) {
-      onSave({
-        ...customer,
-        name,
-        phone,
-        address: { ...customer.address, Apartment: address },
+      onSave({ 
+        name, 
+        phone, 
+        address: { Apartment: address }, // Simplified address
         deliveryCost: Number(deliveryCost) || 0,
         advanceAmount: Number(advanceAmount) || 0,
-        isSubscribed,
+        isSubscribed 
       });
     }
   };
@@ -70,7 +69,7 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
           <Animated.View style={[styles.modalContent, { transform: [{ translateY: slideAnim }] }]}>
             <TouchableWithoutFeedback>
               <ScrollView contentContainerStyle={styles.innerContent}>
-                <Text style={styles.title}>Edit Customer</Text>
+                <Text style={styles.title}>Add New Customer</Text>
                 <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
                 <TextInput style={styles.input} placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
                 <TextInput style={styles.input} placeholder="Address (Apartment/Building)" value={address} onChangeText={setAddress} />
@@ -81,7 +80,7 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
                   <Switch value={isSubscribed} onValueChange={setIsSubscribed} />
                 </View>
                 <Button 
-                  title={isSaving ? 'Saving...' : 'Save Changes'} 
+                  title={isSaving ? 'Saving...' : 'Save Customer'} 
                   onPress={handleSave} 
                   disabled={isSaving}
                 />
@@ -95,7 +94,41 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
 };
 
 const styles = StyleSheet.create({
-  // ... existing styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    width: '100%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    maxHeight: height * 0.75,
+  },
+  innerContent: {
+    paddingTop: 20,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: COLORS.text,
+  },
+  input: {
+    width: '100%',
+    height: 50,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    color: COLORS.text,
+    backgroundColor: COLORS.background,
+  },
   switchContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
