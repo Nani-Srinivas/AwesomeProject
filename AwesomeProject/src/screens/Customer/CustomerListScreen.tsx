@@ -17,7 +17,7 @@ const getStatusStyle = (status: string) => {
   }
 };
 
-const CustomerCard = ({ customer, onPress, onEdit, onDelete }: { customer: any, onPress: () => void, onEdit: (customer: any) => void, onDelete: (customer: any) => void }) => (
+const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill }: { customer: any, onPress: () => void, onEdit: (customer: any) => void, onDelete: (customer: any) => void, onViewBill: (customer: any) => void }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
     <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(customer.Bill).color }]} />
     <View style={styles.cardContent}>
@@ -31,6 +31,9 @@ const CustomerCard = ({ customer, onPress, onEdit, onDelete }: { customer: any, 
       </Text>
     </View>
     <View style={styles.actionsContainer}>
+      <TouchableOpacity onPress={() => onViewBill(customer)} style={styles.actionButton}>
+        <Feather name="file-text" size={20} color={COLORS.primary} />
+      </TouchableOpacity>
       <TouchableOpacity onPress={() => onEdit(customer)} style={styles.actionButton}>
         <Feather name="edit-2" size={20} color={COLORS.text} />
       </TouchableOpacity>
@@ -86,6 +89,10 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   const handleEditPress = (customer: any) => {
     setEditingCustomer(customer);
     setEditModalVisible(true);
+  };
+
+  const handleViewBillPress = (customer: any) => {
+    navigation.navigate('StatementPeriodSelection', { customerId: customer._id });
   };
 
   const handleSaveCustomer = async (updatedCustomer: any) => {
@@ -188,6 +195,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
             onPress={() => handleCustomerPress(item)}
             onEdit={handleEditPress}
             onDelete={handleDeletePress}
+            onViewBill={handleViewBillPress}
           />
         )}
         keyExtractor={(item: any) => item._id}
