@@ -80,6 +80,7 @@ export const createCustomer = async (req, reply) => {
     const newCustomer = new Customer({
       name,
       phone,
+      roles: ['Customer'],
       requiredProduct,
       deliveryCost,
       isSubscribed,
@@ -92,7 +93,18 @@ export const createCustomer = async (req, reply) => {
     });
 
     await newCustomer.save();
-    await newCustomer.populate('area');
+    await newCustomer.populate([
+      { path: 'area' },
+      {
+        path: 'requiredProduct.product',
+        model: 'StoreProduct',
+        populate: {
+          path: 'masterProductId',
+          model: 'MasterProduct',
+          select: 'name'
+        }
+      }
+    ]);
 
     return reply.status(201).send({
       success: true,
