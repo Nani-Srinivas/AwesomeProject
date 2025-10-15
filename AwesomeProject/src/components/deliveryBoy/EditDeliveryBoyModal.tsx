@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput } from 'react-native';
+import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput, Alert } from 'react-native';
 import { Button } from '../../components/common/Button';
+import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
+import RNPickerSelect from 'react-native-picker-select';
 
 interface EditDeliveryBoyModalProps {
   isVisible: boolean;
@@ -15,12 +17,16 @@ const { height } = Dimensions.get('window');
 export const EditDeliveryBoyModal = ({ isVisible, onClose, deliveryBoy, onSave }: EditDeliveryBoyModalProps) => {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
+  const [areaId, setAreaId] = useState('');
+  const [areas, setAreas] = useState([]);
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
     if (isVisible && deliveryBoy) {
+      fetchAreas();
       setName(deliveryBoy.name);
-      setContact(deliveryBoy.contact);
+      setContact(deliveryBoy.phone);
+      setAreaId(deliveryBoy.areaId._id);
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
@@ -34,17 +40,41 @@ export const EditDeliveryBoyModal = ({ isVisible, onClose, deliveryBoy, onSave }
       }).start(() => {
         setName('');
         setContact('');
+        setAreaId('');
       });
     }
   }, [isVisible, deliveryBoy, slideAnim]);
 
-  const handleSave = () => {
-    if (name && contact) {
-      onSave({
-        ...deliveryBoy,
-        name,
-        contact,
-      });
+  const fetchAreas = async () => {
+    try {
+      const response = await apiService.get('/delivery/area');
+      setAreas(response.data.data.map((area: any) => ({ label: area.name, value: area._id }))
+      );
+    } catch (error) {
+      console.error('Failed to fetch areas:', error);
+      Alert.alert('Error', 'Failed to fetch areas. Please try again.');
+    }
+  };
+
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async () => {
+    if (!name || !contact || !areaId) {
+      Alert.alert('Error', 'Please fill all the fields.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiService.patch(`/delivery/delivery-boy/update/${deliveryBoy._id}`, { name, phone: contact, areaId });
+      Alert.alert('Success', 'Delivery boy updated successfully!');
+      onSave(response.data.data);
+      onClose();
+    } catch (error) {
+      console.error('Failed to update delivery boy:', error);
+      Alert.alert('Error', 'Failed to update delivery boy. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,7 +106,14 @@ export const EditDeliveryBoyModal = ({ isVisible, onClose, deliveryBoy, onSave }
                   keyboardType="phone-pad"
                   placeholderTextColor={COLORS.text}
                 />
-                <Button title="Save Changes" onPress={handleSave} />
+                <RNPickerSelect
+                  onValueChange={(value) => setAreaId(value)}
+                  items={areas}
+                  style={pickerSelectStyles}
+                  value={areaId}
+                  placeholder={{ label: 'Select an area', value: null }}
+                />
+                <Button title="Save Changes" onPress={handleSave} loading={loading} />
               </View>
             </TouchableWithoutFeedback>
           </Animated.View>
@@ -120,6 +157,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 15,
     color: COLORS.text,
+    backgroundColor: COLORS.background,
+  },
+});
+
+const pickerSelectStyles = StyleSheet.create({
+  inputIOS: {
+    fontSize: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'gray',
+    borderRadius: 4,
+    color: 'black',
+    paddingRight: 30, // to ensure the text is never behind the icon
+    marginBottom: 15,
+    width: '100%',
+  },
+  inputAndroid: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 10,
+    color: COLORS.text,
+    paddingRight: 30, // to ensure the text is never behind the icon
+    marginBottom: 15,
+    width: 350,
     backgroundColor: COLORS.background,
   },
 });

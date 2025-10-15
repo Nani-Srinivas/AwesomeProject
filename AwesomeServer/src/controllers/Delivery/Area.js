@@ -4,15 +4,14 @@ import { StoreManager } from '../../models/User/StoreManager.js';
 
 export const createArea = async (req, reply) => {
   console.log("Create Area is Called");
-  
-  const { name, stockCount } = req.body;
+  const { name, totalSubscribedItems, isActive } = req.body;
   try {
 
     // ✅ 1. Validate input
-    if (!name || stockCount == null) {
+    if (!name || totalSubscribedItems == null) {
       return reply.status(400).send({
         success: false,
-        message: 'Both "name" and "stockCount" are required.'
+        message: 'Both "name" and "totalSubscribedItems" are required.'
       });
     }
 
@@ -48,7 +47,8 @@ export const createArea = async (req, reply) => {
     const area = new Area({
       name,
       createdBy,
-      stockCount: stockCount
+      totalSubscribedItems: totalSubscribedItems,
+      isActive
     });
 
     await area.save();
@@ -60,7 +60,8 @@ export const createArea = async (req, reply) => {
       data: {
         id: area._id,
         name: area.name,
-        stockCount: area.stockCount
+        totalSubscribedItems: area.totalSubscribedItems,
+        isActive: area.isActive
       }
     });
 
@@ -82,6 +83,7 @@ export const createArea = async (req, reply) => {
 
 
 export const getAllArea = async (req, reply) => {
+  console.log("Get All Area is Called");
   try {
     const areas = await Area.find();
     return reply.status(200).send({
@@ -96,6 +98,7 @@ export const getAllArea = async (req, reply) => {
 
 
 export const getAreaByUser = async (req, reply) => {
+  console.log("Get Area By User is Called");
   try {
     const ownerId = req.user?.id;
     console.log(ownerId);
@@ -125,13 +128,13 @@ export const updateArea = async (req, reply) => {
   try {
     const areaId = req.params.id;
     console.log(areaId);
-    const { name, stockCount } = req.body;
+    const { name, totalSubscribedItems, isActive } = req.body;
 
     // ✅ 1. Validate input 
-    if (!name || stockCount == null) {
+    if (!name || totalSubscribedItems == null) {
       return reply.status(400).send({
         success: false,
-        message: 'Please provide both "name" and "stockCount".'
+        message: 'Please provide both "name" and "totalSubscribedItems".'
       });
     }
 
@@ -177,7 +180,10 @@ export const updateArea = async (req, reply) => {
 
     // ✅ 6. Update and save
     area.name = name;
-    area.stockCount = stockCount;
+    area.totalSubscribedItems = totalSubscribedItems;
+    if (isActive !== undefined) {
+      area.isActive = isActive;
+    }
     await area.save();
 
     return reply.status(200).send({
@@ -186,7 +192,8 @@ export const updateArea = async (req, reply) => {
       data: {
         id: area._id,
         name: area.name,
-        stockCount: area.stockCount
+        totalSubscribedItems: area.totalSubscribedItems,
+        isActive: area.isActive
       }
     });
 

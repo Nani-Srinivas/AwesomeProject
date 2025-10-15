@@ -1,87 +1,78 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { AddDeliveryBoyModal } from '../../components/deliveryBoy/AddDeliveryBoyModal';
 import { EditDeliveryBoyModal } from '../../components/deliveryBoy/EditDeliveryBoyModal';
+import { apiService } from '../../services/apiService';
 
-const initialDeliveryBoys = [
-  {
-    id: '#DB1001',
-    name: 'Rahul Sharma',
-    contact: '+91 9988776655',
-    status: 'Active',
-  },
-  {
-    id: '#DB1002',
-    name: 'Priya Singh',
-    contact: '+91 9977665544',
-    status: 'Inactive',
-  },
-  {
-    id: '#DB1003',
-    name: 'Amit Kumar',
-    contact: '+91 9966554433',
-    status: 'On-Duty',
-  },
-  {
-    id: '#DB1004',
-    name: 'Sneha Gupta',
-    contact: '+91 9955443322',
-    status: 'Active',
-  },
-  {
-    id: '#DB1005',
-    name: 'Vikas Yadav',
-    contact: '+91 9944332211',
-    status: 'Inactive',
-  },
-];
-
-const getStatusStyle = (status: string) => {
+const getStatusStyle = (status: boolean) => {
   switch (status) {
-    case 'Active':
+    case true:
       return { color: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)' };
-    case 'Inactive':
+    case false:
       return { color: '#F44336', backgroundColor: 'rgba(244, 67, 54, 0.1)' };
-    case 'On-Duty':
-      return { color: '#FF9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' };
     default:
       return { color: COLORS.primary, backgroundColor: 'rgba(30, 115, 184, 0.1)' };
   }
 };
 
-const DeliveryBoyCard = ({ deliveryBoy, onPress, onEdit }: { deliveryBoy: any, onPress: () => void, onEdit: (deliveryBoy: any) => void }) => (
+const DeliveryBoyCard = ({ deliveryBoy, onPress, onEdit, onDelete }: { deliveryBoy: any, onPress: () => void, onEdit: (deliveryBoy: any) => void, onDelete: (deliveryBoy: any) => void }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
-    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(deliveryBoy.status).color }]} />
+    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(deliveryBoy.isActive).color }]} />
     <View style={styles.cardContent}>
       <Text style={styles.deliveryBoyName}>{deliveryBoy.name}</Text>
-      <Text style={styles.deliveryBoyInfo}>ID | {deliveryBoy.id}</Text>
-      <Text style={styles.deliveryBoyInfo}>Contact: {deliveryBoy.contact}</Text>
+      <Text style={styles.deliveryBoyInfo}>ID | {deliveryBoy._id}</Text>
+      <Text style={styles.deliveryBoyInfo}>Contact: {deliveryBoy.phone}</Text>
     </View>
-    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(deliveryBoy.status).backgroundColor }]}>
-      <Text style={[styles.statusText, { color: getStatusStyle(deliveryBoy.status).color }]}>
-        {deliveryBoy.status}
+    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(deliveryBoy.isActive).backgroundColor }]}>
+      <Text style={[styles.statusText, { color: getStatusStyle(deliveryBoy.isActive).color }]}>
+        {deliveryBoy.isActive ? 'Active' : 'Inactive'}
       </Text>
     </View>
     <TouchableOpacity onPress={() => onEdit(deliveryBoy)} style={styles.editButton}>
       <Feather name="edit-2" size={20} color={COLORS.text} />
     </TouchableOpacity>
+    <TouchableOpacity onPress={() => onDelete(deliveryBoy)} style={styles.deleteButton}>
+      <Feather name="trash-2" size={20} color={COLORS.danger} />
+    </TouchableOpacity>
   </TouchableOpacity>
+);
+
+const EmptyState = () => (
+  <View style={styles.emptyStateContainer}>
+    <Feather name="users" size={50} color={COLORS.text} style={styles.emptyStateIcon} />
+    <Text style={styles.emptyStateText}>No delivery boys found.</Text>
+    <Text style={styles.emptyStateSubText}>Tap the '+' button to add a new delivery boy.</Text>
+  </View>
 );
 
 export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navigation: any, route: any }) => {
   const [filter, setFilter] = useState(route.params?.filter || 'All');
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
-  const [deliveryBoys, setDeliveryBoys] = useState(initialDeliveryBoys);
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [editingDeliveryBoy, setEditingDeliveryBoy] = useState<any>(null);
+
+  const fetchDeliveryBoys = async () => {
+    try {
+      const response = await apiService.get('/delivery/delivery-boys');
+      setDeliveryBoys(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch delivery boys:', error);
+      Alert.alert('Error', 'Failed to fetch delivery boys. Please try again.');
+    }
+  };
+
+  useEffect(() => {
+    fetchDeliveryBoys();
+  }, []);
 
   const filteredDeliveryBoys = useMemo(() => {
     if (filter === 'All') {
       return deliveryBoys;
     }
-    return deliveryBoys.filter((deliveryBoy) => deliveryBoy.status === filter);
+    return deliveryBoys.filter((deliveryBoy) => (filter === 'Active' ? deliveryBoy.isActive : !deliveryBoy.isActive));
   }, [filter, deliveryBoys]);
 
   const handleDeliveryBoyPress = (deliveryBoy: any) => {
@@ -92,16 +83,9 @@ export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navi
     setAddModalVisible(true);
   }, []);
 
-  const onAddDeliveryBoy = useCallback((name: string, contact: string) => {
-    const newDeliveryBoy = {
-      id: `#DB${Math.floor(1000 + Math.random() * 9000)}`,
-      name,
-      contact,
-      status: 'Active',
-    };
-    setDeliveryBoys(prev => [newDeliveryBoy, ...prev]);
+  const onAddDeliveryBoy = useCallback(() => {
+    fetchDeliveryBoys();
     setAddModalVisible(false);
-    Alert.alert('Success', `Delivery boy "${name}" has been added.`);
   }, []);
 
   const handleEditPress = (deliveryBoy: any) => {
@@ -111,11 +95,38 @@ export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navi
 
   const handleSaveDeliveryBoy = (updatedDeliveryBoy: any) => {
     setDeliveryBoys(prev =>
-      prev.map(db => (db.id === updatedDeliveryBoy.id ? updatedDeliveryBoy : db))
+      prev.map(db => (db._id === updatedDeliveryBoy._id ? updatedDeliveryBoy : db))
     );
     setEditModalVisible(false);
     setEditingDeliveryBoy(null);
     Alert.alert('Success', `Delivery boy "${updatedDeliveryBoy.name}" has been updated.`);
+  };
+
+  const handleDeleteDeliveryBoy = async (deliveryBoy: any) => {
+    Alert.alert(
+      'Delete Delivery Boy',
+      `Are you sure you want to delete ${deliveryBoy.name}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            try {
+              await apiService.delete(`/delivery/delivery-boy/delete/${deliveryBoy._id}`);
+              fetchDeliveryBoys();
+              Alert.alert('Success', `Delivery boy "${deliveryBoy.name}" has been deleted.`);
+            } catch (error) {
+              console.error('Failed to delete delivery boy:', error);
+              Alert.alert('Error', 'Failed to delete delivery boy. Please try again.');
+            }
+          },
+          style: 'destructive',
+        },
+      ]
+    );
   };
 
   return (
@@ -130,9 +141,6 @@ export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navi
         <TouchableOpacity style={[styles.filterTab, filter === 'Inactive' && styles.activeTab]} onPress={() => setFilter('Inactive')}>
           <Text style={[styles.filterText, filter === 'Inactive' && styles.activeFilterText]}>Inactive</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterTab, filter === 'On-Duty' && styles.activeTab]} onPress={() => setFilter('On-Duty')}>
-          <Text style={[styles.filterText, filter === 'On-Duty' && styles.activeFilterText]}>On-Duty</Text>
-        </TouchableOpacity>
       </View>
       <FlatList
         data={filteredDeliveryBoys}
@@ -141,10 +149,12 @@ export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navi
             deliveryBoy={item}
             onPress={() => handleDeliveryBoyPress(item)}
             onEdit={handleEditPress}
+            onDelete={handleDeleteDeliveryBoy}
           />
         )}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         contentContainerStyle={styles.scrollViewContent}
+        ListEmptyComponent={<EmptyState />}
       />
 
       {/* Floating Action Button */}
@@ -236,39 +246,30 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginTop: 4,
   },
-  // statusBadge: {
-  //   position: 'absolute',
-  //   top: 16,
-  //   right: 16,
-  //   paddingVertical: 4,
-  //   paddingHorizontal: 10,
-  //   borderRadius: 12,
-  // },
-  // statusText: {
-  //   fontSize: 12,
-  //   fontWeight: '600',
-  // },
-
   statusBadge: {
-  position: 'absolute',
-  top: 0,
-  right: 0,
-  paddingVertical: 6,
-  paddingHorizontal: 14,
-  borderTopRightRadius: 12,   // match card's radius
-  borderBottomLeftRadius: 12, // diagonal rounded edge
-  borderTopLeftRadius: 0,
-  borderBottomRightRadius: 0,
-},
-statusText: {
-  fontSize: 12,
-  fontWeight: '600',
-},
-
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderTopRightRadius: 12,   // match card's radius
+    borderBottomLeftRadius: 12, // diagonal rounded edge
+    borderTopLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   editButton: {
     position: 'absolute',
     bottom: 16,
     right: 16,
+  },
+  deleteButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 56,
   },
   fab: {
     position: 'absolute',
@@ -289,5 +290,25 @@ statusText: {
   fabIcon: {
     fontSize: 24,
     color: COLORS.white,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyStateIcon: {
+    marginBottom: 10,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: COLORS.text,
+    marginBottom: 5,
+  },
+  emptyStateSubText: {
+    fontSize: 14,
+    color: COLORS.text,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 });

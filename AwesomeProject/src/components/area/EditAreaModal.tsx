@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput } from 'react-native';
+import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput, Alert } from 'react-native';
 import { Button } from '../../components/common/Button';
+import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
 
 interface EditAreaModalProps {
@@ -14,13 +15,13 @@ const { height } = Dimensions.get('window');
 
 export const EditAreaModal = ({ isVisible, onClose, area, onSave }: EditAreaModalProps) => {
   const [name, setName] = useState('');
-  const [pincode, setPincode] = useState('');
+  const [totalSubscribedItems, setTotalSubscribedItems] = useState('');
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
     if (isVisible && area) {
       setName(area.name);
-      setPincode(area.pincode);
+      setTotalSubscribedItems(area.totalSubscribedItems.toString());
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
@@ -33,18 +34,37 @@ export const EditAreaModal = ({ isVisible, onClose, area, onSave }: EditAreaModa
         useNativeDriver: true,
       }).start(() => {
         setName('');
-        setPincode('');
+        setTotalSubscribedItems('');
       });
     }
   }, [isVisible, area, slideAnim]);
 
-  const handleSave = () => {
-    if (name && pincode) {
-      onSave({
-        ...area,
-        name,
-        pincode,
-      });
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async () => {
+    if (!name || !totalSubscribedItems) {
+      Alert.alert('Error', 'Please enter both area name and total subscribed items.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const items = Number(totalSubscribedItems);
+      if (isNaN(items)) {
+        Alert.alert('Error', 'Total subscribed items must be a number.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await apiService.patch(`/delivery/area/update/${area._id}`, { name, totalSubscribedItems: items });
+      Alert.alert('Success', 'Area updated successfully!');
+      onSave(response.data.data);
+      onClose();
+    } catch (error) {
+      console.error('Failed to update area:', error);
+      Alert.alert('Error', 'Failed to update area. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,13 +90,13 @@ export const EditAreaModal = ({ isVisible, onClose, area, onSave }: EditAreaModa
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Pincode"
-                  value={pincode}
-                  onChangeText={setPincode}
+                  placeholder="Total Subscribed Items"
+                  value={totalSubscribedItems}
+                  onChangeText={setTotalSubscribedItems}
                   keyboardType="numeric"
                   placeholderTextColor={COLORS.text}
                 />
-                <Button title="Save Changes" onPress={handleSave} />
+                <Button title="Save Changes" onPress={handleSave} loading={loading} />
               </View>
             </TouchableWithoutFeedback>
           </Animated.View>

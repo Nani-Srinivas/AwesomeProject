@@ -1,45 +1,41 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { AddAreaModal } from '../../components/area/AddAreaModal';
 import { EditAreaModal } from '../../components/area/EditAreaModal';
 
-const initialAreas = [
-  { id: '#AREA001', name: 'Downtown', pincode: '10001', status: 'Active' },
-  { id: '#AREA002', name: 'Uptown', pincode: '10002', status: 'Inactive' },
-  { id: '#AREA003', name: 'Midtown', pincode: '10003', status: 'Active' },
-  { id: '#AREA004', name: 'Westside', pincode: '10004', status: 'Active' },
-  { id: '#AREA005', name: 'Eastside', pincode: '10005', status: 'Inactive' },
-];
+import { apiService } from '../../services/apiService';
 
-// Updated colors for modern badge style
-const getStatusStyle = (status: string) => {
+const getStatusStyle = (status: boolean) => {
   switch (status) {
-    case 'Active':
+    case true:
       return { color: '#4CAF50', backgroundColor: '#E6F7E6' };
-    case 'Inactive':
+    case false:
       return { color: '#F44336', backgroundColor: '#FDEDED' };
     default:
       return { color: COLORS.primary, backgroundColor: '#E6F0FA' };
   }
 };
 
-const AreaCard = ({ area, onPress, onEdit }: { area: any, onPress: () => void, onEdit: (area: any) => void }) => (
+const AreaCard = ({ area, onPress, onEdit, onDelete }: { area: any, onPress: () => void, onEdit: (area: any) => void, onDelete: (area: any) => void }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
-    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(area.status).color }]} />
+    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(area.isActive).color }]} />
     <View style={styles.cardContent}>
       <Text style={styles.areaName}>{area.name}</Text>
-      <Text style={styles.areaInfo}>ID | {area.id}</Text>
-      <Text style={styles.areaInfo}>Pincode: {area.pincode}</Text>
+      <Text style={styles.areaInfo}>ID | {area._id}</Text>
+      <Text style={styles.areaInfo}>Total Subscribed Items: {area.totalSubscribedItems}</Text>
     </View>
-    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(area.status).backgroundColor }]}>
-      <Text style={[styles.statusText, { color: getStatusStyle(area.status).color }]}>
-        {area.status}
+    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(area.isActive).backgroundColor }]}>
+      <Text style={[styles.statusText, { color: getStatusStyle(area.isActive).color }]}>
+        {area.isActive ? 'Active' : 'Inactive'}
       </Text>
     </View>
     <TouchableOpacity onPress={() => onEdit(area)} style={styles.editButton}>
       <Feather name="edit-2" size={20} color={COLORS.text} />
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => onDelete(area)} style={styles.deleteButton}>
+      <Feather name="trash-2" size={20} color={COLORS.danger} />
     </TouchableOpacity>
   </TouchableOpacity>
 );
@@ -56,12 +52,26 @@ export const AreaListScreen = ({ navigation: _navigation, route }: { navigation:
   const [filter, setFilter] = useState(route.params?.filter || 'All');
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
-  const [areas, setAreas] = useState(initialAreas);
+  const [areas, setAreas] = useState([]);
   const [editingArea, setEditingArea] = useState<any>(null);
+
+  const fetchAreas = async () => {
+    try {
+      const response = await apiService.get('/delivery/area');
+      setAreas(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch areas:', error);
+      Alert.alert('Error', 'Failed to fetch areas. Please try again.');
+    }
+  };
+
+  useEffect(() => {
+    fetchAreas();
+  }, []);
 
   const filteredAreas = useMemo(() => {
     if (filter === 'All') return areas;
-    return areas.filter((area) => area.status === filter);
+    return areas.filter((area) => (filter === 'Active' ? area.isActive : !area.isActive));
   }, [filter, areas]);
 
   const handleAreaPress = (area: any) => {
@@ -72,16 +82,9 @@ export const AreaListScreen = ({ navigation: _navigation, route }: { navigation:
     setAddModalVisible(true);
   }, []);
 
-  const onAddArea = useCallback((name: string, pincode: string) => {
-    const newArea = {
-      id: `#AREA${Math.floor(1000 + Math.random() * 9000)}`,
-      name,
-      pincode,
-      status: 'Active',
-    };
-    setAreas(prev => [newArea, ...prev]);
+  const onAddArea = useCallback(() => {
+    fetchAreas();
     setAddModalVisible(false);
-    Alert.alert('Success', `Area "${name}" has been added.`);
   }, []);
 
   const handleEditPress = (area: any) => {
@@ -91,11 +94,38 @@ export const AreaListScreen = ({ navigation: _navigation, route }: { navigation:
 
   const handleSaveArea = (updatedArea: any) => {
     setAreas(prev =>
-      prev.map(a => (a.id === updatedArea.id ? updatedArea : a))
+      prev.map(a => (a._id === updatedArea._id ? updatedArea : a))
     );
     setEditModalVisible(false);
     setEditingArea(null);
     Alert.alert('Success', `Area "${updatedArea.name}" has been updated.`);
+  };
+
+  const handleDeleteArea = async (area: any) => {
+    Alert.alert(
+      'Delete Area',
+      `Are you sure you want to delete ${area.name}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            try {
+              await apiService.delete(`/delivery/area/delete/${area._id}`);
+              fetchAreas();
+              Alert.alert('Success', `Area "${area.name}" has been deleted.`);
+            } catch (error) {
+              console.error('Failed to delete area:', error);
+              Alert.alert('Error', 'Failed to delete area. Please try again.');
+            }
+          },
+          style: 'destructive',
+        },
+      ]
+    );
   };
 
   return (
@@ -118,9 +148,10 @@ export const AreaListScreen = ({ navigation: _navigation, route }: { navigation:
             area={item}
             onPress={() => handleAreaPress(item)}
             onEdit={handleEditPress}
+            onDelete={handleDeleteArea}
           />
         )}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         contentContainerStyle={styles.scrollViewContent}
         ListEmptyComponent={<EmptyState />}
       />
@@ -231,6 +262,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 16,
     right: 16,
+  },
+  deleteButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 56,
   },
   fab: {
     position: 'absolute',

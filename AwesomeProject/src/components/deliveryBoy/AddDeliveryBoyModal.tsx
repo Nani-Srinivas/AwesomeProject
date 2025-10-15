@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput } from 'react-native';
+import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput, Alert } from 'react-native';
 import { Button } from '../../components/common/Button';
 import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
+import RNPickerSelect from 'react-native-picker-select';
 
 interface AddDeliveryBoyModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onAddDeliveryBoy: (name: string, contact: string) => void;
+  onAddDeliveryBoy: (name: string, contact: string, areaId: string) => void;
 }
 
 const { height } = Dimensions.get('window');
@@ -15,10 +16,13 @@ const { height } = Dimensions.get('window');
 export const AddDeliveryBoyModal = ({ isVisible, onClose, onAddDeliveryBoy }: AddDeliveryBoyModalProps) => {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
+  const [areaId, setAreaId] = useState('');
+  const [areas, setAreas] = useState([]);
   const slideAnim = useRef(new Animated.Value(height)).current; // Initial position off-screen
 
   useEffect(() => {
     if (isVisible) {
+      fetchAreas();
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
@@ -32,13 +36,41 @@ export const AddDeliveryBoyModal = ({ isVisible, onClose, onAddDeliveryBoy }: Ad
       }).start(() => {
         setName('');
         setContact('');
+        setAreaId('');
       });
     }
   }, [isVisible, slideAnim]);
 
-  const handleAddPress = () => {
-    if (name && contact) {
-      onAddDeliveryBoy(name, contact);
+  const fetchAreas = async () => {
+    try {
+      const response = await apiService.get('/delivery/area');
+      setAreas(response.data.data.map((area: any) => ({ label: area.name, value: area._id }))
+      );
+    } catch (error) {
+      console.error('Failed to fetch areas:', error);
+      Alert.alert('Error', 'Failed to fetch areas. Please try again.');
+    }
+  };
+
+  const [loading, setLoading] = useState(false);
+
+  const handleAddPress = async () => {
+    if (!name || !contact || !areaId) {
+      Alert.alert('Error', 'Please fill all the fields.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiService.post('/delivery/delivery-boy/create', { name, phone: contact, areaId });
+      Alert.alert('Success', 'Delivery boy added successfully!');
+      onAddDeliveryBoy(response.data.data.name, response.data.data.phone, response.data.data.areaId);
+      onClose();
+    } catch (error) {
+      console.error('Failed to add delivery boy:', error);
+      Alert.alert('Error', 'Failed to add delivery boy. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,7 +102,13 @@ export const AddDeliveryBoyModal = ({ isVisible, onClose, onAddDeliveryBoy }: Ad
                   keyboardType="phone-pad"
                   placeholderTextColor={COLORS.text}
                 />
-                <Button title="Add Delivery Boy" onPress={handleAddPress} />
+                <RNPickerSelect
+                  onValueChange={(value) => setAreaId(value)}
+                  items={areas}
+                  style={pickerSelectStyles}
+                  placeholder={{ label: 'Select an area', value: null }}
+                />
+                <Button title="Add Delivery Boy" onPress={handleAddPress} loading={loading} />
               </View>
             </TouchableWithoutFeedback>
           </Animated.View>
@@ -117,6 +155,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 15,
     color: COLORS.text,
+    backgroundColor: COLORS.background,
+  },
+});
+
+const pickerSelectStyles = StyleSheet.create({
+  inputIOS: {
+    fontSize: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'gray',
+    borderRadius: 4,
+    color: 'black',
+    paddingRight: 30, // to ensure the text is never behind the icon
+    marginBottom: 15,
+    width: '100%',
+  },
+  inputAndroid: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 10,
+    color: COLORS.text,
+    paddingRight: 30, // to ensure the text is never behind the icon
+    marginBottom: 15,
+    width: 350,
     backgroundColor: COLORS.background,
   },
 });

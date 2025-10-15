@@ -6,7 +6,7 @@ const AreaSchema = new Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'StoreManager',
   },
-  stockCount: Number,
+  totalSubscribedItems: Number,
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

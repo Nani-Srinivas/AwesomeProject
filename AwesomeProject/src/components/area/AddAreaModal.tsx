@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput } from 'react-native';
+import { Modal, View, Text, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback, TextInput, Alert } from 'react-native';
 import { Button } from '../../components/common/Button';
 import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
@@ -7,14 +7,14 @@ import { COLORS } from '../../constants/colors';
 interface AddAreaModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onAddArea: (name: string, pincode: string) => void;
+  onAddArea: (name: string, totalSubscribedItems: number) => void;
 }
 
 const { height } = Dimensions.get('window');
 
 export const AddAreaModal = ({ isVisible, onClose, onAddArea }: AddAreaModalProps) => {
   const [name, setName] = useState('');
-  const [pincode, setPincode] = useState('');
+  const [totalSubscribedItems, setTotalSubscribedItems] = useState('');
   const slideAnim = useRef(new Animated.Value(height)).current; // Initial position off-screen
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export const AddAreaModal = ({ isVisible, onClose, onAddArea }: AddAreaModalProp
         useNativeDriver: true,
       }).start(() => {
         setName('');
-        setPincode('');
+        setTotalSubscribedItems('');
       });
     }
   }, [isVisible, slideAnim]);
@@ -39,16 +39,23 @@ export const AddAreaModal = ({ isVisible, onClose, onAddArea }: AddAreaModalProp
   const [loading, setLoading] = useState(false);
 
   const handleAddPress = async () => {
-    if (!name || !pincode) {
-      Alert.alert('Error', 'Please enter both area name and pincode.');
+    if (!name || !totalSubscribedItems) {
+      Alert.alert('Error', 'Please enter both area name and total subscribed items.');
       return;
     }
 
     setLoading(true);
     try {
-      await apiService.post('/area/create', { name, pincode });
+      const items = Number(totalSubscribedItems);
+      if (isNaN(items)) {
+        Alert.alert('Error', 'Total subscribed items must be a number.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await apiService.post('/delivery/area/create', { name, totalSubscribedItems: items });
       Alert.alert('Success', 'Area added successfully!');
-      onAddArea(name, pincode); // Call the prop to update parent state/list
+      onAddArea(response.data.data.name, response.data.data.totalSubscribedItems);
       onClose();
     } catch (error) {
       console.error('Failed to add area:', error);
@@ -80,13 +87,13 @@ export const AddAreaModal = ({ isVisible, onClose, onAddArea }: AddAreaModalProp
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Pincode"
-                  value={pincode}
-                  onChangeText={setPincode}
+                  placeholder="Total Subscribed Items"
+                  value={totalSubscribedItems}
+                  onChangeText={setTotalSubscribedItems}
                   keyboardType="numeric"
                   placeholderTextColor={COLORS.text}
                 />
-                <Button title="Add Area" onPress={handleAddPress} />
+                <Button title="Add Area" onPress={handleAddPress} loading={loading} />
               </View>
             </TouchableWithoutFeedback>
           </Animated.View>
