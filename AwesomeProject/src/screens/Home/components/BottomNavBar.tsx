@@ -15,7 +15,7 @@ export const BottomNavBar = ({ navigation }: { navigation: any }) => {
       <NavItem icon="grid" label="Dashboard" active onPress={() => navigation.navigate('Dashboard')} />
       <NavItem icon="layers" label="Stock" onPress={() => navigation.navigate('Calendar')} />
       <NavItem icon="shopping-bag" label="Orders" onPress={() => navigation.navigate('Order')} />
-      <NavItem icon="credit-card" label="Cards" />
+      <NavItem icon="credit-card" label="Cards" onPress={() => navigation.navigate('Cards')} />
       <NavItem icon="dollar-sign" label="Payment" onPress={() => navigation.navigate('PayableTemp')} />
     </View>
   );

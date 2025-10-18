@@ -29,6 +29,7 @@ export type MainStackParamList = {
   StoreCreation: undefined;
   SelectCategory: undefined;
   SelectProduct: { selectedCategories: string[] };
+  Cards: undefined;
 };
 
 // Define the Root Stack which can navigate between Auth and Main stacks

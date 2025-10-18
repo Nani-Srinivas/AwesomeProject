@@ -42,6 +42,17 @@ export const getCustomers = async (req, reply) => {
   }
 };
 
+// ✅ Get customers by area
+export const getCustomersByArea = async (req, reply) => {
+  try {
+    const customers = await Customer.find({ area: req.params.areaId });
+    return reply.send({ success: true, data: customers });
+  } catch (err) {
+    console.error('Get Customers by Area Error:', err);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
 
 // ✅ Get single customer
 export const getSingleCustomer = async (req, reply) => {

@@ -22,6 +22,7 @@ import { OrderScreen } from '../../screens/Order/OrderScreen';
 import { StoreCreationScreen } from '../../screens/StoreManagement/StoreCreationScreen';
 import { SelectCategoryScreen } from '../../screens/StoreManagement/SelectCategoryScreen';
 import { SelectProductScreen } from '../../screens/StoreManagement/SelectProductScreen';
+import { CardsScreen } from '../../screens/Cards/CardsScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -51,6 +52,7 @@ export const MainStack = () => {
       <Stack.Screen name="StoreCreation" component={StoreCreationScreen} options={{ title: 'Create Store' }} />
       <Stack.Screen name="SelectCategory" component={SelectCategoryScreen} options={{ title: 'Select Category' }} />
       <Stack.Screen name="SelectProduct" component={SelectProductScreen} options={{ title: 'Select Product' }} />
+      <Stack.Screen name="Cards" component={CardsScreen} options={{ title: 'Cards' }} />
 
     </Stack.Navigator>
   );

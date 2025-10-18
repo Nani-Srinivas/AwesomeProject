@@ -315,43 +315,6 @@ This section outlines the tasks to improve the authentication functionality of t
 ```
 ```
 
-## Area and Delivery Boy Management
-
-Before implementing the attendance and billing features, we must first build the core CRUD (Create, Read, Update, Delete) functionality for managing Areas and Delivery Boys.
-
-### Phase 1: Implement Area Management
-
-*   **Task 1.1: Create Backend Endpoint for Adding Areas**
-    *   **Description:** Create a `POST /api/delivery/areas` endpoint. The controller will process the request and save a new `Area` document to the database.
-    *   **Status:** Pending
-*   **Task 1.2: Connect Frontend Modal to Add Area API**
-    *   **Description:** Modify the `onAddArea` function in `AddAreaModal.tsx` to call the new `POST` endpoint and handle the response.
-    *   **Status:** Pending
-*   **Task 1.3: Create Backend Endpoint for Listing Areas**
-    *   **Description:** Create a `GET /api/delivery/areas` endpoint that fetches all areas from the database.
-    *   **Status:** Pending
-*   **Task 1.4: Display Areas on the Frontend**
-    *   **Description:** Update the `AreaListScreen.tsx` to call the new `GET` endpoint and display the list of created areas.
-    *   **Status:** Pending
-
-### Phase 2: Implement Delivery Boy Management
-
-*   **Task 2.1: Create Backend Endpoint for Adding Delivery Boys**
-    *   **Description:** Create a `POST /api/delivery/delivery-boys` endpoint. The controller will validate the input, including the `areaId`, and save a new `DeliveryBoy` document.
-    *   **Status:** Pending
-*   **Task 2.2: Enhance Frontend Modal for Adding Delivery Boys**
-    *   **Description:** The `AddDeliveryBoyModal.tsx` must be updated to include a dropdown menu. This dropdown will be populated with the list of available areas fetched from the server (using the endpoint from Task 1.3).
-    *   **Status:** Pending
-*   **Task 2.3: Connect Frontend Modal to Add Delivery Boy API**
-    *   **Description:** Modify the `onAddDeliveryBoy` function in `AddDeliveryBoyModal.tsx` to send the new delivery boy's data, including the selected `areaId`, to the `POST /api/delivery/delivery-boys` endpoint.
-    *   **Status:** Pending
-*   **Task 2.4: Create Backend Endpoint for Listing Delivery Boys**
-    *   **Description:** Create a `GET /api/delivery/delivery-boys` endpoint that fetches all delivery boys, potentially with their assigned area information populated.
-    *   **Status:** Pending
-*   **Task 2.5: Display Delivery Boys on the Frontend**
-    *   **Description:** Update the `DeliveryBoyListScreen.tsx` to call the new `GET` endpoint and display the list of created delivery boys.
-    *   **Status:** Pending
-
 ## Attendance and Billing Feature Implementation
 
 This feature will be implemented in three phases to build a complete and accurate system for managing daily subscription deliveries and generating monthly bills.
@@ -394,6 +357,45 @@ This feature will be implemented in three phases to build a complete and accurat
 *   **Task 3.3: Implement Invoice Calculation Logic**
     *   **Description:** The endpoint will query the `AttendanceLog`, aggregate all delivered items within a date range for a customer, calculate the grand total, and return the final invoice data.
     *   **Status:** Pending
+
+<!--
+## Area and Delivery Boy Management (Not Needed As of Now)
+
+Before implementing the attendance and billing features, we must first build the core CRUD (Create, Read, Update, Delete) functionality for managing Areas and Delivery Boys.
+
+### Phase 1: Implement Area Management
+
+*   **Task 1.1: Create Backend Endpoint for Adding Areas**
+    *   **Description:** Create a `POST /api/delivery/areas` endpoint. The controller will process the request and save a new `Area` document to the database.
+    *   **Status:** Pending
+*   **Task 1.2: Connect Frontend Modal to Add Area API**
+    *   **Description:** Modify the `onAddArea` function in `AddAreaModal.tsx` to call the new `POST` endpoint and handle the response.
+    *   **Status:** Pending
+*   **Task 1.3: Create Backend Endpoint for Listing Areas**
+    *   **Description:** Create a `GET /api/delivery/areas` endpoint that fetches all areas from the database.
+    *   **Status:** Pending
+*   **Task 1.4: Display Areas on the Frontend**
+    *   **Description:** Update the `AreaListScreen.tsx` to call the new `GET` endpoint and display the list of created areas.
+    *   **Status:** Pending
+
+### Phase 2: Implement Delivery Boy Management
+
+*   **Task 2.1: Create Backend Endpoint for Adding Delivery Boys**
+    *   **Description:** Create a `POST /api/delivery/delivery-boys` endpoint. The controller will validate the input, including the `areaId`, and save a new `DeliveryBoy` document.
+    *   **Status:** Pending
+*   **Task 2.2: Enhance Frontend Modal for Adding Delivery Boys**
+    *   **Description:** The `AddDeliveryBoyModal.tsx` must be updated to include a dropdown menu. This dropdown will be populated with the list of available areas fetched from the server (using the endpoint from Task 1.3).
+    *   **Status:** Pending
+*   **Task 2.3: Connect Frontend Modal to Add Delivery Boy API**
+    *   **Description:** Modify the `onAddDeliveryBoy` function in `AddDeliveryBoyModal.tsx` to send the new delivery boy's data, including the selected `areaId`, to the `POST /api/delivery/delivery-boys` endpoint.
+    *   **Status:** Pending
+*   **Task 2.4: Create Backend Endpoint for Listing Delivery Boys**
+    *   **Description:** Create a `GET /api/delivery/delivery-boys` endpoint that fetches all delivery boys, potentially with their assigned area information populated.
+    *   **Status:** Pending
+*   **Task 2.5: Display Delivery Boys on the Frontend**
+    *   **Description:** Update the `DeliveryBoyListScreen.tsx` to call the new `GET` endpoint and display the list of created delivery boys.
+    *   **Status:** Pending
+-->
 
 <!-- ## Production Readiness Suggestions
 
