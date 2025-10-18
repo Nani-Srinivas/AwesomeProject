@@ -20,7 +20,7 @@ export const getCustomers = async (req, reply) => {
         path: 'requiredProduct.product',
         model: 'StoreProduct', // this tells Mongoose which model to use
         populate: {
-          path: 'masterProductId', // if you want to go deeper into master product
+          path: 'masterProductId',
           model: 'MasterProduct',
           select: 'name'
         }
@@ -45,7 +45,15 @@ export const getCustomers = async (req, reply) => {
 // ✅ Get customers by area
 export const getCustomersByArea = async (req, reply) => {
   try {
-    const customers = await Customer.find({ area: req.params.areaId });
+    const customers = await Customer.find({ area: req.params.areaId }).populate({
+      path: 'requiredProduct.product',
+      model: 'StoreProduct',
+      populate: {
+        path: 'masterProductId',
+        model: 'MasterProduct',
+        select: 'name'
+      }
+    });
     return reply.send({ success: true, data: customers });
   } catch (err) {
     console.error('Get Customers by Area Error:', err);

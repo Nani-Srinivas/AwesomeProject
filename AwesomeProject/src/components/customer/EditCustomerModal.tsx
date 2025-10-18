@@ -12,11 +12,12 @@ interface EditCustomerModalProps {
   customer: any;
   onSave: (updatedCustomer: any) => void;
   isSaving: boolean;
+  areas: any[];
 }
 
 const { height } = Dimensions.get('window');
 
-export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSaving }: EditCustomerModalProps) => {
+export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSaving, areas }: EditCustomerModalProps) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -25,6 +26,7 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [requiredProducts, setRequiredProducts] = useState<any[]>([]);
   const [isProductSelectorVisible, setProductSelectorVisible] = useState(false);
+  const [selectedArea, setSelectedArea] = useState();
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
       setAdvanceAmount(String(customer.advanceAmount || ''));
       setIsSubscribed(customer.isSubscribed || false);
       setRequiredProducts(customer.requiredProduct || []);
+      setSelectedArea(customer.area?._id);
       Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
     } else {
       Animated.timing(slideAnim, { toValue: height, duration: 300, useNativeDriver: true }).start();
@@ -72,10 +75,11 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
         deliveryCost: Number(deliveryCost) || 0,
         advanceAmount: Number(advanceAmount) || 0,
         isSubscribed,
-        requiredProduct: requiredProducts.map(p => ({ product: p.product._id, quantity: p.quantity }))
+        requiredProduct: requiredProducts.map(p => ({ product: p.product._id, quantity: p.quantity })),
+        area: selectedArea,
       });
     }
-  }, [name, phone, address, deliveryCost, advanceAmount, isSubscribed, requiredProducts, onSave, customer]);
+  }, [name, phone, address, deliveryCost, advanceAmount, isSubscribed, requiredProducts, onSave, customer, selectedArea]);
 
   const renderListFooter = useCallback(() => (
     <View style={styles.footerContainer}>
@@ -104,6 +108,9 @@ export const EditCustomerModal = ({ isVisible, onClose, customer, onSave, isSavi
                     requiredProducts={requiredProducts}
                     handleQuantityChange={handleQuantityChange}
                     handleRemoveProduct={handleRemoveProduct}
+                    areas={areas}
+                    selectedArea={selectedArea}
+                    setSelectedArea={setSelectedArea}
                   />
                 }
                 ListFooterComponent={renderListFooter}

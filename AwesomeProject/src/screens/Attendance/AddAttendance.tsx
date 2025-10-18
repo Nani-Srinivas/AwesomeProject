@@ -9,10 +9,11 @@ import {
 } from 'react-native';
 import { ExpandableCalendar, CalendarProvider } from 'react-native-calendars';
 import Feather from 'react-native-vector-icons/Feather';
-import { Picker } from '@react-native-picker/picker'; // dropdown
 import { apiService } from '../../services/apiService';
-import CheckBox from '@react-native-community/checkbox';
 import { EditAttendanceModal } from './components/EditAttendanceModal';
+import { COLORS } from '../../constants/colors';
+import { CustomerAttendanceItem } from './components/CustomerAttendanceItem';
+import { Picker } from '@react-native-picker/picker';
 
 const agendaItems = {
   '2025-09-20': [{ time: '10:00 AM', title: 'Meeting with John' }],
@@ -26,7 +27,8 @@ export const AddAttendance = () => {
   const [areas, setAreas] = useState([]);
   const [selectedArea, setSelectedArea] = useState();
   const [customers, setCustomers] = useState([]);
-  const [attendance, setAttendance] = useState({});
+  const [attendance, setAttendance] = useState({}); // { customerId: { productId: boolean } }
+  const [expandedCustomers, setExpandedCustomers] = useState({}); // { customerId: boolean }
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
@@ -49,6 +51,15 @@ export const AddAttendance = () => {
         try {
           const response = await apiService.get(`/customer/area/${selectedArea}`);
           setCustomers(response.data.data);
+          // Initialize attendance for new customers
+          const initialAttendance = {};
+          response.data.data.forEach(customer => {
+            initialAttendance[customer._id] = {};
+            customer.requiredProduct.forEach(product => {
+              initialAttendance[customer._id][product.product._id] = true; // Default to checked
+            });
+          });
+          setAttendance(initialAttendance);
         } catch (error) {
           console.error('Error fetching customers:', error);
         }
@@ -62,22 +73,20 @@ export const AddAttendance = () => {
     setSelectedDate(date);
   };
 
-  const goToNextMonth = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() + 1);
-    setSelectedDate(newDate.toISOString().split('T')[0]);
-  };
-
-  const goToPreviousMonth = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() - 1);
-    setSelectedDate(newDate.toISOString().split('T')[0]);
-  };
-
-  const handleAttendanceChange = (customerId) => {
-    setAttendance(prev => ({
+  const toggleCustomerExpansion = (customerId) => {
+    setExpandedCustomers(prev => ({
       ...prev,
       [customerId]: !prev[customerId],
+    }));
+  };
+
+  const handleProductAttendanceChange = (customerId, productId) => {
+    setAttendance(prev => ({
+      ...prev,
+      [customerId]: {
+        ...prev[customerId],
+        [productId]: !prev[customerId]?.[productId],
+      },
     }));
   };
 
@@ -91,19 +100,61 @@ export const AddAttendance = () => {
     setSelectedCustomer(null);
   };
 
-  const handleSaveAttendance = (newAttendance) => {
-    setAttendance(prev => ({
-      ...prev,
-      ...newAttendance,
-    }));
+  const handleSaveAttendance = (customerId, extraProducts) => {
+    setCustomers(prevCustomers =>
+      prevCustomers.map(customer => {
+        if (customer._id === customerId) {
+          const newRequiredProducts = [...customer.requiredProduct];
+          const newAttendanceForCustomer = { ...attendance[customerId] };
+
+          Object.keys(extraProducts).forEach(productId => {
+            const productDetails = extraProducts[productId];
+            const existingProductIndex = newRequiredProducts.findIndex(p => p.product._id === productId);
+
+            if (existingProductIndex > -1) {
+              // Update quantity of existing product
+              newRequiredProducts[existingProductIndex].quantity = productDetails.quantity;
+            } else {
+              // Add new product
+              newRequiredProducts.push({
+                product: { _id: productId, name: productDetails.name },
+                quantity: productDetails.quantity,
+              });
+            }
+            // Mark new/updated products as delivered by default
+            newAttendanceForCustomer[productId] = true;
+          });
+
+          setAttendance(prev => ({
+            ...prev,
+            [customerId]: newAttendanceForCustomer,
+          }));
+
+          return { ...customer, requiredProduct: newRequiredProducts };
+        }
+        return customer;
+      }),
+    );
     closeEditModal();
   };
 
   const handleSubmit = async () => {
+    const formattedAttendance = Object.keys(attendance).map(customerId => ({
+      customerId,
+      products: Object.keys(attendance[customerId])
+        .filter(productId => attendance[customerId][productId])
+        .map(productId => ({
+          productId,
+          // You might need to get the quantity from the original customer.requiredProduct
+          // For now, assuming quantity is 1 or needs to be fetched
+          quantity: 1, // Placeholder
+        })),
+    }));
+
     const attendanceData = {
       date: selectedDate,
       areaId: selectedArea,
-      attendance,
+      attendance: formattedAttendance,
     };
 
     try {
@@ -136,24 +187,10 @@ export const AddAttendance = () => {
     );
   };
 
-  const renderCustomerItem = ({ item }) => (
-    <View style={styles.customerItem}>
-      <Text style={styles.customerName}>{item.name}</Text>
-      <View style={styles.row}>
-        <Button title="Edit" onPress={() => openEditModal(item)} />
-        <CheckBox
-          value={attendance[item._id]}
-          onValueChange={() => handleAttendanceChange(item._id)}
-        />
-      </View>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       <CalendarProvider date={selectedDate} onDateChanged={onDateChanged}>
         <ExpandableCalendar
-          renderHeader={renderCustomHeader}
           hideArrows={true}
           markedDates={{
             [selectedDate]: { selected: true, selectedColor: '#1E73B8' },
@@ -182,15 +219,21 @@ export const AddAttendance = () => {
           </View>
         </View>
 
-        <View style={styles.customerListContainer}>
-          <FlatList
-            data={customers}
-            renderItem={renderCustomerItem}
-            keyExtractor={item => item._id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-          />
-        </View>
+        <FlatList
+          data={customers}
+          renderItem={({ item }) => (
+            <CustomerAttendanceItem
+              customer={item}
+              isExpanded={expandedCustomers[item._id]}
+              onToggleExpansion={() => toggleCustomerExpansion(item._id)}
+              attendance={attendance[item._id] || {}}
+              onProductAttendanceChange={(productId) => handleProductAttendanceChange(item._id, productId)}
+              onEdit={() => openEditModal(item)}
+            />
+          )}
+          keyExtractor={item => item._id}
+          contentContainerStyle={styles.listContainer}
+        />
       </CalendarProvider>
 
       <Button title="Submit Attendance" onPress={handleSubmit} />
@@ -218,11 +261,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#F8F9FA',
   },
-  attendanceTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333333',
-  },
   totalEmployeesContainer: {
     alignItems: 'flex-end',
   },
@@ -235,51 +273,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333333',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    alignItems: 'center',
-  },
-  headerLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  headerRight: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  monthText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  customerListContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   listContainer: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-  },
-  customerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  customerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A90E2',
-    marginBottom: 2,
   },
   dropdownContainer: {
     width: 200,
@@ -290,8 +286,4 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: { height: 50, width: '100%' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
 });

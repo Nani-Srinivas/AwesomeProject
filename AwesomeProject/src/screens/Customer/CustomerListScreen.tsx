@@ -47,6 +47,7 @@ const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill }: { cus
 export const CustomerListScreen = ({ navigation, route }: { navigation: any, route: any }) => {
   const [filter, setFilter] = useState(route.params?.filter || 'All');
   const [customers, setCustomers] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
@@ -71,8 +72,22 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
     }
   };
 
+  const fetchAreas = async () => {
+    try {
+      const response = await apiService.get('/delivery/area');
+      if (response.data.success) {
+        setAreas(response.data.data);
+      } else {
+        console.error(response.data.message || 'Failed to fetch areas.');
+      }
+    } catch (err: any) {
+      console.error(err.message || 'An error occurred while fetching areas.');
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
+    fetchAreas();
   }, []);
 
   const filteredCustomers = useMemo(() => {
@@ -210,6 +225,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
           customer={editingCustomer}
           onSave={handleSaveCustomer}
           isSaving={isSaving}
+          areas={areas}
         />
       )}
 
@@ -218,6 +234,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         onClose={() => setAddModalVisible(false)}
         onSave={handleAddNewCustomer}
         isSaving={isSaving} // We can reuse the isSaving state for now
+        areas={areas}
       />
 
       <TouchableOpacity style={styles.fab} onPress={() => setAddModalVisible(true)}>

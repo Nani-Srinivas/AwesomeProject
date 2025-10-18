@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, Switch, TouchableOpacity, FlatList }
 import { Button } from '../common/Button';
 import { COLORS } from '../../constants/colors';
 import Feather from 'react-native-vector-icons/Feather';
+import { Picker } from '@react-native-picker/picker';
 
 interface EditCustomerFormHeaderProps {
   name: string;
@@ -21,6 +22,9 @@ interface EditCustomerFormHeaderProps {
   requiredProducts: any[];
   handleQuantityChange: (text: string, index: number) => void;
   handleRemoveProduct: (index: number) => void;
+  areas: any[];
+  selectedArea: any;
+  setSelectedArea: (value: any) => void;
 }
 
 export const EditCustomerFormHeader = React.memo(({
@@ -34,6 +38,9 @@ export const EditCustomerFormHeader = React.memo(({
   requiredProducts,
   handleQuantityChange,
   handleRemoveProduct,
+  areas,
+  selectedArea,
+  setSelectedArea,
 }: EditCustomerFormHeaderProps) => {
   return (
     <View style={styles.container}>
@@ -41,6 +48,16 @@ export const EditCustomerFormHeader = React.memo(({
       <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
       <TextInput style={styles.input} placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
       <TextInput style={styles.input} placeholder="Address (Apartment/Building)" value={address} onChangeText={setAddress} />
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={selectedArea}
+          onValueChange={(itemValue) => setSelectedArea(itemValue)}
+        >
+          {areas.map(area => (
+            <Picker.Item key={area._id} label={area.name} value={area._id} />
+          ))}
+        </Picker>
+      </View>
       <TextInput style={styles.input} placeholder="Delivery Cost" value={deliveryCost} onChangeText={setDeliveryCost} keyboardType="numeric" />
       <TextInput style={styles.input} placeholder="Advance Amount" value={advanceAmount} onChangeText={setAdvanceAmount} keyboardType="numeric" />
       <View style={styles.switchContainer}>
@@ -99,6 +116,15 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     color: COLORS.text,
     backgroundColor: COLORS.background,
+  },
+  pickerContainer: {
+    width: '100%',
+    height: 50,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: 10,
+    marginBottom: 15,
+    justifyContent: 'center',
   },
   switchContainer: {
     flexDirection: 'row',
