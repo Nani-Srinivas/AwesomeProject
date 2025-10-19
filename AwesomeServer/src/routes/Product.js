@@ -2,6 +2,7 @@ import {
   getProducts,
   getProductsByCategoryId,
   getStoreProducts,
+  getAllProducts,
 } from "../controllers/Product/Product.js";
 import { getCategories, getProducts as getCatalogProducts } from "../controllers/Product/Catalog.js";
 import { verifyToken } from "../middleware/auth.js";
@@ -17,4 +18,5 @@ export const productRoutes = async (fastify, options) => {
   // Catalog Routes
   fastify.get('/api/categories', getCategories);
   fastify.get('/api/products', getCatalogProducts);
+  fastify.get('/products/all', { preHandler: [verifyToken] }, getAllProducts);
 };

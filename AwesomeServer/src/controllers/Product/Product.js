@@ -342,3 +342,20 @@ export const deleteStoreProduct = async (req, reply) => {
     return reply.status(500).send({ message: 'Internal server error' });
   }
 };
+
+export const getAllProducts = async (req, reply) => {
+  try {
+    const products = await MasterProduct.find()
+      .populate('category')
+      .populate('subcategory');
+
+    return reply.status(200).send({
+      success: true,
+      message: 'All products fetched successfully',
+      data: products,
+    });
+  } catch (error) {
+    console.error('Error fetching all products:', error.message);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};

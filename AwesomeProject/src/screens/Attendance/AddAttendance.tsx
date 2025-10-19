@@ -11,6 +11,7 @@ import { ExpandableCalendar, CalendarProvider } from 'react-native-calendars';
 import Feather from 'react-native-vector-icons/Feather';
 import { apiService } from '../../services/apiService';
 import { EditAttendanceModal } from './components/EditAttendanceModal';
+import { AddExtraProductModal } from './components/AddExtraProductModal';
 import { COLORS } from '../../constants/colors';
 import { CustomerAttendanceItem } from './components/CustomerAttendanceItem';
 import { Picker } from '@react-native-picker/picker';
