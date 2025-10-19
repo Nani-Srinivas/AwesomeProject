@@ -4,14 +4,14 @@ import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../../constants/colors';
 import { ProductAttendanceItem } from './ProductAttendanceItem';
 
-export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion, attendance, onProductAttendanceChange, onEdit }) => {
+export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion, attendance, onProductAttendanceChange, onEdit, isPastDate }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onToggleExpansion} style={styles.header}>
         <Feather name={isExpanded ? 'chevron-down' : 'chevron-right'} size={20} color={COLORS.text} />
         <Text style={styles.customerName}>{customer.name}</Text>
-        <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-          <Feather name="edit-2" size={20} color={COLORS.text} />
+        <TouchableOpacity onPress={isPastDate ? null : onEdit} style={styles.editButton} disabled={isPastDate}>
+          <Feather name="edit-2" size={20} color={isPastDate ? COLORS.lightGrey : COLORS.text} />
         </TouchableOpacity>
       </TouchableOpacity>
       {isExpanded && (
@@ -20,8 +20,9 @@ export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion
           renderItem={({ item }) => (
             <ProductAttendanceItem
               product={item}
-              isChecked={attendance[item.product._id]}
-              onCheckboxChange={() => onProductAttendanceChange(item.product._id)}
+              isChecked={attendance[item.product._id]?.delivered} // Access delivered property
+              onCheckboxChange={isPastDate ? null : () => onProductAttendanceChange(item.product._id)}
+              isDisabled={isPastDate} // Pass isDisabled prop
             />
           )}
           keyExtractor={item => item.product._id}

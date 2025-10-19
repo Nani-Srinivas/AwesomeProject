@@ -2,12 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, Button, FlatList, TextInput } from 'react-native';
 import { apiService } from '../../../services/apiService';
 
-export const EditAttendanceModal = ({ isVisible, customer, onClose, onSave }) => {
+export const EditAttendanceModal = ({ isVisible, customer, onClose, onSave, currentAttendance }) => {
   const [storeProducts, setStoreProducts] = useState([]);
-  const [extraProducts, setExtraProducts] = useState({}); // { productId: { name, quantity } }
+  const [editedRequiredProducts, setEditedRequiredProducts] = useState([]); // { productId: { name, quantity, delivered } }
+  const [addedExtraProducts, setAddedExtraProducts] = useState({}); // { productId: { name, quantity } }
 
   useEffect(() => {
-    if (isVisible) {
+    if (isVisible && customer) {
+      // Initialize editedRequiredProducts from customer.requiredProduct and currentAttendance
+      const initialEditedRequired = customer.requiredProduct.map(rp => ({
+        productId: rp.product._id,
+        name: rp.product.name,
+        quantity: currentAttendance[rp.product._id]?.quantity ?? rp.quantity, // Use attendance quantity if available, else default
+        delivered: currentAttendance[rp.product._id]?.delivered ?? true, // Default to delivered
+      }));
+      setEditedRequiredProducts(initialEditedRequired);
+      setAddedExtraProducts({}); // Reset added extra products when modal opens for a new customer
+
       const fetchStoreProducts = async () => {
         try {
           const response = await apiService.get('/product/store');
@@ -19,17 +30,33 @@ export const EditAttendanceModal = ({ isVisible, customer, onClose, onSave }) =>
 
       fetchStoreProducts();
     }
-  }, [isVisible]);
+  }, [isVisible, customer]);
 
-  const handleQuantityChange = (product, quantity) => {
-    setExtraProducts(prev => ({
+  const handleRequiredProductQuantityChange = (productId, quantity) => {
+    setEditedRequiredProducts(prev =>
+      prev.map(p =>
+        p.productId === productId ? { ...p, quantity: Number(quantity) } : p
+      )
+    );
+  };
+
+  const handleRequiredProductDeliveredChange = (productId, delivered) => {
+    setEditedRequiredProducts(prev =>
+      prev.map(p =>
+        p.productId === productId ? { ...p, delivered: delivered } : p
+      )
+    );
+  };
+
+  const handleExtraProductQuantityChange = (product, quantity) => {
+    setAddedExtraProducts(prev => ({
       ...prev,
       [product._id]: { name: product.name, quantity: Number(quantity) },
     }));
   };
 
   const handleSave = () => {
-    onSave(customer._id, extraProducts);
+    onSave(customer._id, editedRequiredProducts, addedExtraProducts);
   };
 
   if (!customer) {
@@ -45,7 +72,33 @@ export const EditAttendanceModal = ({ isVisible, customer, onClose, onSave }) =>
     >
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
-          <Text style={styles.modalText}>Add Extra Products for {customer.name}</Text>
+          <Text style={styles.modalText}>Edit Products for {customer.name}</Text>
+
+          <Text style={styles.sectionTitle}>Subscribed Products</Text>
+          <FlatList
+            data={editedRequiredProducts}
+            keyExtractor={item => item.productId}
+            renderItem={({ item }) => (
+              <View style={styles.productItem}>
+                <Text>{item.name}</Text>
+                <TextInput
+                  style={styles.quantityInput}
+                  keyboardType="numeric"
+                  onChangeText={(text) => handleRequiredProductQuantityChange(item.productId, text)}
+                  value={String(item.quantity)}
+                />
+                <CheckBox
+                  value={item.delivered}
+                  onValueChange={(newValue) => handleRequiredProductDeliveredChange(item.productId, newValue)}
+                  tintColors={{ true: COLORS.primary, false: COLORS.text }}
+                />
+                <Text>Delivered</Text>
+              </View>
+            )}
+            ListEmptyComponent={<Text>No subscribed products.</Text>}
+          />
+
+          <Text style={styles.sectionTitle}>Add Extra Products</Text>
           <FlatList
             data={storeProducts}
             keyExtractor={item => item._id}
@@ -55,11 +108,12 @@ export const EditAttendanceModal = ({ isVisible, customer, onClose, onSave }) =>
                 <TextInput
                   style={styles.quantityInput}
                   keyboardType="numeric"
-                  onChangeText={(text) => handleQuantityChange(item, text)}
-                  value={extraProducts[item._id]?.quantity ? String(extraProducts[item._id].quantity) : ''}
+                  onChangeText={(text) => handleExtraProductQuantityChange(item, text)}
+                  value={addedExtraProducts[item._id]?.quantity ? String(addedExtraProducts[item._id].quantity) : ''}
                 />
               </View>
             )}
+            ListEmptyComponent={<Text>No extra products available.</Text>}
           />
           <Button title="Save" onPress={handleSave} />
           <Button title="Cancel" onPress={onClose} />
@@ -93,9 +147,12 @@ const styles = StyleSheet.create({
     width: '90%',
     height: '80%',
   },
-  modalText: {
-    marginBottom: 15,
-    textAlign: 'center',
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 5,
+    alignSelf: 'flex-start',
   },
   productItem: {
     flexDirection: 'row',

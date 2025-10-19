@@ -79,7 +79,6 @@ axiosInstance.interceptors.response.use(
           if (!refreshToken) {
             // No refresh token, logout immediately
             useUserStore.getState().logout();
-            Alert.alert('Session Expired', 'You have been logged out. Please log in again.');
             return Promise.reject(error);
           }
 

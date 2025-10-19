@@ -5,4 +5,6 @@ export const COLORS = {
   text: '#000000',
   white: '#ffffff',
   lightGrey: '#d3d3d3',
+  success: '#4CAF50', // Green
+  error: '#F44336',   // Red
 };
