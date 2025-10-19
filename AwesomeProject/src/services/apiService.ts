@@ -28,5 +28,9 @@ export const apiService = {
     const response = await axiosInstance.delete(url, { params, signal });
     return response;
   },
+  postWithConfig: async (url: string, data: object, config?: object) => {
+    const response = await axiosInstance.post(url, data, config);
+    return response;
+  },
 
 };

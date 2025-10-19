@@ -1,23 +1,46 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import CheckBox from '@react-native-community/checkbox';
-import { COLORS } from '../../../constants/colors.ts';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { COLORS } from '../../../constants/colors';
 
-export const ProductAttendanceItem = ({ product, isChecked, onCheckboxChange, isDisabled }) => {
+const statusConfig = {
+  delivered: { label: 'Delivered', color: COLORS.success },
+  skipped: { label: 'Skipped', color: COLORS.warning },
+  out_of_stock: { label: 'Out of Stock', color: COLORS.error },
+  not_delivered: { label: 'Not Delivered', color: COLORS.grey },
+};
+
+const statusCycle = ['delivered', 'skipped', 'out_of_stock', 'not_delivered'];
+
+export const ProductAttendanceItem = ({ product, status, onStatusChange, onQuantityChange, isDisabled }) => {
   if (!product || !product.product) {
-    return null; // Or render a placeholder/error message
+    return null;
   }
+
+  const currentStatus = status || 'delivered';
+  const { label, color } = statusConfig[currentStatus];
+
+  const handlePress = () => {
+    if (isDisabled) return;
+    const currentIndex = statusCycle.indexOf(currentStatus);
+    const nextIndex = (currentIndex + 1) % statusCycle.length;
+    onStatusChange(statusCycle[nextIndex]);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.productName}>
-        {product.product.name} ({product.quantity !== undefined && product.quantity !== null ? product.quantity : 'N/A'})
+        {product.product.name}
       </Text>
-      <CheckBox
-        value={isChecked}
-        onValueChange={onCheckboxChange}
-        tintColors={{ true: COLORS.primary, false: COLORS.text }}
-        disabled={isDisabled} // Disable checkbox
+      <TextInput
+        style={styles.quantityInput}
+        keyboardType="numeric"
+        onChangeText={onQuantityChange}
+        value={String(product.quantity)}
+        editable={!isDisabled}
       />
+      <TouchableOpacity onPress={handlePress} disabled={isDisabled} style={[styles.statusButton, { backgroundColor: color }]}>
+        <Text style={styles.statusText}>{label}</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -34,5 +57,24 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 14,
     color: COLORS.text,
+    flex: 1,
+  },
+  quantityInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    width: 50,
+    textAlign: 'center',
+    marginHorizontal: 10,
+  },
+  statusButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  statusText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

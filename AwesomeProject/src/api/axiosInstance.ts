@@ -122,13 +122,13 @@ axiosInstance.interceptors.response.use(
             errorMessage = apiMessage || `Error: ${status}`;
           }
       }
-      if (status !== 401) {
+      if (status !== 401 && !error.config?.headers?.['X-Suppress-Global-Error-Alert']) {
         Alert.alert('Error', errorMessage);
       }
 
-    } else if (error.message === 'Network Error' || error.code === 'ERR_NETWORK') {
+    } else if ((error.message === 'Network Error' || error.code === 'ERR_NETWORK') && !error.config?.headers?.['X-Suppress-Global-Error-Alert']) {
       Alert.alert('Connection Error', 'Could not connect to the server. Please check your internet connection and ensure the server is running.');
-    } else {
+    } else if (error.response?.status !== 401 && !error.config?.headers?.['X-Suppress-Global-Error-Alert']) {
       Alert.alert('Error', error.message || 'An unknown error occurred.');
     }
 

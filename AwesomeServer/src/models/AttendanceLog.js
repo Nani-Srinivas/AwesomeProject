@@ -27,9 +27,15 @@ const AttendanceLogSchema = new mongoose.Schema({
         required: true,
         min: 0,
       },
+      status: {
+        type: String,
+        enum: ['delivered', 'not_delivered', 'skipped', 'out_of_stock'],
+        required: true,
+        default: 'delivered',
+      },
     },
   ],
 }, { timestamps: true });
 
-AttendanceLogSchema.index({ date: 1, areaId: 1 }, { unique: true }); // ✅ Prevent duplicates
+AttendanceLogSchema.index({ date: 1, areaId: 1, customerId: 1 }, { unique: true }); // ✅ Prevent duplicates
 export const AttendanceLog = mongoose.model('AttendanceLog', AttendanceLogSchema);

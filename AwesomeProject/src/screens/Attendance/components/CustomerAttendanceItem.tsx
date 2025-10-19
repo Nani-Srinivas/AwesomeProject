@@ -4,7 +4,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../../constants/colors';
 import { ProductAttendanceItem } from './ProductAttendanceItem';
 
-export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion, attendance, onProductAttendanceChange, onEdit, isPastDate }) => {
+export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion, attendance, onProductStatusChange, onProductQuantityChange, onEdit, onAdd, isPastDate }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onToggleExpansion} style={styles.header}>
@@ -13,16 +13,20 @@ export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion
         <TouchableOpacity onPress={isPastDate ? null : onEdit} style={styles.editButton} disabled={isPastDate}>
           <Feather name="edit-2" size={20} color={isPastDate ? COLORS.lightGrey : COLORS.text} />
         </TouchableOpacity>
+        <TouchableOpacity onPress={isPastDate ? null : onAdd} style={styles.addButton} disabled={isPastDate}>
+          <Feather name="plus-circle" size={20} color={isPastDate ? COLORS.lightGrey : COLORS.primary} />
+        </TouchableOpacity>
       </TouchableOpacity>
       {isExpanded && (
         <FlatList
           data={customer.requiredProduct}
           renderItem={({ item }) => (
             <ProductAttendanceItem
-              product={item}
-              isChecked={attendance[item.product._id]?.delivered} // Access delivered property
-              onCheckboxChange={isPastDate ? null : () => onProductAttendanceChange(item.product._id)}
-              isDisabled={isPastDate} // Pass isDisabled prop
+              product={{...item, quantity: attendance[item.product._id]?.quantity ?? item.quantity}}
+              status={attendance[item.product._id]?.status}
+              onStatusChange={(newStatus) => onProductStatusChange(item.product._id, newStatus)}
+              onQuantityChange={(newQuantity) => onProductQuantityChange(item.product._id, newQuantity)}
+              isDisabled={isPastDate}
             />
           )}
           keyExtractor={item => item.product._id}
@@ -54,6 +58,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   editButton: {
+    marginLeft: 15,
+  },
+  addButton: {
     marginLeft: 15,
   },
 });

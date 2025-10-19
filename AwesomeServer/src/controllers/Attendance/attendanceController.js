@@ -155,17 +155,17 @@ export const submitAttendance = async (request, reply) => {
 
       // Validate products
       for (const product of customerAttendance.products) {
-        if (!product.productId || product.quantity == null) {
+        if (!product.productId || product.quantity == null || !product.status) {
           return reply.code(400).send({
             success: false,
-            message: 'Each product must have productId and quantity.',
+            message: 'Each product must have productId, quantity, and status.',
           });
         }
 
-        if (product.quantity <= 0) {
+        if (product.quantity < 0) {
           return reply.code(400).send({
             success: false,
-            message: `Product quantity for ${product.productId} must be positive.`,
+            message: `Product quantity for ${product.productId} cannot be negative.`, 
           });
         }
 

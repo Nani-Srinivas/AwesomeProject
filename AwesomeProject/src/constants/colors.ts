@@ -7,4 +7,6 @@ export const COLORS = {
   lightGrey: '#d3d3d3',
   success: '#4CAF50', // Green
   error: '#F44336',   // Red
+  warning: '#FFC107', // Amber
+  grey: '#9E9E9E',   // Grey
 };
