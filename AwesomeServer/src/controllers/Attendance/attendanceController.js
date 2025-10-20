@@ -1,6 +1,7 @@
 import { AttendanceLog } from '../../models/AttendanceLog.js';
 import StoreProduct from '../../models/Product/StoreProduct.js';
 import { Customer } from '../../models/User/Customer.js'; // Import Customer model
+import mongoose from 'mongoose';
 
 export const submitAttendance1 = async (request, reply) => {
   try {
@@ -108,7 +109,7 @@ export const submitAttendance1 = async (request, reply) => {
   }
 };
 
-export const submitAttendance = async (request, reply) => {
+export const submitAttendance2 = async (request, reply) => {
   try {
     console.log('Server received attendance submission:', JSON.stringify(request.body, null, 2));
     const { date, areaId, attendance } = request.body;
@@ -197,6 +198,220 @@ export const submitAttendance = async (request, reply) => {
     });
   } catch (error) {
     console.error('Error submitting attendance:', error);
+    return reply.code(500).send({
+      success: false,
+      message: error.message || 'Internal server error.',
+    });
+  }
+};
+
+
+// ============================================
+// ATTENDANCE CONTROLLER (OPTIMIZED)
+// ============================================
+
+// ✅ Helper function to get start and end of day (UTC)
+const getDateRange = (dateString) => {
+  const date = new Date(dateString);
+  const startOfDay = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    0,
+    0,
+    0,
+    0
+  ));
+
+  const endOfDay = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    23,
+    59,
+    59,
+    999
+  ));
+
+  return { startOfDay, endOfDay };
+};
+
+// ✅ Helper function to validate ObjectId
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(id);
+};
+
+export const submitAttendance = async (request, reply) => {
+  try {
+    console.log('🟢 Server received attendance submission:', JSON.stringify(request.body, null, 2));
+
+    const { date, areaId, attendance } = request.body;
+
+    // 🧩 Validate basic input
+    if (!date || !areaId || !attendance || !Array.isArray(attendance)) {
+      return reply.code(400).send({
+        success: false,
+        message: 'Date, areaId, and attendance array are required.',
+      });
+    }
+
+    // ✅ Validate areaId format
+    if (!isValidObjectId(areaId)) {
+      return reply.code(400).send({
+        success: false,
+        message: `Invalid areaId format: ${areaId}`,
+      });
+    }
+
+    // ✅ Validate date format
+    const requestDate = new Date(date);
+    if (isNaN(requestDate.getTime())) {
+      return reply.code(400).send({
+        success: false,
+        message: 'Invalid date format. Use YYYY-MM-DD.',
+      });
+    }
+
+    // ❌ Prevent editing past attendance (today onwards only)
+    const { startOfDay: todayStart } = getDateRange(new Date().toISOString().split('T')[0]);
+    if (requestDate < todayStart) {
+      return reply.code(400).send({
+        success: false,
+        message: 'Cannot modify attendance for past dates.',
+      });
+    }
+
+    // 🧠 Step 1: Check if attendance record already exists for this date & area
+    const { startOfDay } = getDateRange(date);
+    
+    const existingAttendance = await AttendanceLog.findOne({
+      date: { $gte: startOfDay, $lte: new Date(startOfDay.getTime() + 86400000) },
+      areaId: new mongoose.Types.ObjectId(areaId),
+    });
+
+    if (existingAttendance) {
+      return reply.code(409).send({
+        success: false,
+        message: `Attendance record already exists for this date and area. Please edit the existing record instead.`,
+        recordId: existingAttendance._id,
+      });
+    }
+
+    // 🧩 Step 2: Validate all attendance entries
+    const customerIds = new Set();
+
+    for (const customerAttendance of attendance) {
+      const { customerId, products } = customerAttendance;
+
+      // ✅ Validate basic structure
+      if (!customerId || !products || !Array.isArray(products)) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Each attendance entry must have a valid customerId and products array.',
+        });
+      }
+
+      if (!isValidObjectId(customerId)) {
+        return reply.code(400).send({
+          success: false,
+          message: `Invalid customerId format: ${customerId}`,
+        });
+      }
+
+      if (products.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: `Customer ${customerId} must have at least one product entry.`,
+        });
+      }
+
+      // ✅ Check for duplicate customers in same request
+      if (customerIds.has(customerId)) {
+        return reply.code(400).send({
+          success: false,
+          message: `Duplicate customer entry: ${customerId}`,
+        });
+      }
+      customerIds.add(customerId);
+
+      // ✅ Validate customer existence
+      const existingCustomer = await Customer.findById(customerId);
+      if (!existingCustomer) {
+        return reply.code(400).send({
+          success: false,
+          message: `Customer with ID ${customerId} not found.`,
+        });
+      }
+
+      // ✅ Validate each product
+      for (const product of products) {
+        if (!product.productId || product.quantity == null || !product.status) {
+          return reply.code(400).send({
+            success: false,
+            message: 'Each product must have productId, quantity, and status.',
+          });
+        }
+
+        if (!isValidObjectId(product.productId)) {
+          return reply.code(400).send({
+            success: false,
+            message: `Invalid productId format: ${product.productId}`,
+          });
+        }
+
+        if (product.quantity < 0) {
+          return reply.code(400).send({
+            success: false,
+            message: `Product quantity for ${product.productId} cannot be negative.`,
+          });
+        }
+
+        const validStatuses = ['delivered', 'not_delivered', 'skipped', 'out_of_stock'];
+        if (!validStatuses.includes(product.status)) {
+          return reply.code(400).send({
+            success: false,
+            message: `Invalid status: ${product.status}. Must be one of: ${validStatuses.join(', ')}`,
+          });
+        }
+
+        const existingProduct = await StoreProduct.findById(product.productId);
+        if (!existingProduct) {
+          return reply.code(400).send({
+            success: false,
+            message: `StoreProduct with ID ${product.productId} not found.`,
+          });
+        }
+      }
+    }
+
+    // 🧱 Step 3: Create single attendance record for the day/area
+    const newRecord = await AttendanceLog.create({
+      date: startOfDay,
+      areaId: new mongoose.Types.ObjectId(areaId),
+      attendance: attendance.map(({ customerId, products }) => ({
+        customerId: new mongoose.Types.ObjectId(customerId),
+        products: products.map(p => ({
+          productId: new mongoose.Types.ObjectId(p.productId),
+          quantity: p.quantity,
+          status: p.status,
+        })),
+      })),
+    });
+
+    // ✅ Populate references for response
+    const populatedRecord = await AttendanceLog.findById(newRecord._id)
+      .populate('areaId', 'name')
+      .populate('attendance.customerId', 'name email phone')
+      .populate('attendance.products.productId', 'name price');
+
+    console.log('✅ Attendance submitted successfully for', attendance.length, 'customers');
+    return reply.code(201).send({
+      success: true,
+      message: `Attendance record created for ${attendance.length} customers.`,
+      data: populatedRecord,
+    });
+  } catch (error) {
+    console.error('❌ Error submitting attendance:', error);
     return reply.code(500).send({
       success: false,
       message: error.message || 'Internal server error.',

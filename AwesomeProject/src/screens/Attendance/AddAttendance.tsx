@@ -174,25 +174,44 @@ export const AddAttendance = () => {
     setCustomers(prevCustomers =>
       prevCustomers.map(customer => {
         if (customer._id === customerId) {
-          const allProducts = [...editedRequiredProducts];
-          Object.keys(addedExtraProducts).forEach(productId => {
-            const product = addedExtraProducts[productId];
-            if (product.quantity > 0) {
-              allProducts.push({
-                productId,
-                name: product.name,
-                quantity: product.quantity,
-                status: 'delivered',
-              });
-            }
-          });
+          // Create a mutable copy of the products to work with
+          let allProducts = [...editedRequiredProducts];
 
+          // Handle the newly added products, which is an array
+          if (Array.isArray(addedExtraProducts)) {
+            addedExtraProducts.forEach(newProduct => {
+              if (newProduct.quantity > 0) {
+                // Normalize the new product to match the structure of existing ones
+                const normalizedProduct = {
+                  product: { _id: newProduct.productId, name: newProduct.name },
+                  quantity: newProduct.quantity,
+                };
+
+                // Check if this product already exists in the list
+                const existingIndex = allProducts.findIndex(
+                  p => p.product._id === normalizedProduct.product._id
+                );
+
+                if (existingIndex !== -1) {
+                  // If it exists, update the quantity
+                  allProducts[existingIndex].quantity = normalizedProduct.quantity;
+                } else {
+                  // Otherwise, add it to the list
+                  allProducts.push(normalizedProduct);
+                }
+              }
+            });
+          }
+
+          // Update the attendance state for the customer
           const newAttendanceForCustomer = {};
           allProducts.forEach(p => {
-            newAttendanceForCustomer[p.productId] = {
-              quantity: p.quantity,
-              status: p.status || 'delivered',
-            };
+            if (p.product && p.product._id) {
+              newAttendanceForCustomer[p.product._id] = {
+                quantity: p.quantity,
+                status: p.status || 'delivered',
+              };
+            }
           });
 
           setAttendance(prev => ({
@@ -200,16 +219,14 @@ export const AddAttendance = () => {
             [customerId]: newAttendanceForCustomer,
           }));
 
-          const updatedRequiredProduct = allProducts.map(p => ({
-            product: { _id: p.productId, name: p.name },
-            quantity: p.quantity,
-          }));
-
-          return { ...customer, requiredProduct: updatedRequiredProduct };
+          // Return the updated customer object
+          return { ...customer, requiredProduct: allProducts };
         }
         return customer;
       })
     );
+
+    // Close the modals
     closeEditModal();
     closeAddExtraProductModal();
   };
