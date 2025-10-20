@@ -10,12 +10,11 @@ import {
 import { ExpandableCalendar, CalendarProvider } from 'react-native-calendars';
 import Feather from 'react-native-vector-icons/Feather';
 import { apiService } from '../../services/apiService';
-import { EditAttendanceModal } from './components/EditAttendanceModal';
-import { AddExtraProductModal } from './components/AddExtraProductModal';
+import { EditAttendanceBottomSheet } from './components/EditAttendanceModal';
+import { AddExtraProductBottomSheet } from './components/AddExtraProductModal';
 import { COLORS } from '../../constants/colors';
 import { CustomerAttendanceItem } from './components/CustomerAttendanceItem';
 import { Picker } from '@react-native-picker/picker';
-
 import { useNavigation } from '@react-navigation/native';
 
 const agendaItems = {
@@ -38,6 +37,7 @@ export const AddAttendance = () => {
   const [feedbackMessageType, setFeedbackMessageType] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+// ✅ fetch areas
   useEffect(() => {
     const fetchAreas = async () => {
       try {
@@ -54,6 +54,8 @@ export const AddAttendance = () => {
     fetchAreas();
   }, []);
 
+
+  // ✅ fetch customers for selected area
   useEffect(() => {
     if (!selectedArea) return;
 
@@ -97,6 +99,8 @@ export const AddAttendance = () => {
 
     fetchCustomers();
   }, [selectedArea]);
+
+
 
   const onDateChanged = date => setSelectedDate(date);
 
@@ -143,10 +147,10 @@ export const AddAttendance = () => {
     setSelectedCustomer(null);
   };
 
-  const openAddExtraProductModal = (customer) => {
+// ✅ New: open bottom sheet for Add Extra Product
+  const openAddExtraProductModal = customer => {
     setSelectedCustomer(customer);
-    console.log('Opening add extra product modal for:', customer.name);
-    // setIsAddExtraProductModalVisible(true);
+    setIsAddExtraProductModalVisible(true);
   };
 
   const closeAddExtraProductModal = () => {
@@ -207,6 +211,7 @@ export const AddAttendance = () => {
       })
     );
     closeEditModal();
+    closeAddExtraProductModal();
   };
 
   const handleSubmit = async () => {
@@ -320,6 +325,7 @@ export const AddAttendance = () => {
         </View>
       )}
 
+      {/* Calendar + List */}
       <CalendarProvider date={selectedDate} onDateChanged={onDateChanged}>
         <ExpandableCalendar
           hideArrows={true}
@@ -331,7 +337,7 @@ export const AddAttendance = () => {
             }, {}),
           }}
         />
-
+        {/* Header */}
         <View style={styles.attendanceHeader}>
           <View style={styles.dropdownContainer}>
             <Picker
@@ -350,6 +356,7 @@ export const AddAttendance = () => {
           </View>
         </View>
 
+        {/* Customer list */}
         <FlatList
           data={customers}
           renderItem={({ item }) => (
@@ -373,19 +380,34 @@ export const AddAttendance = () => {
         />
       </CalendarProvider>
 
+      {/* Submit button */}
       <Button
         title={isLoading ? 'Submitting...' : 'Submit Attendance'}
         onPress={handleSubmit}
         disabled={isLoading}
       />
 
-      <EditAttendanceModal
+      {/* Edit modal */}
+      <EditAttendanceBottomSheet
         isVisible={isEditModalVisible}
         customer={selectedCustomer}
         currentAttendance={attendance[selectedCustomer?._id] || {}}
         onClose={closeEditModal}
         onSave={handleSaveAttendance}
       />
+
+      {/* ✅ Add Extra Product Bottom Sheet */}
+      {isAddExtraProductModalVisible && (
+        <AddExtraProductBottomSheet
+          isVisible={isAddExtraProductModalVisible}
+          customer={selectedCustomer}
+          currentAttendance={attendance[selectedCustomer?._id] || {}}
+          onClose={closeAddExtraProductModal}
+          onAddProducts={(addedProducts) =>
+            handleSaveAttendance(selectedCustomer._id, selectedCustomer.requiredProduct || [], addedProducts)
+          }
+        />
+      )}
     </View>
   );
 };
