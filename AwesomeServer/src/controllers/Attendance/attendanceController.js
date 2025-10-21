@@ -374,13 +374,13 @@ export const submitAttendance = async (request, reply) => {
           });
         }
 
-        const existingProduct = await StoreProduct.findById(product.productId);
-        if (!existingProduct) {
-          return reply.code(400).send({
-            success: false,
-            message: `StoreProduct with ID ${product.productId} not found.`,
-          });
-        }
+        // const existingProduct = await StoreProduct.findById(product.productId);
+        // if (!existingProduct) {
+        //   return reply.code(400).send({
+        //     success: false,
+        //     message: `StoreProduct with ID ${product.productId} not found.`,
+        //   });
+        // }
       }
     }
 
