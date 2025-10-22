@@ -96,6 +96,7 @@ const start = async () => {
     } else {
       console.log(
         `Grocery App running on http://localhost:${PORT}${admin.options.rootPath}`
+        // `Grocery App running on http://localhost:${PORT}${admin.options.rootPath}`
       );
     }
   });

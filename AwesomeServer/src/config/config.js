@@ -24,26 +24,26 @@ export const authenticate =async(email,password)=>{
 
      // UNCOMMENT THIS WHEN CREATING ADMIN  FIRST TIME
 
-    // if(email && password){
-    //     if(email=='nanisrinivas@gmail.com' && password==="test@123"){
-    //         return Promise.resolve({ email: email, password: password }); 
-    //     }else{
-    //         return null
-    //     }
-    // }
+    if(email && password){
+        if(email=='nanisrinivas@gmail.com' && password==="test@123"){
+            return Promise.resolve({ email: email, password: password }); 
+        }else{
+            return null
+        }
+    }
 
 
     // UNCOMMENT THIS WHEN ALREADY CREATED ADMIN ON DATABASE
 
-    if (email && password) {
-    const user = await Admin.findOne({ email }).select('+password'); // Explicitly select password
-    if (!user) return null;
+  //   if (email && password) {
+  //   const user = await Admin.findOne({ email }).select('+password'); // Explicitly select password
+  //   if (!user) return null;
 
-    if (user.password === password) {
-      const { password: _, ...userWithoutPassword } = user.toObject();
-      return userWithoutPassword; // Returns user without password
-    }
-  }
+  //   if (user.password === password) {
+  //     const { password: _, ...userWithoutPassword } = user.toObject();
+  //     return userWithoutPassword; // Returns user without password
+  //   }
+  // }
 
 
   return null;

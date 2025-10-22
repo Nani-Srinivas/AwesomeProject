@@ -19,6 +19,7 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 }
 
 const baseURL = Platform.OS === 'ios' ? 'http://localhost:3000/api' : API_URL;
+// const baseURL = Platform.OS === 'ios' ? 'http://192.168.1.3:3000/api' : API_URL;
 console.log('Axios Base URL:', baseURL);
 // IMPORTANT: For Android emulators, if your Fastify server is on localhost, you might need to set API_URL in your .env to 'http://10.0.2.2:3000/api'
 
