@@ -49,7 +49,6 @@
 //     }
 //   };
 
-
 //   const handleDownload = () => {
 //     if (selectedPeriod) {
 //       Alert.alert(
@@ -426,7 +425,6 @@
 //   },
 // });
 
-
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -436,7 +434,10 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Linking,
+  Modal,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Calendar } from 'react-native-calendars';
 import { COLORS } from '../../constants/colors';
@@ -451,6 +452,8 @@ type Props = { customerId?: string };
 const MonthlyStatement = ({ customerId }: Props) => {
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false); // Added loading state
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [previewVisible, setPreviewVisible] = useState<boolean>(false);
   const navigation = useNavigation();
 
   const currentYear = new Date().getFullYear();
@@ -471,17 +474,54 @@ const MonthlyStatement = ({ customerId }: Props) => {
   // Disable months after the current month
   const isPeriodDisabled = (monthIndex: number) => monthIndex > currentMonth;
 
-  const handleViewStatement = () => {
-    if (selectedPeriod) {
-      navigation.navigate('Invoice' as never, {
+  const handleGenerateBill = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.post('/invoice/generate', {
         customerId,
         period: selectedPeriod,
-        type: 'monthly',
-      } as never);
-    } else {
-      Alert.alert('Selection Required', 'Please select a statement period.');
+      });
+      console.log('API Response:', response.data);
+
+      const pdfLink =
+        response.data.pdf?.url;
+        console.log('PDF Link:', pdfLink);
+
+      setPdfUrl(pdfLink);
+
+      if (pdfLink) {
+        Alert.alert('Success', 'Bill generated successfully!');
+      } else {
+        Alert.alert('Warning', 'Bill generated but no PDF URL found.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to generate bill.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handlePreview = () => {
+    if (!pdfUrl) {
+      Alert.alert('No PDF', 'Please generate the bill first.');
+      return;
+    }
+    Linking.openURL(pdfUrl);
+    setPreviewVisible(true);
+  };
+
+  const handleClosePreview = () => setPreviewVisible(false);
+  // const handleViewStatement = () => {
+  //   if (selectedPeriod) {
+  //     navigation.navigate('Invoice' as never, {
+  //       customerId,
+  //       period: selectedPeriod,
+  //       type: 'monthly',
+  //     } as never);
+  //   } else {
+  //     Alert.alert('Selection Required', 'Please select a statement period.');
+  //   }
+  // };
 
   const handleDownload = async () => {
     if (!selectedPeriod) {
@@ -499,11 +539,17 @@ const MonthlyStatement = ({ customerId }: Props) => {
         customerId,
         period: selectedPeriod,
       });
-      Alert.alert('Success', response.data.message || 'Invoice generated and saved!');
+      Alert.alert(
+        'Success',
+        response.data.message || 'Invoice generated and saved!',
+      );
       // Optionally navigate to InvoiceHistoryScreen here
     } catch (error: any) {
       console.error('Failed to generate invoice:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to generate invoice.');
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Failed to generate invoice.',
+      );
     } finally {
       setLoading(false);
     }
@@ -518,45 +564,44 @@ const MonthlyStatement = ({ customerId }: Props) => {
         <Text style={styles.customerInfo}>Select a monthly statement</Text>
       )}
 
-<View style={styles.periodGrid}>
-  {availablePeriods.map((period, index) => {
-    const isDisabled = isPeriodDisabled(index);
-    const isSelected = selectedPeriod === period;
-    const isCurrentMonth = index === currentMonth;
+      <View style={styles.periodGrid}>
+        {availablePeriods.map((period, index) => {
+          const isDisabled = isPeriodDisabled(index);
+          const isSelected = selectedPeriod === period;
+          const isCurrentMonth = index === currentMonth;
 
-    const buttonStyles = [styles.periodButton];
+          const buttonStyles = [styles.periodButton];
 
-    if (isCurrentMonth && !isSelected) {
-      buttonStyles.push(styles.currentMonthHighlight);
-    }
-    if (isSelected) {
-      buttonStyles.push(styles.selectedPeriodButton);
-    }
-    if (isDisabled) {
-      buttonStyles.push(styles.disabledButton);
-    }
+          if (isCurrentMonth && !isSelected) {
+            buttonStyles.push(styles.currentMonthHighlight);
+          }
+          if (isSelected) {
+            buttonStyles.push(styles.selectedPeriodButton);
+          }
+          if (isDisabled) {
+            buttonStyles.push(styles.disabledButton);
+          }
 
-    return (
-      <TouchableOpacity
-        key={period}
-        style={buttonStyles}
-        disabled={isDisabled}
-        onPress={() => !isDisabled && setSelectedPeriod(period)}
-      >
-        <Text
-          style={[
-            styles.periodButtonText,
-            isSelected && styles.selectedPeriodButtonText,
-            isDisabled && styles.disabledButtonText,
-          ]}
-        >
-          {period}
-        </Text>
-      </TouchableOpacity>
-    );
-  })}
-</View>
-
+          return (
+            <TouchableOpacity
+              key={period}
+              style={buttonStyles}
+              disabled={isDisabled}
+              onPress={() => !isDisabled && setSelectedPeriod(period)}
+            >
+              <Text
+                style={[
+                  styles.periodButtonText,
+                  isSelected && styles.selectedPeriodButtonText,
+                  isDisabled && styles.disabledButtonText,
+                ]}
+              >
+                {period}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {/* Actions Row */}
       <View style={styles.actionsRow}>
@@ -566,7 +611,19 @@ const MonthlyStatement = ({ customerId }: Props) => {
             styles.rowButton,
             (!selectedPeriod || loading) && styles.disabledButton,
           ]}
-          onPress={handleViewStatement}
+          onPress={handleGenerateBill}
+          disabled={!selectedPeriod || loading}
+        >
+          <Text style={styles.viewStatementButtonText}>Generate Bill</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.viewStatementButton,
+            styles.rowButton,
+            (!selectedPeriod || loading) && styles.disabledButton,
+          ]}
+          onPress={handlePreview}
           disabled={!selectedPeriod || loading}
         >
           <Text style={styles.viewStatementButtonText}>View Statement</Text>
@@ -587,6 +644,47 @@ const MonthlyStatement = ({ customerId }: Props) => {
           )}
         </TouchableOpacity>
       </View>
+      {/* ✅ WebView Modal for PDF Preview */}
+      <Modal
+        visible={previewVisible}
+        animationType="slide"
+        onRequestClose={handleClosePreview}
+      >
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              padding: 12,
+              backgroundColor: COLORS.primary,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+              Invoice Preview
+            </Text>
+            <TouchableOpacity onPress={handleClosePreview}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {pdfUrl ? (
+            <WebView
+              source={{ uri: pdfUrl }}
+              startInLoadingState
+              renderLoading={() => (
+                <ActivityIndicator
+                  size="large"
+                  color={COLORS.primary}
+                  style={{ marginTop: 20 }}
+                />
+              )}
+            />
+          ) : (
+            <Text style={{ textAlign: 'center', marginTop: 20 }}>
+              No PDF available
+            </Text>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -658,9 +756,17 @@ const CustomStatement = ({ customerId }: Props) => {
             textColor: '#fff',
           };
         } else if (d === startStr) {
-          marks[d] = { startingDay: true, color: COLORS.primary, textColor: '#fff' };
+          marks[d] = {
+            startingDay: true,
+            color: COLORS.primary,
+            textColor: '#fff',
+          };
         } else if (d === endStr) {
-          marks[d] = { endingDay: true, color: COLORS.primary, textColor: '#fff' };
+          marks[d] = {
+            endingDay: true,
+            color: COLORS.primary,
+            textColor: '#fff',
+          };
         } else {
           marks[d] = { color: '#E6F3FF', textColor: '#000' };
         }
@@ -678,20 +784,29 @@ const CustomStatement = ({ customerId }: Props) => {
 
   const handleViewStatement = () => {
     if (startDate && endDate) {
-      navigation.navigate('Invoice' as never, {
-        customerId,
-        from: startDate,
-        to: endDate,
-        type: 'custom',
-      } as never);
+      navigation.navigate(
+        'Invoice' as never,
+        {
+          customerId,
+          from: startDate,
+          to: endDate,
+          type: 'custom',
+        } as never,
+      );
     } else {
-      Alert.alert('Selection Required', 'Please select both From and To dates.');
+      Alert.alert(
+        'Selection Required',
+        'Please select both From and To dates.',
+      );
     }
   };
 
   const handleDownload = async () => {
     if (!startDate || !endDate) {
-      Alert.alert('Selection Required', 'Please select both From and To dates.');
+      Alert.alert(
+        'Selection Required',
+        'Please select both From and To dates.',
+      );
       return;
     }
     if (!customerId) {
@@ -705,11 +820,17 @@ const CustomStatement = ({ customerId }: Props) => {
         customerId,
         period: `${startDate} to ${endDate}`,
       });
-      Alert.alert('Success', response.data.message || 'Invoice generated and saved!');
+      Alert.alert(
+        'Success',
+        response.data.message || 'Invoice generated and saved!',
+      );
       // Optionally navigate to InvoiceHistoryScreen here
     } catch (error: any) {
       console.error('Failed to generate invoice:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to generate invoice.');
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Failed to generate invoice.',
+      );
     } finally {
       setLoading(false);
     }
@@ -745,6 +866,18 @@ const CustomStatement = ({ customerId }: Props) => {
         <View style={styles.actionsRow}>
           <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
             <Text style={styles.clearButtonText}>Clear</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.viewStatementButton,
+              styles.rowButton,
+              (!(startDate && endDate) || loading) && styles.disabledButton,
+            ]}
+            onPress={handleViewStatement}
+            disabled={!(startDate && endDate) || loading}
+          >
+            <Text style={styles.viewStatementButtonText}>View</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

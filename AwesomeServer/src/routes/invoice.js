@@ -14,8 +14,9 @@
 //   });
 // };
 
-import { getInvoice } from '../controllers/invoiceController.js';
+import { getInvoice, generateInvoice } from '../controllers/invoiceController.js';
 
 export const invoiceRoutes = async (fastify, options) => {
   fastify.get('/invoice', getInvoice);
+  fastify.post('/invoice/generate', generateInvoice);
 };

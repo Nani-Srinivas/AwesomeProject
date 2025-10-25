@@ -1,6 +1,6 @@
-import { AttendanceLog } from '../models/AttendanceLog.js';
-import { Customer } from '../models/User/Customer.js'; // Assuming Customer model is here
-import  StoreProduct  from '../models/Product/StoreProduct.js'; // Assuming StoreProduct model is here
+// import { AttendanceLog } from '../models/AttendanceLog.js';
+// import { Customer } from '../models/User/Customer.js'; // Assuming Customer model is here
+// import  StoreProduct  from '../models/Product/StoreProduct.js'; // Assuming StoreProduct model is here
 
 // export const getInvoice = async (request, reply) => {
 //   console.log('Server received invoice request:', JSON.stringify(request.query, null, 2));
@@ -108,7 +108,6 @@ import  StoreProduct  from '../models/Product/StoreProduct.js'; // Assuming Stor
 //     return reply.code(500).send({ message: 'Internal server error.' });
 //   }
 // };
-
 
 // export const getInvoice = async (request, reply) => {
 //   console.log('Server received invoice request:', JSON.stringify(request.query, null, 2));
@@ -218,8 +217,6 @@ import  StoreProduct  from '../models/Product/StoreProduct.js'; // Assuming Stor
 //     return reply.code(500).send({ message: 'Internal server error.' });
 //   }
 // };
-
-
 
 // export const getInvoice = async (request, reply) => {
 //   console.log('Server received invoice request:', JSON.stringify(request.query, null, 2));
@@ -366,19 +363,22 @@ import  StoreProduct  from '../models/Product/StoreProduct.js'; // Assuming Stor
 //   }
 // };
 
-
-
 export const getInvoice = async (request, reply) => {
-  console.log('Server received invoice request:', JSON.stringify(request.query, null, 2));
+  console.log(
+    "Server received invoice request:",
+    JSON.stringify(request.query, null, 2)
+  );
   try {
     const { customerId, period } = request.query;
 
     if (!customerId || !period) {
-      return reply.code(400).send({ message: 'Customer ID and period are required.' });
+      return reply
+        .code(400)
+        .send({ message: "Customer ID and period are required." });
     }
 
     // Parse the period (e.g., "October 2025") into start and end dates
-    const [monthName, yearString] = period.split(' ');
+    const [monthName, yearString] = period.split(" ");
     const year = parseInt(yearString, 10);
     const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth(); // 0-indexed month
 
@@ -386,24 +386,28 @@ export const getInvoice = async (request, reply) => {
     const endDate = new Date(year, monthIndex + 1, 0); // Last day of the month
 
     // Fetch customer details
-    const customer = await Customer.findById(customerId).select('name address phone deliveryCost').lean();
+    const customer = await Customer.findById(customerId)
+      .select("name address phone deliveryCost")
+      .lean();
     if (!customer) {
-      return reply.code(404).send({ message: 'Customer not found.' });
+      return reply.code(404).send({ message: "Customer not found." });
     }
 
     // Query AttendanceLog for delivered products for this customer within the period
     const attendanceRecords = await AttendanceLog.find({
       date: { $gte: startDate, $lte: endDate },
-      'attendance.customerId': customerId,
-    }).sort({ date: 1 }).lean(); // Sort by date ascending
+      "attendance.customerId": customerId,
+    })
+      .sort({ date: 1 })
+      .lean(); // Sort by date ascending
 
     // Structure: Map of { date: { productId: quantity } }
     const dateWiseMap = new Map();
 
-    attendanceRecords.forEach(record => {
-      const dateKey = record.date.toISOString().split('T')[0];
+    attendanceRecords.forEach((record) => {
+      const dateKey = record.date.toISOString().split("T")[0];
       const customerAttendance = record.attendance.find(
-        att => att.customerId.toString() === customerId
+        (att) => att.customerId.toString() === customerId
       );
 
       if (customerAttendance) {
@@ -412,8 +416,8 @@ export const getInvoice = async (request, reply) => {
         }
         const productsMap = dateWiseMap.get(dateKey);
 
-        customerAttendance.products.forEach(productEntry => {
-          if (productEntry.status === 'delivered') {
+        customerAttendance.products.forEach((productEntry) => {
+          if (productEntry.status === "delivered") {
             const pId = productEntry.productId.toString();
             const currentQty = productsMap.get(pId) || 0;
             productsMap.set(pId, currentQty + productEntry.quantity);
@@ -424,16 +428,18 @@ export const getInvoice = async (request, reply) => {
 
     // Get all unique product IDs
     const allProductIds = new Set();
-    dateWiseMap.forEach(productsMap => {
+    dateWiseMap.forEach((productsMap) => {
       productsMap.forEach((qty, pId) => allProductIds.add(pId));
     });
 
     // Fetch product details
     const storeProducts = await StoreProduct.find({
       _id: { $in: Array.from(allProductIds) },
-    }).select('name price').lean();
+    })
+      .select("name price")
+      .lean();
 
-    const productMap = new Map(storeProducts.map(p => [p._id.toString(), p]));
+    const productMap = new Map(storeProducts.map((p) => [p._id.toString(), p]));
 
     // Build invoice items (one row per date with product details array)
     let totalItemsAmount = 0;
@@ -442,7 +448,7 @@ export const getInvoice = async (request, reply) => {
     // Sort dates
     const sortedDates = Array.from(dateWiseMap.keys()).sort();
 
-    sortedDates.forEach(date => {
+    sortedDates.forEach((date) => {
       const productsMap = dateWiseMap.get(date);
       let dateTotal = 0;
       const products = [];
@@ -475,16 +481,18 @@ export const getInvoice = async (request, reply) => {
 
     const invoiceData = {
       billNo: `INV-${Date.now()}-${customerId.substring(0, 5)}`,
-      fromDate: startDate.toISOString().split('T')[0],
-      toDate: endDate.toISOString().split('T')[0],
+      fromDate: startDate.toISOString().split("T")[0],
+      toDate: endDate.toISOString().split("T")[0],
       company: {
-        name: 'Your Company Name', // TODO: Make this configurable
-        address: '12445 Street Name, Denver Co, 58786', // TODO: Make this configurable
-        phone: '76785875855', // TODO: Make this configurable
+        name: "Your Company Name", // TODO: Make this configurable
+        address: "12445 Street Name, Denver Co, 58786", // TODO: Make this configurable
+        phone: "76785875855", // TODO: Make this configurable
       },
       customer: {
         name: customer.name,
-        address: `${customer.address?.FlatNo || ''}, ${customer.address?.Apartment || ''}, ${customer.address?.city || ''}`,
+        address: `${customer.address?.FlatNo || ""}, ${
+          customer.address?.Apartment || ""
+        }, ${customer.address?.city || ""}`,
         phone: customer.phone,
       },
       items: invoiceItems,
@@ -493,8 +501,300 @@ export const getInvoice = async (request, reply) => {
     };
 
     return reply.code(200).send(invoiceData);
+    console.log("Invoice data:", invoiceData);
   } catch (error) {
-    console.error('Error generating invoice:', error);
-    return reply.code(500).send({ message: 'Internal server error.' });
+    console.error("Error generating invoice:", error);
+    return reply.code(500).send({ message: "Internal server error." });
   }
 };
+
+// controllers/invoiceController.js
+import Invoice from "../models/Invoice.js";
+import { AttendanceLog } from "../models/AttendanceLog.js";
+import { Customer } from "../models/User/Customer.js"; // Assuming Customer model is here
+import StoreProduct from "../models/Product/StoreProduct.js"; // Assuming StoreProduct model is here
+import { renderHtmlToPdfBuffer } from "../utils/pdfHelper.js";
+import cloudinary from "../config/cloudinary.js";
+
+// ✅ POST /invoice/generate
+export const generateInvoice = async (request, reply) => {
+  try {
+    const { customerId, period, generatedBy } = request.body;
+
+    if (!customerId || !period) {
+      return reply
+        .code(400)
+        .send({ message: "customerId and period are required" });
+    }
+
+    // --- Parse the billing period ---
+    const cleaned = period.replace(/\s+/g, "");
+    const match = cleaned.match(/^([A-Za-z]+)(\d{4})$/);
+    if (!match) {
+      return reply
+        .code(400)
+        .send({ message: 'period format invalid. Use e.g. "October 2025"' });
+    }
+
+    const [, monthName, yearString] = match;
+    const year = parseInt(yearString, 10);
+    const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+    const startDate = new Date(year, monthIndex, 1);
+    const endDate = new Date(year, monthIndex + 1, 0);
+
+    // --- Fetch customer ---
+    const customer = await Customer.findById(customerId)
+      .select("name address phone deliveryCost")
+      .lean();
+    if (!customer)
+      return reply.code(404).send({ message: "Customer not found" });
+
+    // --- Fetch attendance records ---
+    const attendanceRecords = await AttendanceLog.find({
+      date: { $gte: startDate, $lte: endDate },
+      "attendance.customerId": customerId,
+    })
+      .sort({ date: 1 })
+      .lean();
+
+    // --- Build date-wise map of delivered products ---
+    const dateWiseMap = new Map();
+
+    attendanceRecords.forEach((record) => {
+      const dateKey = record.date.toISOString().split("T")[0];
+      const customerAttendance = record.attendance.find(
+        (att) => att.customerId.toString() === customerId
+      );
+
+      if (customerAttendance) {
+        if (!dateWiseMap.has(dateKey)) dateWiseMap.set(dateKey, new Map());
+        const productsMap = dateWiseMap.get(dateKey);
+
+        customerAttendance.products.forEach((prod) => {
+          if (prod.status === "delivered") {
+            const pId = prod.productId.toString();
+            const current = productsMap.get(pId) || 0;
+            productsMap.set(pId, current + prod.quantity);
+          }
+        });
+      }
+    });
+
+    // --- Get all product IDs and fetch details ---
+    const allProductIds = new Set();
+    dateWiseMap.forEach((productsMap) => {
+      productsMap.forEach((_qty, pId) => allProductIds.add(pId));
+    });
+
+    const storeProducts = await StoreProduct.find({
+      _id: { $in: Array.from(allProductIds) },
+    })
+      .select("name price")
+      .lean();
+
+    const productMap = new Map(storeProducts.map((p) => [p._id.toString(), p]));
+
+    // --- Build invoice items ---
+    let totalItemsAmount = 0;
+    const invoiceItems = [];
+
+    const sortedDates = Array.from(dateWiseMap.keys()).sort();
+    sortedDates.forEach((date) => {
+      const productsMap = dateWiseMap.get(date);
+      let dateTotal = 0;
+      const products = [];
+
+      productsMap.forEach((quantity, productId) => {
+        const productInfo = productMap.get(productId);
+        if (productInfo) {
+          const itemTotal = quantity * productInfo.price;
+          dateTotal += itemTotal;
+          products.push({
+            name: productInfo.name,
+            quantity,
+            price: productInfo.price,
+            itemTotal,
+          });
+        }
+      });
+
+      totalItemsAmount += dateTotal;
+
+      invoiceItems.push({
+        date,
+        products,
+        total: dateTotal.toFixed(2),
+      });
+    });
+
+    const deliveryCharges = customer.deliveryCost || 0;
+    const grandTotal = totalItemsAmount + deliveryCharges;
+
+    // --- Build invoice data ---
+    const invoiceData = {
+      billNo: `INV-${Date.now()}-${customerId.toString().substring(0, 5)}`,
+      fromDate: startDate.toISOString().split("T")[0],
+      toDate: endDate.toISOString().split("T")[0],
+      company: {
+        name: process.env.COMPANY_NAME || "Your Company Name",
+        address:
+          process.env.COMPANY_ADDRESS || "12445 Street Name, Denver Co, 58786",
+        phone: process.env.COMPANY_PHONE || "0000000000",
+      },
+      customer: {
+        name: customer.name,
+        address: `${customer.address?.FlatNo || ""}, ${
+          customer.address?.Apartment || ""
+        }, ${customer.address?.city || ""}`,
+        phone: customer.phone,
+      },
+      items: invoiceItems,
+      deliveryCharges: deliveryCharges.toFixed(2),
+      grandTotal: grandTotal.toFixed(2),
+    };
+
+    // --- Generate HTML for PDF ---
+    const html = buildHtmlFromInvoiceData(invoiceData);
+
+    // --- Render HTML to PDF ---
+    const pdfBuffer = await renderHtmlToPdfBuffer(html);
+
+    // --- Upload to Cloudinary ---
+    const publicId = `invoices/${customerId.toString()}/${invoiceData.billNo}`;
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: "auto", // ✅ detects pdf automatically
+          format: "pdf", // ✅ ensures Cloudinary tags it as PDF
+          folder: "invoices", // ✅ organized storage
+          public_id: publicId,
+          overwrite: true,
+        },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      uploadStream.end(pdfBuffer);
+    });
+    
+
+    
+
+    // --- Save invoice metadata in MongoDB ---
+    const invoiceDoc = await Invoice.create({
+      billNo: invoiceData.billNo,
+      customerId,
+      fromDate: invoiceData.fromDate,
+      toDate: invoiceData.toDate,
+      items: invoiceData.items,
+      deliveryCharges: invoiceData.deliveryCharges,
+      grandTotal: invoiceData.grandTotal,
+      cloudinary: {
+        public_id: uploadResult.public_id,
+        url: uploadResult.url,
+        secure_url: uploadResult.secure_url,
+        bytes: uploadResult.bytes,
+        resource_type: uploadResult.resource_type,
+      },
+      generatedBy: generatedBy || "system",
+    });
+    console.log(cloudinary.url(uploadResult.public_id))
+    // --- Return combined result ---
+    return reply.code(201).send({
+      message: "Invoice generated successfully",
+      preview: invoiceData,
+      pdf: {
+        url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
+      },
+      dbRecord: {
+        id: invoiceDoc._id,
+        billNo: invoiceDoc.billNo,
+      },
+    }, 
+  );
+  } catch (error) {
+    console.error("Error generating invoice:", error);
+    return reply.code(500).send({ message: "Internal server error." });
+  }
+};
+
+// ---------------- Helper: Build HTML Template ----------------
+function escapeHtml(str = "") {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildHtmlFromInvoiceData(data) {
+  const productsHTML = data.items
+    .map(
+      (i) => `
+      <tr>
+        <td>${i.date}</td>
+        <td>
+          ${i.products
+            .map(
+              (p) =>
+                `${escapeHtml(p.name)} (${p.quantity} × ₹${p.price.toFixed(2)})`
+            )
+            .join("<br/>")}
+        </td>
+        <td>₹${i.total}</td>
+      </tr>`
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+  <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:Arial,sans-serif;padding:20px;background:white;}
+    .invoice-container{max-width:800px;margin:0 auto;}
+    .header{text-align:right;margin-bottom:20px;}
+    .header h1{font-size:24px;margin-bottom:8px;}
+    .info-row{display:flex;justify-content:space-between;margin-bottom:20px;}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+    th { background-color: #ddddddff; }
+  </style></head><body>
+  <div class="invoice-container">
+    <div class="header">
+      <h1>Invoice</h1>
+      <p>Bill#: ${data.billNo}</p>
+      <p>Period: ${data.fromDate} → ${data.toDate}</p>
+    </div>
+    <div class="info-row">
+      <div>
+        <h3>${data.company.name}</h3>
+        <p>${data.company.address}</p>
+        <p>P: ${data.company.phone}</p>
+      </div>
+      <div>
+        <p><strong>Bill To:</strong> ${data.customer.name}</p>
+        <p><strong>Address:</strong> ${data.customer.address}</p>
+        <p><strong>Phone:</strong> ${data.customer.phone}</p>
+      </div>
+    </div>
+      <table border="1" width="100%" cellspacing="0" cellpadding="8">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Products</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${productsHTML}
+        </tbody>
+      </table>
+    <div style="text-align:right;">
+      <p>Delivery Charges: ₹${data.deliveryCharges}</p>
+      <p style="font-size:18px;font-weight:700;">Grand Total: ₹${data.grandTotal}</p>
+    </div>
+  </div>
+  </body></html>`;
+}
