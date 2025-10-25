@@ -29,11 +29,13 @@ const CustomerCard = ({
   customer,
   onPress,
   onViewBill,
+  onViewHistory, // Added new prop
   onEdit,
 }: {
   customer: any;
   onPress: () => void;
   onViewBill: () => void;
+  onViewHistory: () => void; // Added new prop type
   onEdit: () => void;
 }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
@@ -51,6 +53,9 @@ const CustomerCard = ({
     <View style={styles.iconContainer}>
       <TouchableOpacity onPress={onViewBill}>
         <Feather name="file-text" size={20} color={COLORS.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onViewHistory} style={{ marginLeft: 16 }}>
+        <Feather name="archive" size={20} color={COLORS.primary} />
       </TouchableOpacity>
       <TouchableOpacity onPress={onEdit} style={{ marginLeft: 16 }}>
         <Feather name="edit-2" size={20} color={COLORS.text} />
@@ -89,6 +94,10 @@ export const BillsScreen = ({ navigation, route }: { navigation: any; route: any
 
   const handleViewBillPress = (customer: any) => {
     navigation.navigate('StatementPeriodSelection', { customerId: customer.id });
+  };
+
+  const handleViewHistoryPress = (customer: any) => { // New handler
+    navigation.navigate('InvoiceHistory', { customerId: customer.id });
   };
 
   const handleEditPress = (customer: any) => {
@@ -144,6 +153,7 @@ export const BillsScreen = ({ navigation, route }: { navigation: any; route: any
             customer={item}
             onPress={() => handleCustomerPress(item)}
             onViewBill={() => handleViewBillPress(item)}
+            onViewHistory={() => handleViewHistoryPress(item)} // Pass new handler
             onEdit={() => handleEditPress(item)}
           />
         )}

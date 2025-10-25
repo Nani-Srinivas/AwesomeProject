@@ -2192,7 +2192,7 @@ const handleSharePDF = async () => {
     const shareOptions = {
       title: `Invoice ${invoiceData.billNo}`,
       message: `Invoice for ${invoiceData.customer.name}`,
-      url: `application/pdf;base64,${file.base64}`, // ← Still missing ''! Fix below
+      url: `application/pdf;base64,${file.base64}`,
       filename: `Invoice_${invoiceData.billNo}.pdf`,
     };
 
@@ -2501,3 +2501,30 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 });
+
+// import React, { Component } from 'react';
+
+// import { Text, TouchableHighlight, View } from 'react-native';
+
+// import { generatePDF } from 'react-native-html-to-pdf';
+
+// export default function  InvoiceScreen() {
+//   const generatePdf = async () => {
+//     let options = {
+//       html: '<h1>PDF TEST</h1>',
+//       fileName: 'test',
+//       base64: true,
+//     };
+
+//     let results = await generatePDF(options);
+//     console.log(results);
+//   }
+
+//     return (
+//       <View>
+//         <TouchableHighlight onPress={generatePdf}>
+//           <Text>Create PDF</Text>
+//         </TouchableHighlight>
+//       </View>
+//     );
+// }

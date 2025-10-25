@@ -17,12 +17,13 @@ import { AddAttendance } from '../../screens/Attendance/AddAttendance';
 import { BillsScreen } from '../../screens/Bills/BillsScreen'; // New basic BillsScreen
 import { PayableTempScreen } from '../../screens/PayableTemp/PayableTempScreen'; // Renamed BillsScreen
 import { StatementPeriodSelection } from '../../screens/Bills/StatementPeriodSelectionScreen';
-import { InvoiceScreen } from '../../screens/Bills/InvoiceScreen';
+import { InvoiceScreen }  from '../../screens/Bills/InvoiceScreen';
 import { OrderScreen } from '../../screens/Order/OrderScreen';
 import { StoreCreationScreen } from '../../screens/StoreManagement/StoreCreationScreen';
 import { SelectCategoryScreen } from '../../screens/StoreManagement/SelectCategoryScreen';
 import { SelectProductScreen } from '../../screens/StoreManagement/SelectProductScreen';
 import { CardsScreen } from '../../screens/Cards/CardsScreen';
+import { InvoiceHistoryScreen } from '../../screens/Bills/InvoiceHistoryScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -53,6 +54,7 @@ export const MainStack = () => {
       <Stack.Screen name="SelectCategory" component={SelectCategoryScreen} options={{ title: 'Select Category' }} />
       <Stack.Screen name="SelectProduct" component={SelectProductScreen} options={{ title: 'Select Product' }} />
       <Stack.Screen name="Cards" component={CardsScreen} options={{ title: 'Cards' }} />
+      <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} options={{ title: 'Invoice History' }} />
 
     </Stack.Navigator>
   );

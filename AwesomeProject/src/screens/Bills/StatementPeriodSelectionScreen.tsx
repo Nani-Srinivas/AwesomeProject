@@ -435,11 +435,13 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Calendar } from 'react-native-calendars';
 import { COLORS } from '../../constants/colors';
 import { useNavigation } from '@react-navigation/native';
+import { apiService } from '../../services/apiService'; // Import apiService
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -448,6 +450,7 @@ type Props = { customerId?: string };
 // --- Monthly tab ---
 const MonthlyStatement = ({ customerId }: Props) => {
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false); // Added loading state
   const navigation = useNavigation();
 
   const currentYear = new Date().getFullYear();
@@ -480,11 +483,29 @@ const MonthlyStatement = ({ customerId }: Props) => {
     }
   };
 
-  const handleDownload = () => {
-    if (selectedPeriod) {
-      Alert.alert('Download', `Downloading statement for ${selectedPeriod}...`);
-    } else {
+  const handleDownload = async () => {
+    if (!selectedPeriod) {
       Alert.alert('Selection Required', 'Please select a statement period.');
+      return;
+    }
+    if (!customerId) {
+      Alert.alert('Error', 'Customer ID is missing.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiService.post('/invoices/generate', {
+        customerId,
+        period: selectedPeriod,
+      });
+      Alert.alert('Success', response.data.message || 'Invoice generated and saved!');
+      // Optionally navigate to InvoiceHistoryScreen here
+    } catch (error: any) {
+      console.error('Failed to generate invoice:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to generate invoice.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -543,10 +564,10 @@ const MonthlyStatement = ({ customerId }: Props) => {
           style={[
             styles.viewStatementButton,
             styles.rowButton,
-            !selectedPeriod && styles.disabledButton,
+            (!selectedPeriod || loading) && styles.disabledButton,
           ]}
           onPress={handleViewStatement}
-          disabled={!selectedPeriod}
+          disabled={!selectedPeriod || loading}
         >
           <Text style={styles.viewStatementButtonText}>View Statement</Text>
         </TouchableOpacity>
@@ -554,12 +575,16 @@ const MonthlyStatement = ({ customerId }: Props) => {
         <TouchableOpacity
           style={[
             styles.downloadButton,
-            !selectedPeriod && styles.disabledButton,
+            (!selectedPeriod || loading) && styles.disabledButton,
           ]}
           onPress={handleDownload}
-          disabled={!selectedPeriod}
+          disabled={!selectedPeriod || loading}
         >
-          <Text style={styles.downloadButtonText}>Download</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={COLORS.text} />
+          ) : (
+            <Text style={styles.downloadButtonText}>Download</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -571,6 +596,7 @@ const CustomStatement = ({ customerId }: Props) => {
   const today = new Date().toISOString().split('T')[0];
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false); // Added loading state
   const navigation = useNavigation();
 
   const onDayPress = (day: { dateString: string }) => {
@@ -663,11 +689,29 @@ const CustomStatement = ({ customerId }: Props) => {
     }
   };
 
-  const handleDownload = () => {
-    if (startDate && endDate) {
-      Alert.alert('Download', `Downloading statement from ${startDate} to ${endDate}...`);
-    } else {
+  const handleDownload = async () => {
+    if (!startDate || !endDate) {
       Alert.alert('Selection Required', 'Please select both From and To dates.');
+      return;
+    }
+    if (!customerId) {
+      Alert.alert('Error', 'Customer ID is missing.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiService.post('/invoices/generate', {
+        customerId,
+        period: `${startDate} to ${endDate}`,
+      });
+      Alert.alert('Success', response.data.message || 'Invoice generated and saved!');
+      // Optionally navigate to InvoiceHistoryScreen here
+    } catch (error: any) {
+      console.error('Failed to generate invoice:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to generate invoice.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -707,10 +751,10 @@ const CustomStatement = ({ customerId }: Props) => {
             style={[
               styles.viewStatementButton,
               styles.rowButton,
-              !(startDate && endDate) && styles.disabledButton,
+              (!(startDate && endDate) || loading) && styles.disabledButton,
             ]}
             onPress={handleViewStatement}
-            disabled={!(startDate && endDate)}
+            disabled={!(startDate && endDate) || loading}
           >
             <Text style={styles.viewStatementButtonText}>View</Text>
           </TouchableOpacity>
@@ -718,12 +762,16 @@ const CustomStatement = ({ customerId }: Props) => {
           <TouchableOpacity
             style={[
               styles.downloadButton,
-              !(startDate && endDate) && styles.disabledButton,
+              (!(startDate && endDate) || loading) && styles.disabledButton,
             ]}
             onPress={handleDownload}
-            disabled={!(startDate && endDate)}
+            disabled={!(startDate && endDate) || loading}
           >
-            <Text style={styles.downloadButtonText}>↓</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={COLORS.text} />
+            ) : (
+              <Text style={styles.downloadButtonText}>↓</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
