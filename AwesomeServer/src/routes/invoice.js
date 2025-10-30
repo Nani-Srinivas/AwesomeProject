@@ -14,9 +14,12 @@
 //   });
 // };
 
-import { getInvoice, generateInvoice } from '../controllers/invoiceController.js';
+import { getInvoice, generateInvoice, getCustomerInvoices, regenerateInvoice, deleteInvoice } from '../controllers/invoiceController.js';
 
 export const invoiceRoutes = async (fastify, options) => {
   fastify.get('/invoice', getInvoice);
   fastify.post('/invoice/generate', generateInvoice);
+  fastify.get('/invoice/customer/:customerId', getCustomerInvoices);
+  fastify.post('/invoice/regenerate/:invoiceId', regenerateInvoice);
+  fastify.delete('/invoice/:invoiceId', deleteInvoice);
 };

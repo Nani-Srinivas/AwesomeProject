@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator, Dimensions, TextInput } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { EditCustomerModal } from '../../components/customer/EditCustomerModal';
@@ -46,6 +46,7 @@ const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill }: { cus
 
 export const CustomerListScreen = ({ navigation, route }: { navigation: any, route: any }) => {
   const [filter, setFilter] = useState(route.params?.filter || 'All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState([]);
   const [areas, setAreas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,11 +92,21 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   }, []);
 
   const filteredCustomers = useMemo(() => {
-    if (filter === 'All') {
-      return customers;
+    let list = customers;
+    if (filter !== 'All') {
+      list = list.filter((customer: any) => customer.Bill === filter);
     }
-    return customers.filter((customer: any) => customer.Bill === filter);
-  }, [filter, customers]);
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (customer: any) =>
+          customer.name.toLowerCase().includes(q) ||
+          customer.phone.toLowerCase().includes(q) ||
+          customer._id.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [filter, searchQuery, customers]);
 
   const handleCustomerPress = (customer: any) => {
     navigation.navigate('Details', { customer });
@@ -191,6 +202,17 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
 
   return (
     <View style={styles.container}>
+      {/* 🔍 Search bar */}
+      <View style={styles.searchContainer}>
+        <Feather name="search" size={18} color="#6B6B6B" style={{ marginRight: 8 }} />
+        <TextInput
+          placeholder="Search by name, contact or ID"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={styles.searchInput}
+        />
+      </View>
+
       <View style={styles.filterContainer}>
         <TouchableOpacity style={[styles.filterTab, filter === 'All' && styles.activeTab]} onPress={() => setFilter('All')}>
           <Text style={[styles.filterText, filter === 'All' && styles.activeFilterText]}>All</Text>
@@ -327,6 +349,20 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginLeft: 15,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1C1C1C',
   },
   fab: {
     position: 'absolute',

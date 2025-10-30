@@ -32,6 +32,7 @@ import mongoose from 'mongoose';
 const InvoiceSchema = new mongoose.Schema({
   billNo: { type: String, required: true, index: true },
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
+  period: { type: String, required: true, trim: true },
   fromDate: String,
   toDate: String,
   items: Array,
@@ -47,6 +48,8 @@ const InvoiceSchema = new mongoose.Schema({
   createdAt: { type: Date, default: () => new Date() },
   generatedBy: { type: String }, // optional (user id / system)
 }, { timestamps: true });
+
+  InvoiceSchema.index({ customerId: 1, period: 1 }, { unique: true });
 
 const Invoice = mongoose.connection.models.Invoice || mongoose.model('Invoice', InvoiceSchema);
 export default Invoice;

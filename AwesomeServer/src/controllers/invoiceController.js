@@ -805,63 +805,711 @@ import cloudinary from "../config/cloudinary.js";
  * POST /invoice/generate
  * body: { customerId, period }    OR   { customerId, from, to }
  */
+// export const generateInvoice = async (request, reply) => {
+//   try {
+//     const { customerId, period, from, to, generatedBy } = request.body || {};
+
+//     if (!customerId) {
+//       return reply.code(400).send({ message: "customerId is required" });
+//     }
+
+//     // Determine date range
+//     let startDate, endDate;
+//     if (from && to) {
+//       startDate = new Date(from);
+//       endDate = new Date(to);
+//       // normalize
+//       startDate.setHours(0, 0, 0, 0);
+//       endDate.setHours(23, 59, 59, 999);
+//     } else if (period) {
+//       // Accept "October 2025", "Oct 2025", "October, 2025"
+//       const parts = period.replace(",", " ").trim().split(/\s+/);
+//       if (parts.length < 2) {
+//         return reply.code(400).send({ message: 'period format invalid. Use "October 2025" or provide from/to' });
+//       }
+//       const monthName = parts[0];
+//       const year = parseInt(parts[1], 10);
+//       if (isNaN(year)) return reply.code(400).send({ message: "period year invalid" });
+//       const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+//       startDate = new Date(year, monthIndex, 1);
+//       endDate = new Date(year, monthIndex + 1, 0);
+//       startDate.setHours(0, 0, 0, 0);
+//       endDate.setHours(23, 59, 59, 999);
+//     } else {
+//       return reply.code(400).send({ message: "Either period or from/to must be provided" });
+//     }
+
+//     // Fetch customer
+//     const customer = await Customer.findById(customerId).select("name address phone deliveryCost").lean();
+//     if (!customer) return reply.code(404).send({ message: "Customer not found" });
+
+//     // Fetch attendance using elemMatch for the customer
+//     const attendanceRecords = await AttendanceLog.find({
+//       date: { $gte: startDate, $lte: endDate },
+//       attendance: { $elemMatch: { customerId } },
+//     }).sort({ date: 1 }).lean();
+
+//     if (!attendanceRecords || attendanceRecords.length === 0) {
+//       return reply.code(404).send({ message: "No attendance records found for this period." });
+//     }
+
+//     // Build date-wise map of delivered products
+//     const dateWiseMap = new Map();
+//     for (const record of attendanceRecords) {
+//       const dateKey = record.date.toISOString().split("T")[0];
+//       const customerAttendance = (record.attendance || []).find(att => String(att.customerId) === String(customerId));
+//       if (!customerAttendance) continue;
+//       if (!dateWiseMap.has(dateKey)) dateWiseMap.set(dateKey, new Map());
+//       const productsMap = dateWiseMap.get(dateKey);
+//       for (const prod of (customerAttendance.products || [])) {
+//         if (prod.status === "delivered") {
+//           const pId = String(prod.productId);
+//           const current = productsMap.get(pId) || 0;
+//           productsMap.set(pId, current + (prod.quantity || 0));
+//         }
+//       }
+//     }
+
+//     // Collect all product ids
+//     const allProductIds = Array.from(new Set([...Array.from(dateWiseMap.values()).flatMap(m => Array.from(m.keys()))]));
+//     const storeProducts = allProductIds.length > 0
+//       ? await StoreProduct.find({ _id: { $in: allProductIds } }).select("name price").lean()
+//       : [];
+
+//     const productMap = new Map(storeProducts.map(p => [String(p._id), p]));
+
+//     // Build invoice items
+//     let totalItemsAmount = 0;
+//     const invoiceItems = [];
+//     const sortedDates = Array.from(dateWiseMap.keys()).sort();
+//     for (const date of sortedDates) {
+//       const productsMap = dateWiseMap.get(date);
+//       let dateTotal = 0;
+//       const products = [];
+//       for (const [productId, quantity] of productsMap.entries()) {
+//         const productInfo = productMap.get(productId);
+//         if (!productInfo) continue;
+//         const itemTotal = (quantity || 0) * (productInfo.price || 0);
+//         dateTotal += itemTotal;
+//         products.push({
+//           name: productInfo.name,
+//           quantity,
+//           price: productInfo.price,
+//           itemTotal: itemTotal.toFixed(2),
+//         });
+//       }
+//       if (products.length > 0) {
+//         totalItemsAmount += dateTotal;
+//         invoiceItems.push({ date, products, total: dateTotal.toFixed(2) });
+//       }
+//     }
+
+//     const deliveryCharges = parseFloat(customer.deliveryCost || 0);
+//     const grandTotal = totalItemsAmount + deliveryCharges;
+
+//     const invoiceData = {
+//       billNo: `INV-${Date.now()}-${String(customerId).slice(0, 6)}`,
+//       fromDate: startDate.toISOString().split("T")[0],
+//       toDate: endDate.toISOString().split("T")[0],
+//       company: {
+//         name: process.env.COMPANY_NAME || "Your Company",
+//         address: process.env.COMPANY_ADDRESS || "Company address",
+//         phone: process.env.COMPANY_PHONE || "0000000000",
+//         logo: process.env.COMPANY_LOGO || null,
+//       },
+//       customer: {
+//         name: customer.name,
+//         address: `${customer.address?.FlatNo || ""} ${customer.address?.Apartment || ""} ${customer.address?.city || ""}`.trim(),
+//         phone: customer.phone,
+//       },
+//       items: invoiceItems,
+//       deliveryCharges: deliveryCharges.toFixed(2),
+//       grandTotal: grandTotal.toFixed(2),
+//       generatedAt: new Date(),
+//     };
+
+//     const html = buildHtmlFromInvoiceData(invoiceData);
+//     const pdfBuffer = await renderHtmlToPdfBuffer(html);
+
+//     // Upload PDF to Cloudinary (wrapped in try/catch)
+//     let uploadResult;
+//     try {
+//       uploadResult = await new Promise((resolve, reject) => {
+//         const publicId = `invoices/${customerId}/${invoiceData.billNo}`;
+//         const uploadStream = cloudinary.uploader.upload_stream(
+//           {
+//             resource_type: "auto",
+//             format: "pdf",
+//             folder: "invoices",
+//             public_id: publicId,
+//             overwrite: true,
+//           },
+//           (err, res) => (err ? reject(err) : resolve(res))
+//         );
+//         uploadStream.end(pdfBuffer);
+//       });
+//     } catch (uploadErr) {
+//       console.error("Cloudinary upload failed:", uploadErr);
+//       return reply.code(500).send({ message: "Failed to upload PDF to storage." });
+//     }
+
+//     // Save invoice metadata
+//     const invoiceDoc = await Invoice.create({
+//       billNo: invoiceData.billNo,
+//       customerId,
+//       fromDate: invoiceData.fromDate,
+//       toDate: invoiceData.toDate,
+//       items: invoiceData.items,
+//       deliveryCharges: invoiceData.deliveryCharges,
+//       grandTotal: invoiceData.grandTotal,
+//       cloudinary: {
+//         public_id: uploadResult.public_id,
+//         url: uploadResult.url,
+//         secure_url: uploadResult.secure_url,
+//         bytes: uploadResult.bytes,
+//         resource_type: uploadResult.resource_type,
+//       },
+//       generatedBy: generatedBy || "system",
+//       generatedAt: invoiceData.generatedAt,
+//     });
+
+//     console.log("Invoice uploaded:", uploadResult.secure_url);
+
+//     return reply.code(201).send({
+//       message: "Invoice generated successfully",
+//       preview: invoiceData,
+//       pdf: {
+//         url: uploadResult.secure_url,
+//         public_id: uploadResult.public_id,
+//       },
+//       dbRecord: { id: invoiceDoc._id, billNo: invoiceDoc.billNo },
+//     });
+//   } catch (error) {
+//     console.error("Error generating invoice:", error);
+//     return reply.code(500).send({ message: "Internal server error." });
+//   }
+// };
+
+// // ---------------- Helper: Build HTML Template ----------------
+// function escapeHtml(str = "") {
+//   return String(str)
+//     .replace(/&/g, "&amp;")
+//     .replace(/</g, "&lt;")
+//     .replace(/>/g, "&gt;")
+//     .replace(/"/g, "&quot;");
+// }
+
+// function money(val) {
+//   return Number(val).toLocaleString("en-IN", { style: "currency", currency: "INR" });
+// }
+
+// function buildHtmlFromInvoiceData(data) {
+//   const productsHTML = data.items
+//     .map(
+//       (i) => `
+//       <tr>
+//         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">${escapeHtml(i.date)}</td>
+//         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">
+//           ${i.products
+//             .map((p) => `${escapeHtml(p.name)} (${p.quantity} × ${money(p.price)})`)
+//             .join("<br/>")}
+//         </td>
+//         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">${money(i.total)}</td>
+//       </tr>`
+//     )
+//     .join("");
+
+//   return `<!DOCTYPE html>
+//   <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+//   <style>
+//     body{font-family:Arial,Helvetica,sans-serif;color:#222;padding:20px;}
+//     .invoice{max-width:800px;margin:0 auto;}
+//     .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+//     .company{font-weight:700}
+//     table{width:100%;border-collapse:collapse;margin-top:12px;}
+//     th,td{border:1px solid #ddd;padding:8px;text-align:left;}
+//     th{background:#f2f2f2;}
+//     .totals{margin-top:12px;text-align:right;}
+//   </style></head><body>
+//   <div class="invoice">
+//     <div class="header">
+//       <div>
+//         <div class="company">${escapeHtml(data.company.name)}</div>
+//         <div>${escapeHtml(data.company.address)}</div>
+//         <div>Phone: ${escapeHtml(data.company.phone)}</div>
+//       </div>
+//       <div style="text-align:right">
+//         ${data.company.logo ? `<img src="${escapeHtml(data.company.logo)}" alt="logo" style="max-height:80px" />` : ""}
+//         <div>Bill#: ${escapeHtml(data.billNo)}</div>
+//         <div>Period: ${escapeHtml(data.fromDate)} → ${escapeHtml(data.toDate)}</div>
+//       </div>
+//     </div>
+
+//     <div>
+//       <strong>Bill To:</strong> ${escapeHtml(data.customer.name)} <br/>
+//       <strong>Address:</strong> ${escapeHtml(data.customer.address)} <br/>
+//       <strong>Phone:</strong> ${escapeHtml(data.customer.phone)}
+//     </div>
+
+//     <table>
+//       <thead><tr><th>Date</th><th>Products</th><th>Total</th></tr></thead>
+//       <tbody>
+//         ${productsHTML}
+//       </tbody>
+//     </table>
+
+//     <div class="totals">
+//       <div>Delivery Charges: ${money(data.deliveryCharges)}</div>
+//       <div style="font-size:18px;font-weight:700;">Grand Total: ${money(data.grandTotal)}</div>
+//     </div>
+//   </div>
+//   </body></html>`;
+// }
+
+
+
+// =====================================================
+// INVOICE CONTROLLER - Backend with Duplicate Prevention
+// =====================================================
+
+
+// ==================== GENERATE INVOICE ====================
+import mongoose from "mongoose";
+
+// export const generateInvoice = async (request, reply) => {
+//   try {
+//     const { customerId, period, from, to, generatedBy } = request.body || {};
+//     console.log("Request body:", request.body);
+
+//     if (!customerId) {
+//       return reply.code(400).send({ message: "customerId is required" });
+//     }
+
+//     // ------------------------------
+//     // 🗓️ Determine date range
+//     // ------------------------------
+//     let startDate, endDate, periodString;
+
+//     if (from && to) {
+//       startDate = new Date(from);
+//       endDate = new Date(to);
+//       startDate.setHours(0, 0, 0, 0);
+//       endDate.setHours(23, 59, 59, 999);
+//       periodString = `${from}_to_${to}`;
+//     } else if (period) {
+//       const parts = period.replace(",", " ").trim().split(/\s+/);
+//       if (parts.length < 2) {
+//         return reply.code(400).send({ 
+//           message: 'Invalid period format. Use "October 2025" or provide from/to dates.' 
+//         });
+//       }
+
+//       const monthName = parts[0];
+//       const year = parseInt(parts[1], 10);
+//       if (isNaN(year)) {
+//         return reply.code(400).send({ message: "Invalid year in period." });
+//       }
+
+//       const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+//       startDate = new Date(year, monthIndex, 1);
+//       endDate = new Date(year, monthIndex + 1, 0);
+//       startDate.setHours(0, 0, 0, 0);
+//       endDate.setHours(23, 59, 59, 999);
+//       periodString = period.trim().replace(/\s+/g, " ");
+//       console.log("Period string:", periodString);
+//     } else {
+//       return reply.code(400).send({ message: "Either period or from/to must be provided" });
+//     }
+
+//     // ------------------------------
+//     // ⚠️ Check for existing invoice
+//     // ------------------------------
+//     const normalizedPeriod = periodString.trim().replace(/\s+/g, " ");
+//     console.log("Normalized period:", normalizedPeriod);
+
+//     const existingInvoice = await Invoice.findOne({
+//       customerId: new mongoose.Types.ObjectId(customerId),
+//       period: normalizedPeriod,
+//     });
+//     console.log("Existing invoice:", existingInvoice);
+
+//     if (existingInvoice) {
+//       console.log("Existing invoice found:", existingInvoice._id);
+//       return reply.code(409).send({
+//         message: "Invoice already exists for this period",
+//         existingInvoice: {
+//           id: existingInvoice._id,
+//           billNo: existingInvoice.billNo,
+//           period: existingInvoice.period,
+//           url: existingInvoice.cloudinary?.secure_url,
+//         },
+//       });
+//     }
+
+//     // ------------------------------
+//     // 👤 Fetch Customer
+//     // ------------------------------
+//     const customer = await Customer.findById(customerId)
+//       .select("name address phone deliveryCost")
+//       .lean();
+
+//     if (!customer) {
+//       return reply.code(404).send({ message: "Customer not found" });
+//     }
+
+//     // ------------------------------
+//     // 🗓️ Fetch Attendance
+//     // ------------------------------
+//     const attendanceRecords = await AttendanceLog.find({
+//       date: { $gte: startDate, $lte: endDate },
+//       attendance: { $elemMatch: { customerId } },
+//     }).sort({ date: 1 }).lean();
+
+//     if (!attendanceRecords?.length) {
+//       return reply.code(404).send({ message: "No attendance records found for this period." });
+//     }
+
+//     // ------------------------------
+//     // 🧮 Build product map
+//     // ------------------------------
+//     const dateWiseMap = new Map();
+
+//     for (const record of attendanceRecords) {
+//       const dateKey = record.date.toISOString().split("T")[0];
+//       const customerAttendance = (record.attendance || [])
+//         .find(att => String(att.customerId) === String(customerId));
+
+//       if (!customerAttendance) continue;
+
+//       if (!dateWiseMap.has(dateKey)) dateWiseMap.set(dateKey, new Map());
+
+//       const productsMap = dateWiseMap.get(dateKey);
+//       for (const prod of (customerAttendance.products || [])) {
+//         if (prod.status === "delivered") {
+//           const pId = String(prod.productId);
+//           const current = productsMap.get(pId) || 0;
+//           productsMap.set(pId, current + (prod.quantity || 0));
+//         }
+//       }
+//     }
+
+//     const allProductIds = Array.from(
+//       new Set([...Array.from(dateWiseMap.values()).flatMap(m => Array.from(m.keys()))])
+//     );
+
+//     const storeProducts = allProductIds.length
+//       ? await StoreProduct.find({ _id: { $in: allProductIds } })
+//           .select("name price").lean()
+//       : [];
+
+//     const productMap = new Map(storeProducts.map(p => [String(p._id), p]));
+
+//     // ------------------------------
+//     // 🧾 Build invoice data
+//     // ------------------------------
+//     let totalItemsAmount = 0;
+//     const invoiceItems = [];
+//     const sortedDates = Array.from(dateWiseMap.keys()).sort();
+
+//     for (const date of sortedDates) {
+//       const productsMap = dateWiseMap.get(date);
+//       let dateTotal = 0;
+//       const products = [];
+
+//       for (const [productId, quantity] of productsMap.entries()) {
+//         const productInfo = productMap.get(productId);
+//         if (!productInfo) continue;
+
+//         const itemTotal = (quantity || 0) * (productInfo.price || 0);
+//         dateTotal += itemTotal;
+//         products.push({
+//           name: productInfo.name,
+//           quantity,
+//           price: productInfo.price,
+//           itemTotal: itemTotal.toFixed(2),
+//         });
+//       }
+
+//       if (products.length > 0) {
+//         totalItemsAmount += dateTotal;
+//         invoiceItems.push({ date, products, total: dateTotal.toFixed(2) });
+//       }
+//     }
+
+//     const deliveryCharges = parseFloat(customer.deliveryCost || 0);
+//     const grandTotal = totalItemsAmount + deliveryCharges;
+
+//     const invoiceData = {
+//       billNo: `INV-${Date.now()}-${String(customerId).slice(0, 6)}`,
+//       period: normalizedPeriod,
+//       fromDate: startDate.toISOString().split("T")[0],
+//       toDate: endDate.toISOString().split("T")[0],
+//       company: {
+//         name: process.env.COMPANY_NAME || "Your Company",
+//         address: process.env.COMPANY_ADDRESS || "Company address",
+//         phone: process.env.COMPANY_PHONE || "0000000000",
+//         logo: process.env.COMPANY_LOGO || null,
+//       },
+//       customer: {
+//         name: customer.name,
+//         address: `${customer.address?.FlatNo || ""} ${customer.address?.Apartment || ""} ${customer.address?.city || ""}`.trim(),
+//         phone: customer.phone,
+//       },
+//       items: invoiceItems,
+//       deliveryCharges: deliveryCharges.toFixed(2),
+//       grandTotal: grandTotal.toFixed(2),
+//       generatedAt: new Date(),
+//     };
+
+//     // ------------------------------
+//     // 🧱 Generate PDF & upload
+//     // ------------------------------
+//     const html = buildHtmlFromInvoiceData(invoiceData);
+//     const pdfBuffer = await renderHtmlToPdfBuffer(html);
+
+//     const publicId = `invoices/${customerId}/${invoiceData.billNo}`;
+//     const uploadResult = await new Promise((resolve, reject) => {
+//       const uploadStream = cloudinary.uploader.upload_stream(
+//         {
+//           resource_type: "auto",
+//           format: "pdf",
+//           public_id: publicId,
+//           overwrite: true,
+//         },
+//         (err, res) => (err ? reject(err) : resolve(res))
+//       );
+//       uploadStream.end(pdfBuffer);
+//     });
+
+//     // ------------------------------
+//     // 💾 Save invoice in DB
+//     // ------------------------------
+//     const invoiceDoc = await Invoice.create({
+//       billNo: invoiceData.billNo,
+//       customerId,
+//       period: normalizedPeriod,
+//       fromDate: invoiceData.fromDate,
+//       toDate: invoiceData.toDate,
+//       items: invoiceData.items,
+//       deliveryCharges: invoiceData.deliveryCharges,
+//       grandTotal: invoiceData.grandTotal,
+//       cloudinary: {
+//         public_id: uploadResult.public_id,
+//         url: uploadResult.url,
+//         secure_url: uploadResult.secure_url,
+//         bytes: uploadResult.bytes,
+//         resource_type: uploadResult.resource_type,
+//       },
+//       generatedBy: generatedBy || "system",
+//       generatedAt: invoiceData.generatedAt,
+//     });
+
+//     console.log("✅ Invoice generated:", uploadResult.secure_url);
+
+//     return reply.code(201).send({
+//       message: "Invoice generated successfully",
+//       invoice: {
+//         id: invoiceDoc._id,
+//         billNo: invoiceDoc.billNo,
+//         period: invoiceDoc.period,
+//         fromDate: invoiceDoc.fromDate,
+//         toDate: invoiceDoc.toDate,
+//         grandTotal: invoiceDoc.grandTotal,
+//         url: uploadResult.secure_url,
+//         generatedAt: invoiceDoc.generatedAt,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("❌ Error generating invoice:", error);
+//     return reply.code(500).send({ message: "Internal server error." });
+//   }
+// };
+
+
+
+
+// ==================== GET ALL INVOICES FOR CUSTOMER ====================
+
+
 export const generateInvoice = async (request, reply) => {
   try {
     const { customerId, period, from, to, generatedBy } = request.body || {};
+    console.log("Request body:", request.body);
 
     if (!customerId) {
       return reply.code(400).send({ message: "customerId is required" });
     }
 
-    // Determine date range
-    let startDate, endDate;
+    // ------------------------------
+    // 🗓️ Determine date range
+    // ------------------------------
+    let startDate, endDate, periodString;
+
     if (from && to) {
       startDate = new Date(from);
       endDate = new Date(to);
-      // normalize
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
+      periodString = `${from}_to_${to}`;
     } else if (period) {
-      // Accept "October 2025", "Oct 2025", "October, 2025"
       const parts = period.replace(",", " ").trim().split(/\s+/);
       if (parts.length < 2) {
-        return reply.code(400).send({ message: 'period format invalid. Use "October 2025" or provide from/to' });
+        return reply.code(400).send({
+          message: 'Invalid period format. Use "October 2025" or provide from/to dates.',
+        });
       }
+
       const monthName = parts[0];
       const year = parseInt(parts[1], 10);
-      if (isNaN(year)) return reply.code(400).send({ message: "period year invalid" });
+      if (isNaN(year)) {
+        return reply.code(400).send({ message: "Invalid year in period." });
+      }
+
       const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
       startDate = new Date(year, monthIndex, 1);
       endDate = new Date(year, monthIndex + 1, 0);
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
+      periodString = period.trim().replace(/\s+/g, " ");
+      console.log("Period string:", periodString);
     } else {
       return reply.code(400).send({ message: "Either period or from/to must be provided" });
     }
 
-    // Fetch customer
-    const customer = await Customer.findById(customerId).select("name address phone deliveryCost").lean();
-    if (!customer) return reply.code(404).send({ message: "Customer not found" });
+    const normalizedPeriod = periodString.trim().replace(/\s+/g, " ");
+    console.log("Normalized period:", normalizedPeriod);
 
-    // Fetch attendance using elemMatch for the customer
+    // ------------------------------
+    // ⚠️ Prevent overlapping invoices
+    // ------------------------------
+    const customerObjectId = new mongoose.Types.ObjectId(customerId);
+
+    // 1️⃣ Direct overlap check using fromDate/toDate
+    const overlappingInvoice = await Invoice.findOne({
+      customerId: customerObjectId,
+      $and: [
+        { fromDate: { $lte: endDate } },
+        { toDate: { $gte: startDate } },
+      ],
+    }).lean();
+
+    if (overlappingInvoice) {
+      return reply.code(409).send({
+        message: "Invoice already exists overlapping this date range",
+        existingInvoice: {
+          id: overlappingInvoice._id,
+          billNo: overlappingInvoice.billNo,
+          period: overlappingInvoice.period,
+          fromDate: overlappingInvoice.fromDate,
+          toDate: overlappingInvoice.toDate,
+          url: overlappingInvoice.cloudinary?.secure_url,
+        },
+      });
+    }
+
+    // 2️⃣ Fallback: check for legacy period-based invoices (e.g., "October 2025")
+    const legacyInvoices = await Invoice.find({
+      customerId: customerObjectId,
+      period: { $exists: true, $ne: null },
+    })
+      .select("period billNo cloudinary")
+      .lean();
+
+    for (const inv of legacyInvoices) {
+      const p = (inv.period || "").trim();
+      if (!p) continue;
+
+      // Handle "YYYY-MM-DD_to_YYYY-MM-DD"
+      const customMatch = p.match(/^(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})$/);
+      if (customMatch) {
+        const legacyFrom = new Date(customMatch[1]);
+        legacyFrom.setHours(0, 0, 0, 0);
+        const legacyTo = new Date(customMatch[2]);
+        legacyTo.setHours(23, 59, 59, 999);
+
+        const overlap = !(legacyTo < startDate || legacyFrom > endDate);
+        if (overlap) {
+          return reply.code(409).send({
+            message: "Invoice already exists overlapping this custom date range",
+            existingInvoice: {
+              id: inv._id,
+              billNo: inv.billNo,
+              period: inv.period,
+              url: inv.cloudinary?.secure_url,
+            },
+          });
+        }
+      }
+
+      // Handle "October 2025"
+      const parts = p.replace(",", " ").trim().split(/\s+/);
+      if (parts.length >= 2) {
+        const monthName = parts[0];
+        const year = parseInt(parts[1], 10);
+        if (!isNaN(year)) {
+          const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+          const legacyFrom = new Date(year, monthIndex, 1);
+          const legacyTo = new Date(year, monthIndex + 1, 0);
+          legacyFrom.setHours(0, 0, 0, 0);
+          legacyTo.setHours(23, 59, 59, 999);
+
+          const overlap = !(legacyTo < startDate || legacyFrom > endDate);
+          if (overlap) {
+            return reply.code(409).send({
+              message: "Invoice already exists overlapping this monthly period",
+              existingInvoice: {
+                id: inv._id,
+                billNo: inv.billNo,
+                period: inv.period,
+                url: inv.cloudinary?.secure_url,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    // ------------------------------
+    // 👤 Fetch Customer
+    // ------------------------------
+    const customer = await Customer.findById(customerId)
+      .select("name address phone deliveryCost")
+      .lean();
+
+    if (!customer) {
+      return reply.code(404).send({ message: "Customer not found" });
+    }
+
+    // ------------------------------
+    // 🗓️ Fetch Attendance
+    // ------------------------------
     const attendanceRecords = await AttendanceLog.find({
       date: { $gte: startDate, $lte: endDate },
       attendance: { $elemMatch: { customerId } },
-    }).sort({ date: 1 }).lean();
+    })
+      .sort({ date: 1 })
+      .lean();
 
-    if (!attendanceRecords || attendanceRecords.length === 0) {
+    if (!attendanceRecords?.length) {
       return reply.code(404).send({ message: "No attendance records found for this period." });
     }
 
-    // Build date-wise map of delivered products
+    // ------------------------------
+    // 🧮 Build product map
+    // ------------------------------
     const dateWiseMap = new Map();
+
     for (const record of attendanceRecords) {
       const dateKey = record.date.toISOString().split("T")[0];
-      const customerAttendance = (record.attendance || []).find(att => String(att.customerId) === String(customerId));
+      const customerAttendance = (record.attendance || []).find(
+        (att) => String(att.customerId) === String(customerId)
+      );
+
       if (!customerAttendance) continue;
       if (!dateWiseMap.has(dateKey)) dateWiseMap.set(dateKey, new Map());
+
       const productsMap = dateWiseMap.get(dateKey);
-      for (const prod of (customerAttendance.products || [])) {
+      for (const prod of customerAttendance.products || []) {
         if (prod.status === "delivered") {
           const pId = String(prod.productId);
           const current = productsMap.get(pId) || 0;
@@ -870,25 +1518,34 @@ export const generateInvoice = async (request, reply) => {
       }
     }
 
-    // Collect all product ids
-    const allProductIds = Array.from(new Set([...Array.from(dateWiseMap.values()).flatMap(m => Array.from(m.keys()))]));
-    const storeProducts = allProductIds.length > 0
-      ? await StoreProduct.find({ _id: { $in: allProductIds } }).select("name price").lean()
+    const allProductIds = Array.from(
+      new Set([...Array.from(dateWiseMap.values()).flatMap((m) => Array.from(m.keys()))])
+    );
+
+    const storeProducts = allProductIds.length
+      ? await StoreProduct.find({ _id: { $in: allProductIds } })
+          .select("name price")
+          .lean()
       : [];
 
-    const productMap = new Map(storeProducts.map(p => [String(p._id), p]));
+    const productMap = new Map(storeProducts.map((p) => [String(p._id), p]));
 
-    // Build invoice items
+    // ------------------------------
+    // 🧾 Build invoice data
+    // ------------------------------
     let totalItemsAmount = 0;
     const invoiceItems = [];
     const sortedDates = Array.from(dateWiseMap.keys()).sort();
+
     for (const date of sortedDates) {
       const productsMap = dateWiseMap.get(date);
       let dateTotal = 0;
       const products = [];
+
       for (const [productId, quantity] of productsMap.entries()) {
         const productInfo = productMap.get(productId);
         if (!productInfo) continue;
+
         const itemTotal = (quantity || 0) * (productInfo.price || 0);
         dateTotal += itemTotal;
         products.push({
@@ -898,6 +1555,7 @@ export const generateInvoice = async (request, reply) => {
           itemTotal: itemTotal.toFixed(2),
         });
       }
+
       if (products.length > 0) {
         totalItemsAmount += dateTotal;
         invoiceItems.push({ date, products, total: dateTotal.toFixed(2) });
@@ -909,8 +1567,9 @@ export const generateInvoice = async (request, reply) => {
 
     const invoiceData = {
       billNo: `INV-${Date.now()}-${String(customerId).slice(0, 6)}`,
-      fromDate: startDate.toISOString().split("T")[0],
-      toDate: endDate.toISOString().split("T")[0],
+      period: normalizedPeriod,
+      fromDate: startDate,
+      toDate: endDate,
       company: {
         name: process.env.COMPANY_NAME || "Your Company",
         address: process.env.COMPANY_ADDRESS || "Company address",
@@ -919,7 +1578,9 @@ export const generateInvoice = async (request, reply) => {
       },
       customer: {
         name: customer.name,
-        address: `${customer.address?.FlatNo || ""} ${customer.address?.Apartment || ""} ${customer.address?.city || ""}`.trim(),
+        address: `${customer.address?.FlatNo || ""} ${customer.address?.Apartment || ""} ${
+          customer.address?.city || ""
+        }`.trim(),
         phone: customer.phone,
       },
       items: invoiceItems,
@@ -928,35 +1589,33 @@ export const generateInvoice = async (request, reply) => {
       generatedAt: new Date(),
     };
 
+    // ------------------------------
+    // 🧱 Generate PDF & upload
+    // ------------------------------
     const html = buildHtmlFromInvoiceData(invoiceData);
     const pdfBuffer = await renderHtmlToPdfBuffer(html);
 
-    // Upload PDF to Cloudinary (wrapped in try/catch)
-    let uploadResult;
-    try {
-      uploadResult = await new Promise((resolve, reject) => {
-        const publicId = `invoices/${customerId}/${invoiceData.billNo}`;
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            resource_type: "auto",
-            format: "pdf",
-            folder: "invoices",
-            public_id: publicId,
-            overwrite: true,
-          },
-          (err, res) => (err ? reject(err) : resolve(res))
-        );
-        uploadStream.end(pdfBuffer);
-      });
-    } catch (uploadErr) {
-      console.error("Cloudinary upload failed:", uploadErr);
-      return reply.code(500).send({ message: "Failed to upload PDF to storage." });
-    }
+    const publicId = `invoices/${customerId}/${invoiceData.billNo}`;
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: "auto",
+          format: "pdf",
+          public_id: publicId,
+          overwrite: true,
+        },
+        (err, res) => (err ? reject(err) : resolve(res))
+      );
+      uploadStream.end(pdfBuffer);
+    });
 
-    // Save invoice metadata
+    // ------------------------------
+    // 💾 Save invoice in DB
+    // ------------------------------
     const invoiceDoc = await Invoice.create({
       billNo: invoiceData.billNo,
       customerId,
+      period: normalizedPeriod,
       fromDate: invoiceData.fromDate,
       toDate: invoiceData.toDate,
       items: invoiceData.items,
@@ -973,24 +1632,147 @@ export const generateInvoice = async (request, reply) => {
       generatedAt: invoiceData.generatedAt,
     });
 
-    console.log("Invoice uploaded:", uploadResult.secure_url);
+    console.log("✅ Invoice generated:", uploadResult.secure_url);
 
     return reply.code(201).send({
       message: "Invoice generated successfully",
-      preview: invoiceData,
-      pdf: {
+      invoice: {
+        id: invoiceDoc._id,
+        billNo: invoiceDoc.billNo,
+        period: invoiceDoc.period,
+        fromDate: invoiceDoc.fromDate,
+        toDate: invoiceDoc.toDate,
+        grandTotal: invoiceDoc.grandTotal,
         url: uploadResult.secure_url,
-        public_id: uploadResult.public_id,
+        generatedAt: invoiceDoc.generatedAt,
       },
-      dbRecord: { id: invoiceDoc._id, billNo: invoiceDoc.billNo },
     });
   } catch (error) {
-    console.error("Error generating invoice:", error);
+    console.error("❌ Error generating invoice:", error);
     return reply.code(500).send({ message: "Internal server error." });
   }
 };
 
-// ---------------- Helper: Build HTML Template ----------------
+
+export const getCustomerInvoices = async (request, reply) => {
+  try {
+    const { customerId } = request.params;
+
+    if (!customerId) {
+      return reply.code(400).send({ message: "customerId is required" });
+    }
+
+    const invoices = await Invoice.find({ customerId })
+      .sort({ generatedAt: -1 })
+      .select('billNo period fromDate toDate grandTotal cloudinary.secure_url generatedAt')
+      .lean();
+
+    return reply.code(200).send({
+      count: invoices.length,
+      invoices: invoices.map(inv => ({
+        id: inv._id,
+        billNo: inv.billNo,
+        period: inv.period,
+        fromDate: inv.fromDate,
+        toDate: inv.toDate,
+        grandTotal: inv.grandTotal,
+        url: inv.cloudinary?.secure_url,
+        generatedAt: inv.generatedAt,
+      }))
+    });
+  } catch (error) {
+    console.error("Error fetching invoices:", error);
+    return reply.code(500).send({ message: "Internal server error." });
+  }
+};
+
+// ==================== DELETE & REGENERATE INVOICE ====================
+export const regenerateInvoice = async (request, reply) => {
+  console.log("Regenerating invoice...");
+  console.log("Request body:", request.body);
+  try {
+    const { invoiceId } = request.params;
+    const { generatedBy } = request.body || {};
+
+    // Find and delete existing invoice
+    const existingInvoice = await Invoice.findById(invoiceId);
+    if (!existingInvoice) {
+      return reply.code(404).send({ message: "Invoice not found" });
+    }
+
+    // Delete from Cloudinary
+    if (existingInvoice.cloudinary?.public_id) {
+      try {
+        await cloudinary.uploader.destroy(existingInvoice.cloudinary.public_id, {
+          resource_type: 'raw'
+        });
+      } catch (cloudErr) {
+        console.warn("Cloudinary deletion warning:", cloudErr);
+      }
+    }
+
+    // Delete from database
+    await Invoice.findByIdAndDelete(invoiceId);
+
+    // Extract period info for regeneration
+    const { customerId, period } = existingInvoice;
+
+    // Regenerate by calling the generate endpoint logic
+    // Parse period back to dates
+    let regenerateBody;
+    if (period.includes('_to_')) {
+      const [from, to] = period.split('_to_');
+      regenerateBody = { customerId, from, to, generatedBy };
+    } else {
+      regenerateBody = { customerId, period, generatedBy };
+    }
+
+    // Call generate invoice internally
+    request.body = regenerateBody;
+    return await generateInvoice(request, reply);
+
+  } catch (error) {
+    console.error("Error regenerating invoice:", error);
+    return reply.code(500).send({ message: "Internal server error." });
+  }
+};
+
+// ==================== DELETE INVOICE ====================
+export const deleteInvoice = async (request, reply) => {
+  console.log("Deleting invoice...");
+  try {
+    const { invoiceId } = request.params;
+
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) {
+      return reply.code(404).send({ message: "Invoice not found" });
+    }
+
+    // Delete from Cloudinary
+    if (invoice.cloudinary?.public_id) {
+      try {
+        await cloudinary.uploader.destroy(invoice.cloudinary.public_id, {
+          resource_type: 'raw'
+        });
+      } catch (cloudErr) {
+        console.warn("Cloudinary deletion warning:", cloudErr);
+      }
+    }
+
+    // Delete from database
+    await Invoice.findByIdAndDelete(invoiceId);
+
+    return reply.code(200).send({ 
+      message: "Invoice deleted successfully",
+      deletedInvoiceId: invoiceId 
+    });
+  } catch (error) {
+    console.error("Error deleting invoice:", error);
+    return reply.code(500).send({ message: "Internal server error." });
+  }
+};
+
+// ==================== HELPER FUNCTIONS ====================
 function escapeHtml(str = "") {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -1000,23 +1782,24 @@ function escapeHtml(str = "") {
 }
 
 function money(val) {
-  return Number(val).toLocaleString("en-IN", { style: "currency", currency: "INR" });
+  return Number(val).toLocaleString("en-IN", { 
+    style: "currency", 
+    currency: "INR" 
+  });
 }
 
 function buildHtmlFromInvoiceData(data) {
   const productsHTML = data.items
-    .map(
-      (i) => `
+    .map(i => `
       <tr>
         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">${escapeHtml(i.date)}</td>
         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">
           ${i.products
-            .map((p) => `${escapeHtml(p.name)} (${p.quantity} × ${money(p.price)})`)
+            .map(p => `${escapeHtml(p.name)} (${p.quantity} × ${money(p.price)})`)
             .join("<br/>")}
         </td>
         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">${money(i.total)}</td>
-      </tr>`
-    )
+      </tr>`)
     .join("");
 
   return `<!DOCTYPE html>
@@ -1053,9 +1836,7 @@ function buildHtmlFromInvoiceData(data) {
 
     <table>
       <thead><tr><th>Date</th><th>Products</th><th>Total</th></tr></thead>
-      <tbody>
-        ${productsHTML}
-      </tbody>
+      <tbody>${productsHTML}</tbody>
     </table>
 
     <div class="totals">
