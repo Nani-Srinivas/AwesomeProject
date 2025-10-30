@@ -1694,46 +1694,77 @@ export const regenerateInvoice = async (request, reply) => {
     const { invoiceId } = request.params;
     const { generatedBy } = request.body || {};
 
-    // Find and delete existing invoice
+    // Find the existing invoice
     const existingInvoice = await Invoice.findById(invoiceId);
     if (!existingInvoice) {
       return reply.code(404).send({ message: "Invoice not found" });
     }
 
+    // Validate that the customer still exists before regenerating
+    const customer = await Customer.findById(existingInvoice.customerId);
+    if (!customer) {
+      return reply.code(404).send({ message: "Customer not found. Cannot regenerate invoice." });
+    }
+
     // Delete from Cloudinary
     if (existingInvoice.cloudinary?.public_id) {
       try {
+        // Use the same resource_type as was used when uploading
         await cloudinary.uploader.destroy(existingInvoice.cloudinary.public_id, {
-          resource_type: 'raw'
+          resource_type: existingInvoice.cloudinary.resource_type || 'raw'
         });
+        console.log(`Deleted old invoice from Cloudinary: ${existingInvoice.cloudinary.public_id}`);
       } catch (cloudErr) {
-        console.warn("Cloudinary deletion warning:", cloudErr);
+        console.error("Failed to delete from Cloudinary:", cloudErr);
+        // Don't return error here, still try to delete from DB
       }
     }
 
     // Delete from database
     await Invoice.findByIdAndDelete(invoiceId);
+    console.log(`Deleted old invoice from DB: ${invoiceId}`);
 
     // Extract period info for regeneration
-    const { customerId, period } = existingInvoice;
+    const { customerId, period, fromDate, toDate } = existingInvoice;
 
-    // Regenerate by calling the generate endpoint logic
-    // Parse period back to dates
+    // Regenerate with the same period information
     let regenerateBody;
     if (period.includes('_to_')) {
+      // This is a custom date range
       const [from, to] = period.split('_to_');
       regenerateBody = { customerId, from, to, generatedBy };
+    } else if (fromDate && toDate) {
+      // Use fromDate and toDate if available
+      regenerateBody = { 
+        customerId, 
+        from: new Date(fromDate).toISOString().split('T')[0],
+        to: new Date(toDate).toISOString().split('T')[0],
+        generatedBy 
+      };
     } else {
+      // This is a monthly period (e.g. "October 2025")
       regenerateBody = { customerId, period, generatedBy };
     }
 
-    // Call generate invoice internally
+    console.log("Regenerating with body:", regenerateBody);
+
+    // Temporarily store the original request body to restore later
+    const originalBody = { ...request.body };
+    
+    // Set the body for the regeneration
     request.body = regenerateBody;
-    return await generateInvoice(request, reply);
+    
+    // Call generate invoice internally
+    const result = await generateInvoice(request, reply);
+    
+    // Restore the original request body
+    request.body = originalBody;
+    
+    return result;
 
   } catch (error) {
     console.error("Error regenerating invoice:", error);
-    return reply.code(500).send({ message: "Internal server error." });
+    return reply.code(500).send({ message: "Internal server error during regeneration." });
   }
 };
 
@@ -1751,8 +1782,9 @@ export const deleteInvoice = async (request, reply) => {
     // Delete from Cloudinary
     if (invoice.cloudinary?.public_id) {
       try {
+        // Use the same resource_type as was used when uploading
         await cloudinary.uploader.destroy(invoice.cloudinary.public_id, {
-          resource_type: 'raw'
+          resource_type: invoice.cloudinary.resource_type || 'raw'
         });
       } catch (cloudErr) {
         console.warn("Cloudinary deletion warning:", cloudErr);

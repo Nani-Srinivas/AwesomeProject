@@ -3110,19 +3110,12 @@ import { apiService } from '../../services/apiService';
 import RNFS from 'react-native-fs';
 import { PermissionsAndroid } from 'react-native';
 import { WebView } from 'react-native-webview';
+import Feather from 'react-native-vector-icons/Feather';
+import { Invoice } from '../../types/invoices';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Tab = createMaterialTopTabNavigator();
 
-type Invoice = {
-  id: string;
-  billNo: string;
-  period: string;
-  fromDate: string;
-  toDate: string;
-  grandTotal: string;
-  url: string;
-  generatedAt: string;
-};
 
 type Props = { 
   customerId?: string;
@@ -3130,33 +3123,64 @@ type Props = {
 };
 
 // =====================================================
-// INVOICE LIST COMPONENT (Redesigned - Minimal)
+// INVOICE LIST COMPONENT (Simplified)
 // =====================================================
 const InvoiceList = ({ 
   customerId, 
-  onRefresh 
+  onRefresh
 }: { 
   customerId: string; 
   onRefresh?: () => void;
 }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // State variables for the simplified version
 
   const fetchInvoices = useCallback(async () => {
+    // First, try to get cached data
+    try {
+      const cachedData = await AsyncStorage.getItem(`invoices_${customerId}`);
+      if (cachedData) {
+        const parsedData = JSON.parse(cachedData);
+        setInvoices(parsedData);
+      }
+    } catch (cacheError) {
+      console.warn('Failed to load cached invoices:', cacheError);
+    }
+
+    // Then try to fetch fresh data from the API
     try {
       const response = await apiService.get(`/invoice/customer/${customerId}`);
-      setInvoices(response.data.invoices || []);
+      const freshInvoices = response.data.invoices || [];
+      setInvoices(freshInvoices);
+      
+      // Cache the fresh data for offline access
+      await AsyncStorage.setItem(`invoices_${customerId}`, JSON.stringify(freshInvoices));
     } catch (error: any) {
-      console.error('Failed to fetch invoices:', error);
+      console.error('Failed to fetch invoices from API:', error);
+      // If API fails, the cached data will remain displayed
+      if (invoices.length === 0) {
+        // If there's no cached data, display an appropriate error state
+        Alert.alert('Connection Error', 'Unable to load invoices. Please check your connection.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [customerId]);
+  }, [customerId, invoices.length]);
+
+  // Get recent invoices (last 5)
+  const recentInvoices = invoices.slice(0, 5);
+
+  // Set invoices directly without search or sorting (simplified)
+  useEffect(() => {
+    setFilteredInvoices(invoices);
+  }, [invoices]);
 
   useEffect(() => {
     if (customerId) {
@@ -3364,8 +3388,9 @@ const InvoiceList = ({
 
   return (
     <>
+      {/* Full Invoice List */}
       <FlatList
-        data={invoices}
+        data={filteredInvoices}
         keyExtractor={(item) => item.id}
         renderItem={renderInvoiceCard}
         contentContainerStyle={styles.invoiceListContainer}
@@ -3384,7 +3409,7 @@ const InvoiceList = ({
         }
       />
 
-{/* Preview Modal */}
+      {/* Preview Modal */}
       <Modal
         visible={previewVisible}
         animationType="slide"
@@ -3431,6 +3456,7 @@ const InvoiceList = ({
 const MonthlyStatement = ({ customerId }: Props) => {
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState<boolean>(false);
   const [existingInvoices, setExistingInvoices] = useState<Set<string>>(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -3478,7 +3504,7 @@ const MonthlyStatement = ({ customerId }: Props) => {
     }
 
     try {
-      setLoading(true);
+      setGeneratingInvoice(true);
       await apiService.post('/invoice/generate', {
         customerId,
         period: selectedPeriod,
@@ -3488,23 +3514,25 @@ const MonthlyStatement = ({ customerId }: Props) => {
       setSelectedPeriod(null);
       setRefreshKey(prev => prev + 1);
     } catch (err: any) {
+      console.error('Invoice generation error:', err);
       if (err.response?.status === 409) {
-        Alert.alert('Duplicate Invoice', 'Invoice already exists for this period.');
+        Alert.alert('Duplicate Invoice', 'An invoice already exists for this period. Please check the invoice list.');
+      } else if (err.response?.status === 400) {
+        Alert.alert('Invalid Request', err.response.data?.message || 'Invalid data provided for invoice generation.');
+      } else if (err.response?.status === 500) {
+        Alert.alert('Server Error', 'Internal server error. Please try again later.');
+      } else if (err.request) {
+        Alert.alert('Connection Error', 'No internet connection. Please check your network settings.');
       } else {
-        Alert.alert('Error', err.message || 'Failed to generate bill.');
+        Alert.alert('Error', err.message || 'An unexpected error occurred while generating the invoice.');
       }
     } finally {
-      setLoading(false);
+      setGeneratingInvoice(false);
     }
   };
 
   return (
     <View style={styles.tabContainer}>
-      {/* Fixed Header */}
-      <View style={styles.fixedHeader}>
-        <Text style={styles.sectionTitle}>Generated Invoices</Text>
-      </View>
-
       {/* Scrollable Invoice List */}
       <View style={styles.invoiceListSection}>
         <InvoiceList 
@@ -3573,13 +3601,16 @@ const MonthlyStatement = ({ customerId }: Props) => {
         <TouchableOpacity
           style={[
             styles.generateButton,
-            (!selectedPeriod || loading) && styles.disabledButton,
+            (!selectedPeriod || generatingInvoice) && styles.disabledButton,
           ]}
           onPress={handleGenerateBill}
-          disabled={!selectedPeriod || loading}
+          disabled={!selectedPeriod || generatingInvoice}
         >
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
+          {generatingInvoice ? (
+            <View style={styles.generatingContainer}>
+              <ActivityIndicator size="small" color={COLORS.white} />
+              <Text style={styles.generatingText}>Generating...</Text>
+            </View>
           ) : (
             <Text style={styles.generateButtonText}>
               {selectedPeriod ? `Generate Bill for ${selectedPeriod}` : 'Select a Period'}
@@ -3598,6 +3629,7 @@ const CustomStatement = ({ customerId }: Props) => {
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState<boolean>(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const onDayPress = (day: { dateString: string }) => {
@@ -3698,7 +3730,7 @@ const CustomStatement = ({ customerId }: Props) => {
     }
 
     try {
-      setLoading(true);
+      setGeneratingInvoice(true);
       await apiService.post('/invoice/generate', {
         customerId,
         from: startDate,
@@ -3709,23 +3741,25 @@ const CustomStatement = ({ customerId }: Props) => {
       handleClear();
       setRefreshKey(prev => prev + 1);
     } catch (err: any) {
+      console.error('Invoice generation error:', err);
       if (err.response?.status === 409) {
-        Alert.alert('Duplicate Invoice', 'Invoice already exists for this period.');
+        Alert.alert('Duplicate Invoice', 'An invoice already exists for this period. Please check the invoice list.');
+      } else if (err.response?.status === 400) {
+        Alert.alert('Invalid Request', err.response.data?.message || 'Invalid data provided for invoice generation.');
+      } else if (err.response?.status === 500) {
+        Alert.alert('Server Error', 'Internal server error. Please try again later.');
+      } else if (err.request) {
+        Alert.alert('Connection Error', 'No internet connection. Please check your network settings.');
       } else {
-        Alert.alert('Error', err.message || 'Failed to generate bill.');
+        Alert.alert('Error', err.message || 'An unexpected error occurred while generating the invoice.');
       }
     } finally {
-      setLoading(false);
+      setGeneratingInvoice(false);
     }
   };
 
   return (
     <View style={styles.tabContainer}>
-      {/* Fixed Header */}
-      <View style={styles.fixedHeader}>
-        <Text style={styles.sectionTitle}>Generated Invoices</Text>
-      </View>
-
       {/* Scrollable Invoice List */}
       <View style={styles.invoiceListSection}>
         <InvoiceList 
@@ -3773,13 +3807,16 @@ const CustomStatement = ({ customerId }: Props) => {
         <TouchableOpacity
           style={[
             styles.generateButton,
-            (!(startDate && endDate) || loading) && styles.disabledButton,
+            (!(startDate && endDate) || generatingInvoice) && styles.disabledButton,
           ]}
           onPress={handleGenerateBill}
-          disabled={!(startDate && endDate) || loading}
+          disabled={!(startDate && endDate) || generatingInvoice}
         >
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
+          {generatingInvoice ? (
+            <View style={styles.generatingContainer}>
+              <ActivityIndicator size="small" color={COLORS.white} />
+              <Text style={styles.generatingText}>Generating...</Text>
+            </View>
           ) : (
             <Text style={styles.generateButtonText}>
               {startDate && endDate 
@@ -3865,7 +3902,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   invoiceListSection: {
-    height: 220,
+    maxHeight: 250,
     backgroundColor: '#F8F9FA',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
@@ -3930,6 +3967,12 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 13,
     color: '#999',
+  },
+
+
+  // Invoice List Style
+  invoiceListContainer: {
+    padding: 12,
   },
 
   // Invoice Card (Minimal Design)
@@ -4139,6 +4182,17 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 15,
     fontWeight: '700',
+  },
+  generatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  generatingText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 10,
   },
     modalContainer: {
     flex: 1,

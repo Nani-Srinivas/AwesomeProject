@@ -1929,6 +1929,7 @@ import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
 import { generatePDF } from 'react-native-html-to-pdf';
 import RNShare from 'react-native-share';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ProductDetail {
   name: string;
@@ -2157,42 +2158,54 @@ const handleSharePDF = async () => {
 
   try {
     setSharing(true);
+    
+    // Create a unique cache key for this invoice
+    const cacheKey = `pdf_cache_${invoiceData.billNo}`;
+    
+    // Try to get cached PDF first
+    const cachedPDF = await AsyncStorage.getItem(cacheKey);
+    
+    let base64Content;
+    
+    if (cachedPDF) {
+      // Use cached PDF
+      console.log('Using cached PDF');
+      base64Content = cachedPDF;
+    } else {
+      // Generate new PDF
+      console.log('Generating new PDF');
+      const htmlContent = generateHTML(invoiceData);
 
-    const htmlContent = generateHTML(invoiceData);
+      const options = {
+        html: htmlContent,
+        fileName: `Invoice_${invoiceData.billNo}`,
+        base64: true,
+      };
 
-    const options = {
-      html: htmlContent,
-      fileName: `Invoice_${invoiceData.billNo}`,
-      base64: true, // Ensure base64 is enabled
-    };
+      const file = await generatePDF(options);
 
-    console.log('Generating PDF with options:', options);
+      // Check if base64 exists and is non-empty
+      if (!file?.base64 || file.base64.length === 0) {
+        console.warn('❌ PDF base64 is missing or empty');
+        Alert.alert('Error', 'Failed to generate PDF content.');
+        return;
+      }
 
-    const file = await generatePDF(options);
-
-    // 🔍 DEBUG: Log the full file object
-    console.log('PDF Generation Result:', file);
-
-    // Check if base64 exists and is non-empty
-    if (!file?.base64 || file.base64.length === 0) {
-      console.warn('❌ PDF base64 is missing or empty');
-      Alert.alert('Error', 'Failed to generate PDF content.');
-      return;
+      // Cache the generated PDF for future use
+      await AsyncStorage.setItem(cacheKey, file.base64);
+      base64Content = file.base64;
     }
 
-    console.log('✅ PDF base64 length:', file.base64.length);
-    console.log('✅ First 50 chars of base64:', file.base64.substring(0, 50) + '...');
-
-    // Optional: Validate it's a real PDF (PDFs start with "JVBERi")
-    if (!file.base64.startsWith('JVBERi')) {
+    // Validate it's a real PDF (PDFs start with "JVBERi")
+    if (!base64Content.startsWith('JVBERi')) {
       console.warn('⚠️ Base64 does not look like a valid PDF');
     }
 
-    // Proceed to share
+    // Share the PDF
     const shareOptions = {
       title: `Invoice ${invoiceData.billNo}`,
       message: `Invoice for ${invoiceData.customer.name}`,
-      url: `application/pdf;base64,${file.base64}`,
+      url: `application/pdf;base64,${base64Content}`,
       filename: `Invoice_${invoiceData.billNo}.pdf`,
     };
 
