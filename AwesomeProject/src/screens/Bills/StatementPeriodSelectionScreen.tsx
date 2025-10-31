@@ -3098,10 +3098,10 @@ import {
   Platform,
   FlatList,
   RefreshControl,
-  SafeAreaView,
   Modal,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Calendar } from 'react-native-calendars';
 import { COLORS } from '../../constants/colors';

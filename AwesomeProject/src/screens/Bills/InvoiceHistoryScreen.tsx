@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, Linking, Platform, PermissionsAndroid } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, Platform, PermissionsAndroid } from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
 import Feather from 'react-native-vector-icons/Feather';
@@ -9,13 +9,18 @@ import RNFS from 'react-native-fs';
 interface Invoice {
   _id: string;
   customerId: string;
+  billNo: string;
   period: string;
-  invoiceUrl: string;
-  createdAt: string;
+  fromDate: string;
+  toDate: string;
+  grandTotal: string;
+  url: string;  // Updated to match new API response
+  generatedAt: string;
 }
 
 export const InvoiceHistoryScreen = () => {
   const route = useRoute();
+  const navigation = useNavigation();
   const { customerId } = route.params as { customerId: string };
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -27,8 +32,9 @@ export const InvoiceHistoryScreen = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await apiService.get(`/invoices/${customerId}`);
-        setInvoices(response.data);
+        // Updated API endpoint to match the new service
+        const response = await apiService.get(`/invoice/customer/${customerId}`);
+        setInvoices(response.data.invoices || []);
       } catch (err: any) {
         console.error('Failed to fetch invoices:', err);
         setError(err.response?.data?.message || 'Failed to load invoices.');
@@ -43,21 +49,13 @@ export const InvoiceHistoryScreen = () => {
     }
   }, [customerId]);
 
-  const handleViewPDF = async (url: string) => {
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('Error', `Don't know how to open this URL: ${url}`);
-      }
-    } catch (error) {
-      console.error('Error opening URL:', error);
-      Alert.alert('Error', 'Failed to open invoice PDF.');
-    }
+  const handleViewInvoice = (invoice: Invoice) => {
+    // Navigate to invoice preview screen or open in web view
+    // For now, we'll use the existing statement period selection
+    navigation.navigate('StatementPeriodSelection', { customerId });
   };
 
-  const handleDownloadPDF = async (invoiceUrl: string, period: string, invoiceId: string) => {
+  const handleDownloadPDF = async (invoiceUrl: string, billNo: string) => {
     try {
       if (Platform.OS === 'android') {
         const granted = await PermissionsAndroid.request(
@@ -76,7 +74,7 @@ export const InvoiceHistoryScreen = () => {
         }
       }
 
-      const fileName = `invoice_${period.replace(/\s/g, '_')}_${invoiceId.substring(0, 5)}.pdf`;
+      const fileName = `${billNo.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       const downloadDest = Platform.select({
         ios: `${RNFS.DocumentDirectoryPath}/${fileName}`,
         android: `${RNFS.DownloadDirectoryPath}/${fileName}`,
@@ -90,15 +88,12 @@ export const InvoiceHistoryScreen = () => {
       const { promise } = RNFS.downloadFile({
         fromUrl: invoiceUrl,
         toFile: downloadDest,
-        // headers: { 'Cache-Control': 'no-store' }, // Optional: to prevent caching issues
       });
 
       const result = await promise;
 
       if (result.statusCode === 200) {
         Alert.alert('Success', `Invoice downloaded to: ${downloadDest}`);
-        // Optionally, open the downloaded file
-        // RNFS.viewFile(downloadDest);
       } else {
         Alert.alert('Download Failed', `Status Code: ${result.statusCode}. Check console for details.`);
         console.error('Download failed with status code:', result.statusCode);
@@ -107,6 +102,11 @@ export const InvoiceHistoryScreen = () => {
       console.error('Error downloading PDF:', error);
       Alert.alert('Error', 'Failed to download invoice PDF.');
     }
+  };
+
+  const handleShareInvoice = (invoice: Invoice) => {
+    // For now, just show an alert - in a real app, implement actual sharing
+    Alert.alert('Share Invoice', `Sharing functionality for ${invoice.billNo} would go here.`);
   };
 
   if (loading) {
@@ -128,28 +128,53 @@ export const InvoiceHistoryScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerText}>Invoices for Customer: {customerId}</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerText}>Invoice History</Text>
+        <Text style={styles.subHeaderText}>Customer: {customerId}</Text>
+      </View>
+      
       <FlatList
         data={invoices}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.invoiceCard} onPress={() => handleViewPDF(item.invoiceUrl)}>
-            <View>
+          <View style={styles.invoiceCard}>
+            <View style={styles.invoiceInfo}>
+              <View style={styles.invoiceHeader}>
+                <Text style={styles.invoiceNumber}>{item.billNo}</Text>
+                <Text style={styles.invoiceAmount}>₹{item.grandTotal}</Text>
+              </View>
               <Text style={styles.invoicePeriod}>{item.period}</Text>
-              <Text style={styles.invoiceDate}>Generated: {new Date(item.createdAt).toLocaleDateString()}</Text>
+              <Text style={styles.invoiceDate}>Generated: {new Date(item.generatedAt).toLocaleDateString()}</Text>
             </View>
-            <View style={styles.iconContainer}> {/* New container for icons */}
-              <TouchableOpacity onPress={() => handleViewPDF(item.invoiceUrl)} style={styles.iconButton}>
-                <Feather name="external-link" size={20} color={COLORS.primary} />
+            
+            <View style={styles.invoiceActions}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => handleViewInvoice(item)}
+              >
+                <Feather name="eye" size={20} color={COLORS.primary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDownloadPDF(item.invoiceUrl, item.period, item._id)} style={styles.iconButton}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => handleShareInvoice(item)}
+              >
+                <Feather name="share-2" size={20} color={COLORS.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => handleDownloadPDF(item.url, item.billNo)}
+              >
                 <Feather name="download" size={20} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </View>
         )}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No invoices found for this customer.</Text>
+          <View style={styles.emptyContainer}>
+            <Feather name="file-text" size={64} color="#ccc" />
+            <Text style={styles.emptyText}>No invoices found</Text>
+            <Text style={styles.emptySubtext}>Invoices will appear here once generated</Text>
+          </View>
         }
       />
     </View>
@@ -159,7 +184,6 @@ export const InvoiceHistoryScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: COLORS.background,
   },
   centered: {
@@ -178,48 +202,93 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     textAlign: 'center',
   },
+  header: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
   headerText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 15,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  subHeaderText: {
+    fontSize: 14,
+    color: COLORS.accent,
     textAlign: 'center',
   },
   invoiceCard: {
+    backgroundColor: COLORS.white,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  invoiceInfo: {
+    marginBottom: 12,
+  },
+  invoiceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    marginBottom: 6,
+  },
+  invoiceNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  invoiceAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
   invoicePeriod: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 14,
+    color: COLORS.accent,
+    marginBottom: 4,
   },
   invoiceDate: {
     fontSize: 12,
-    color: COLORS.accent,
-    marginTop: 5,
+    color: '#999',
+  },
+  invoiceActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f5f5f5',
+  },
+  actionButton: {
+    marginLeft: 20,
+    padding: 8,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
   },
   emptyText: {
-    textAlign: 'center',
-    marginTop: 20,
     fontSize: 16,
     color: COLORS.accent,
+    marginTop: 10,
+    textAlign: 'center',
   },
-  iconContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconButton: {
-    marginLeft: 15,
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
