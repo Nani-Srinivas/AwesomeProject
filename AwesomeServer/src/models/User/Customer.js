@@ -21,17 +21,30 @@ const customerSchema = new mongoose.Schema({
     ref: 'Area',
   },
   isSubscribed: { type: Boolean, default: false },
-  advanceAmount: { type: Number },
+  advanceAmount: { type: Number, default: 0 },
   typeOfRegistered: {
     type: String,
     enum: ['self', 'StoreManager'],
     default: 'StoreManager',
   },
-  Bill: {
+  
+  // Payment related fields
+  paymentStatus: {
     type: String,
-    enum: ["Paid", "Unpaid"],
+    enum: ["Paid", "Unpaid", "Partially Paid"],
     default: "Unpaid",
   },
+  currentDueAmount: { type: Number, default: 0 }, // Outstanding amount
+  lastPaymentDate: Date, // Date of last payment
+  paymentCycle: { 
+    type: String, 
+    enum: ['Daily', 'Weekly', 'Monthly'], 
+    default: 'Monthly' 
+  },
+  lastBillPeriod: String, // Format: "Month Year" or "YYYY-MM-DD to YYYY-MM-DD"
+  totalAmountPayable: { type: Number, default: 0 },
+  totalAmountPaid: { type: Number, default: 0 },
+  
   address: {
     Apartment: { type: String },
     FlatNo: { type: String },

@@ -12,27 +12,36 @@ const getStatusStyle = (status: string) => {
       return { color: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)' };
     case 'Unpaid':
       return { color: '#F44336', backgroundColor: 'rgba(244, 67, 54, 0.1)' };
-    default: // Assuming 'Pending' or other statuses fall here
+    case 'Partially Paid':
       return { color: '#FF9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' };
+    default: // Assuming 'Pending' or other statuses fall here
+      return { color: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)' };
   }
 };
 
-const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill }: { customer: any, onPress: () => void, onEdit: (customer: any) => void, onDelete: (customer: any) => void, onViewBill: (customer: any) => void }) => (
+const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill, onViewPayment }: { customer: any, onPress: () => void, onEdit: (customer: any) => void, onDelete: (customer: any) => void, onViewBill: (customer: any) => void, onViewPayment: (customer: any) => void }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
-    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(customer.Bill).color }]} />
+    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(customer.paymentStatus || customer.Bill).color }]} />
     <View style={styles.cardContent}>
       <Text style={styles.customerName}>{customer.name}</Text>
       <Text style={styles.customerInfo}>Customer ID | {customer._id}</Text>
       <Text style={styles.customerInfo}>Contact: {customer.phone}</Text>
+      
+      {customer.currentDueAmount !== undefined && (
+        <Text style={styles.dueAmount}>Due: ₹{customer.currentDueAmount || 0}</Text>
+      )}
     </View>
-    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(customer.Bill).backgroundColor }]}>
-      <Text style={[styles.statusText, { color: getStatusStyle(customer.Bill).color }]}>
-        {customer.Bill}
+    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(customer.paymentStatus || customer.Bill).backgroundColor }]}>
+      <Text style={[styles.statusText, { color: getStatusStyle(customer.paymentStatus || customer.Bill).color }]}>
+        {customer.paymentStatus || customer.Bill}
       </Text>
     </View>
     <View style={styles.actionsContainer}>
       <TouchableOpacity onPress={() => onViewBill(customer)} style={styles.actionButton}>
         <Feather name="file-text" size={20} color={COLORS.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => onViewPayment(customer)} style={styles.actionButton}>
+        <Feather name="credit-card" size={20} color={COLORS.primary} />
       </TouchableOpacity>
       <TouchableOpacity onPress={() => onEdit(customer)} style={styles.actionButton}>
         <Feather name="edit-2" size={20} color={COLORS.text} />
@@ -94,7 +103,11 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   const filteredCustomers = useMemo(() => {
     let list = customers;
     if (filter !== 'All') {
-      list = list.filter((customer: any) => customer.Bill === filter);
+      list = list.filter((customer: any) => {
+        // Use paymentStatus if available, otherwise use the old Bill field
+        const status = customer.paymentStatus || customer.Bill;
+        return status === filter;
+      });
     }
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
@@ -119,6 +132,10 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
 
   const handleViewBillPress = (customer: any) => {
     navigation.navigate('StatementPeriodSelection', { customerId: customer._id });
+  };
+
+  const handleViewPaymentPress = (customer: any) => {
+    navigation.navigate('PaymentStatus', { customerId: customer._id });
   };
 
   const handleSaveCustomer = async (updatedCustomer: any) => {
@@ -223,6 +240,9 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         <TouchableOpacity style={[styles.filterTab, filter === 'Unpaid' && styles.activeTab]} onPress={() => setFilter('Unpaid')}>
           <Text style={[styles.filterText, filter === 'Unpaid' && styles.activeFilterText]}>Unpaid</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.filterTab, filter === 'Partially Paid' && styles.activeTab]} onPress={() => setFilter('Partially Paid')}>
+          <Text style={[styles.filterText, filter === 'Partially Paid' && styles.activeFilterText]}>Partially Paid</Text>
+        </TouchableOpacity>
       </View>
       <FlatList
         data={filteredCustomers}
@@ -233,6 +253,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
             onEdit={handleEditPress}
             onDelete={handleDeletePress}
             onViewBill={handleViewBillPress}
+            onViewPayment={handleViewPaymentPress}
           />
         )}
         keyExtractor={(item: any) => item._id}
@@ -325,6 +346,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B6B6B',
     marginTop: 4,
+  },
+  dueAmount: {
+    fontSize: 12,
+    color: COLORS.error,
+    marginTop: 4,
+    fontWeight: '600',
   },
   statusBadge: {
     position: 'absolute',

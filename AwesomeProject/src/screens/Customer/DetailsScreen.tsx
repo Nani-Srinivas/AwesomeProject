@@ -55,15 +55,23 @@ export const DetailsScreen = () => {
         <Text style={styles.infoValue}>{customerData._id}</Text>
       </View>
       <View style={styles.infoItem}>
-        <Text style={styles.infoLabel}>Billing Status</Text>
+        <Text style={styles.infoLabel}>Payment Status</Text>
         <Text style={[styles.infoValue, 
-          customerData.Bill === 'Paid' ? styles.paidStatus : 
-          customerData.Bill === 'Unpaid' ? styles.unpaidStatus : 
+          (customerData.paymentStatus || customerData.Bill) === 'Paid' ? styles.paidStatus : 
+          (customerData.paymentStatus || customerData.Bill) === 'Unpaid' ? styles.unpaidStatus : 
           styles.pendingStatus
         ]}>
-          {customerData.Bill}
+          {customerData.paymentStatus || customerData.Bill}
         </Text>
       </View>
+      {customerData.currentDueAmount !== undefined && (
+        <View style={styles.infoItem}>
+          <Text style={styles.infoLabel}>Current Due</Text>
+          <Text style={[styles.infoValue, customerData.currentDueAmount > 0 ? styles.unpaidStatus : styles.paidStatus]}>
+            ₹{customerData.currentDueAmount || 0}
+          </Text>
+        </View>
+      )}
       <View style={styles.infoItem}>
         <Text style={styles.infoLabel}>Delivery Cost</Text>
         <Text style={styles.infoValue}>₹{customerData.deliveryCost || '0'}</Text>
@@ -83,13 +91,22 @@ export const DetailsScreen = () => {
     <View style={styles.billingSection}>
       <View style={styles.billingHeader}>
         <Text style={styles.sectionTitle}>Invoice History</Text>
-        <TouchableOpacity 
-          style={styles.generateButton}
-          onPress={handleGenerateInvoice}
-        >
-          <Feather name="plus" size={16} color="#fff" />
-          <Text style={styles.generateButtonText}> Generate Invoice</Text>
-        </TouchableOpacity>
+        <View style={styles.billingHeaderButtons}>
+          <TouchableOpacity 
+            style={styles.paymentButton}
+            onPress={() => navigation.navigate('PaymentStatus', { customerId: customer._id })}
+          >
+            <Feather name="credit-card" size={16} color="#fff" />
+            <Text style={styles.paymentButtonText}> Payment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.generateButton}
+            onPress={handleGenerateInvoice}
+          >
+            <Feather name="plus" size={16} color="#fff" />
+            <Text style={styles.generateButtonText}> Invoice</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -270,6 +287,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  billingHeaderButtons: {
+    flexDirection: 'row',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -282,8 +302,22 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 8,
+  },
+  paymentButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   generateButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  paymentButtonText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',

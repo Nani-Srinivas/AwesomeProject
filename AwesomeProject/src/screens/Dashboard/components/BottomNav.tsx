@@ -14,7 +14,7 @@ export const BottomNav = ({ styles, navigation }: { styles: any, navigation: Das
         <View style={styles.navIconContainer}><Feather name="heart" size={24} color="#6B6B6B" /></View>
         <Text style={styles.navLabel}>Saved</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.navTab}>
+      <TouchableOpacity style={styles.navTab} onPress={() => navigation.navigate('CustomerList')}>
         <View style={styles.navIconContainer}><Feather name="credit-card" size={24} color="#6B6B6B" /></View>
         <Text style={styles.navLabel}>Money</Text>
       </TouchableOpacity>

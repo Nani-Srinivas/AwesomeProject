@@ -1,24 +1,33 @@
+// src/screens/Bills/BillsScreen.tsx
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { EditCustomerModal } from '../../components/customer/EditCustomerModal';
+import { apiService } from '../../services/apiService';
+import { useNavigation } from '@react-navigation/native';
 
-const initialCustomers = [
-  { name: 'John Doe', id: '#CST1023', contact: '+91 9876543210', status: 'Paid' },
-  { name: 'Jane Smith', id: '#CST1024', contact: '+91 9876543211', status: 'Unpaid' },
-  { name: 'Peter Jones', id: '#CST1025', contact: '+91 9876543212', status: 'Pending' },
-  { name: 'Mary Johnson', id: '#CST1026', contact: '+91 9876543213', status: 'Paid' },
-  { name: 'David Williams', id: '#CST1027', contact: '+91 9876543214', status: 'Unpaid' },
-];
+// Define the type for customer
+interface Customer {
+  _id: string;
+  name: string;
+  phone: string;
+  paymentStatus: string;
+  currentDueAmount: number;
+  totalAmountPayable: number;
+  totalAmountPaid: number;
+  lastPaymentDate?: string;
+  lastBillPeriod?: string;
+}
 
+// Status badge styling
 const getStatusStyle = (status: string) => {
   switch (status) {
     case 'Paid':
       return { color: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)' };
     case 'Unpaid':
       return { color: '#F44336', backgroundColor: 'rgba(244, 67, 54, 0.1)' };
-    case 'Pending':
+    case 'Partially Paid':
       return { color: '#FF9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' };
     default:
       return { color: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)' };
@@ -29,25 +38,30 @@ const CustomerCard = ({
   customer,
   onPress,
   onViewBill,
-  onViewHistory, // Added new prop
+  onViewHistory,
+  onViewPayment,
   onEdit,
 }: {
-  customer: any;
+  customer: Customer;
   onPress: () => void;
   onViewBill: () => void;
-  onViewHistory: () => void; // Added new prop type
+  onViewHistory: () => void;
+  onViewPayment: () => void;
   onEdit: () => void;
 }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
-    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(customer.status).color }]} />
+    <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(customer.paymentStatus).color }]} />
     <View style={styles.cardContent}>
       <Text style={styles.customerName}>{customer.name}</Text>
-      <Text style={styles.customerInfo}>Customer ID | {customer.id}</Text>
-      <Text style={styles.customerInfo}>Contact: {customer.contact}</Text>
+      <Text style={styles.customerInfo}>Customer ID | {customer._id}</Text>
+      <Text style={styles.customerInfo}>Contact: {customer.phone}</Text>
+      {customer.currentDueAmount !== undefined && (
+        <Text style={styles.dueAmount}>Due: ₹{customer.currentDueAmount || 0}</Text>
+      )}
     </View>
-    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(customer.status).backgroundColor }]}>
-      <Text style={[styles.statusText, { color: getStatusStyle(customer.status).color }]}>
-        {customer.status}
+    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(customer.paymentStatus).backgroundColor }]}>
+      <Text style={[styles.statusText, { color: getStatusStyle(customer.paymentStatus).color }]}>
+        {customer.paymentStatus}
       </Text>
     </View>
     <View style={styles.iconContainer}>
@@ -56,6 +70,9 @@ const CustomerCard = ({
       </TouchableOpacity>
       <TouchableOpacity onPress={onViewHistory} style={{ marginLeft: 16 }}>
         <Feather name="archive" size={20} color={COLORS.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onViewPayment} style={{ marginLeft: 16 }}>
+        <Feather name="credit-card" size={20} color={COLORS.primary} />
       </TouchableOpacity>
       <TouchableOpacity onPress={onEdit} style={{ marginLeft: 16 }}>
         <Feather name="edit-2" size={20} color={COLORS.text} />
@@ -67,58 +84,102 @@ const CustomerCard = ({
 export const BillsScreen = ({ navigation, route }: { navigation: any; route: any }) => {
   const [filter, setFilter] = useState(route?.params?.filter || 'All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+
+  // Fetch customers with payment information
+  React.useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setLoading(true);
+        const response = await apiService.get('/customer');
+        if (response.data.success) {
+          setCustomers(response.data.data || []);
+        } else {
+          Alert.alert('Error', response.data.message || 'Failed to fetch customers');
+        }
+      } catch (err: any) {
+        Alert.alert('Error', err.message || 'Failed to fetch customers');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCustomers();
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     let list = customers;
     if (filter !== 'All') {
-      list = list.filter((c) => c.status === filter);
+      list = list.filter((c) => c.paymentStatus === filter);
     }
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
-          c.contact.toLowerCase().includes(q) ||
-          c.id.toLowerCase().includes(q)
+          c.phone.toLowerCase().includes(q) ||
+          c._id.toLowerCase().includes(q)
       );
     }
     return list;
   }, [filter, searchQuery, customers]);
 
-  const handleCustomerPress = (customer: any) => {
+  const handleCustomerPress = (customer: Customer) => {
     navigation.navigate('Details', { customer });
   };
 
-  const handleViewBillPress = (customer: any) => {
-    navigation.navigate('StatementPeriodSelection', { customerId: customer.id });
+  const handleViewBillPress = (customer: Customer) => {
+    navigation.navigate('StatementPeriodSelection', { customerId: customer._id });
   };
 
-  const handleViewHistoryPress = (customer: any) => { // New handler
-    navigation.navigate('InvoiceHistory', { customerId: customer.id });
+  const handleViewHistoryPress = (customer: Customer) => {
+    navigation.navigate('InvoiceHistory', { customerId: customer._id });
   };
 
-  const handleEditPress = (customer: any) => {
+  const handleViewPaymentPress = (customer: Customer) => {
+    navigation.navigate('PaymentStatus', { customerId: customer._id });
+  };
+
+  const handleEditPress = (customer: Customer) => {
     setEditingCustomer(customer);
     setEditModalVisible(true);
   };
 
-  const handleSaveCustomer = (updatedCustomer: any) => {
-    setCustomers(prev =>
-      prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c))
-    );
-    setEditModalVisible(false);
-    setEditingCustomer(null);
-    Alert.alert('Success', `Customer "${updatedCustomer.name}" has been updated.`);
+  const handleSaveCustomer = async (updatedCustomer: Customer) => {
+    try {
+      const response = await apiService.patch(`/customer/update/${updatedCustomer._id}`, updatedCustomer);
+
+      if (response.data.success) {
+        setCustomers(prev =>
+          prev.map(c => (c._id === updatedCustomer._id ? response.data.data : c))
+        );
+        setEditModalVisible(false);
+        setEditingCustomer(null);
+        Alert.alert('Success', `Customer "${response.data.data.name}" has been updated.`);
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to update customer.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'An error occurred while updating.');
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <Text>Loading customers...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* 🔍 Search bar */}
+      {/* Search bar */}
       <View style={styles.searchContainer}>
-        <TouchableOpacity onPress={() => navigation.navigate('StatementPeriodSelection')}>
+        <TouchableOpacity>
           <Feather name="search" size={18} color="#6B6B6B" style={{ marginRight: 8 }} />
         </TouchableOpacity>
         <TextInput
@@ -131,7 +192,7 @@ export const BillsScreen = ({ navigation, route }: { navigation: any; route: any
 
       {/* Filters */}
       <View style={styles.filterContainer}>
-        {['All', 'Paid', 'Pending', 'Unpaid'].map((status) => (
+        {['All', 'Paid', 'Unpaid', 'Partially Paid'].map((status) => (
           <TouchableOpacity
             key={status}
             style={[styles.filterTab, filter === status && styles.activeTab]}
@@ -147,13 +208,14 @@ export const BillsScreen = ({ navigation, route }: { navigation: any; route: any
       {/* Customer list */}
       <FlatList
         data={filteredCustomers}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
           <CustomerCard
             customer={item}
             onPress={() => handleCustomerPress(item)}
             onViewBill={() => handleViewBillPress(item)}
-            onViewHistory={() => handleViewHistoryPress(item)} // Pass new handler
+            onViewHistory={() => handleViewHistoryPress(item)}
+            onViewPayment={() => handleViewPaymentPress(item)}
             onEdit={() => handleEditPress(item)}
           />
         )}
@@ -184,6 +246,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     backgroundColor: '#FFFFFF',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -254,19 +321,13 @@ const styles = StyleSheet.create({
     color: '#6B6B6B',
     marginTop: 4,
   },
-  // statusBadge: {
-  //   position: 'absolute',
-  //   top: 16,
-  //   right: 16,
-  //   paddingVertical: 4,
-  //   paddingHorizontal: 10,
-  //   borderRadius: 12,
-  // },
-  // statusText: {
-  //   fontSize: 12,
-  //   fontWeight: '600',
-  // },
-    statusBadge: {
+  dueAmount: {
+    fontSize: 12,
+    color: COLORS.error,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  statusBadge: {
     position: 'absolute',
     top: 0,
     right: 0,

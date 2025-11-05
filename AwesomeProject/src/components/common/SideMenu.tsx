@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Dimensions, Animated, TouchableOpacity, Touchab
 import { COLORS } from '../../constants/colors';
 import Feather from 'react-native-vector-icons/Feather';
 
+import { useNavigation } from '@react-navigation/native';
+
 interface SideMenuProps {
   isVisible: boolean;
   onClose: () => void;
@@ -13,6 +15,7 @@ const { width } = Dimensions.get('window');
 const menuWidth = width * 0.7; // 70% of screen width
 
 export const SideMenu = ({ isVisible, onClose, onLogout }: SideMenuProps) => {
+  const navigation = useNavigation();
   const slideAnim = useRef(new Animated.Value(-menuWidth)).current; // Initial position off-screen to the left
 
   useEffect(() => {
@@ -49,6 +52,16 @@ export const SideMenu = ({ isVisible, onClose, onLogout }: SideMenuProps) => {
                     <Feather name="x" size={24} color={COLORS.text} />
                   </TouchableOpacity>
                 </View>
+                <TouchableOpacity 
+                  style={styles.menuItem} 
+                  onPress={() => {
+                    navigation.navigate('Bills');
+                    onClose();
+                  }}
+                >
+                  <Feather name="file-text" size={20} color={COLORS.text} />
+                  <Text style={styles.menuItemText}>Bills</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.menuItem} onPress={onLogout}>
                   <Feather name="log-out" size={20} color={COLORS.text} />
                   <Text style={styles.menuItemText}>Logout</Text>

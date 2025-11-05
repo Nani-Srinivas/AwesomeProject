@@ -21,6 +21,7 @@ export type MainStackParamList = {
   AddStock: undefined;
   Products: undefined;
   AddAttendance: undefined;
+  CustomerList: undefined;
   Bills: undefined;
   PayableTemp: undefined;
   StatementPeriodSelection?: { customerId?: string }; // customerId is now optional
@@ -30,6 +31,9 @@ export type MainStackParamList = {
   SelectCategory: undefined;
   SelectProduct: { selectedCategories: string[] };
   Cards: undefined;
+  PaymentHistory: { customerId: string };
+  PaymentStatus: { customerId: string };
+  ReceivePayment: { customerId: string };
 };
 
 // Define the Root Stack which can navigate between Auth and Main stacks

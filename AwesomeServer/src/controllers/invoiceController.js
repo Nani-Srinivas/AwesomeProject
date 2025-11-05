@@ -1610,6 +1610,20 @@ export const generateInvoice = async (request, reply) => {
     });
 
     // ------------------------------
+    // 💾 Calculate payment-related fields
+    // ------------------------------
+    const totalAmount = parseFloat(invoiceData.grandTotal);
+    const paidAmount = 0; // Initially no payment
+    const dueAmount = totalAmount; // Full amount due initially
+    
+    let invoiceStatus = "Generated";
+    if (dueAmount === 0) {
+      invoiceStatus = "Paid";
+    } else if (paidAmount > 0 && dueAmount > 0) {
+      invoiceStatus = "Partially Paid";
+    }
+
+    // ------------------------------
     // 💾 Save invoice in DB
     // ------------------------------
     const invoiceDoc = await Invoice.create({
@@ -1621,6 +1635,11 @@ export const generateInvoice = async (request, reply) => {
       items: invoiceData.items,
       deliveryCharges: invoiceData.deliveryCharges,
       grandTotal: invoiceData.grandTotal,
+      totalAmount,
+      paidAmount,
+      dueAmount,
+      status: invoiceStatus,
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
       cloudinary: {
         public_id: uploadResult.public_id,
         url: uploadResult.url,
@@ -1631,6 +1650,31 @@ export const generateInvoice = async (request, reply) => {
       generatedBy: generatedBy || "system",
       generatedAt: invoiceData.generatedAt,
     });
+
+    // ------------------------------
+    // 💰 Update customer payment status
+    // ------------------------------
+    const invoiceCustomer = await Customer.findById(customerId);
+    if (invoiceCustomer) {
+      // Update customer's payment-related fields
+      const totalAmountPayable = (invoiceCustomer.totalAmountPayable || 0) + totalAmount;
+      const currentDueAmount = (invoiceCustomer.currentDueAmount || 0) + dueAmount;
+      
+      // Determine customer payment status based on all invoices
+      let customerPaymentStatus = "Unpaid";
+      if (currentDueAmount === 0) {
+        customerPaymentStatus = "Paid";
+      } else if (currentDueAmount > 0 && totalAmountPayable > currentDueAmount) {
+        customerPaymentStatus = "Partially Paid";
+      }
+      
+      await Customer.findByIdAndUpdate(customerId, {
+        totalAmountPayable,
+        currentDueAmount,
+        paymentStatus: customerPaymentStatus,
+        lastBillPeriod: normalizedPeriod
+      });
+    }
 
     console.log("✅ Invoice generated:", uploadResult.secure_url);
 
@@ -1664,7 +1708,7 @@ export const getCustomerInvoices = async (request, reply) => {
 
     const invoices = await Invoice.find({ customerId })
       .sort({ generatedAt: -1 })
-      .select('billNo period fromDate toDate grandTotal cloudinary.secure_url generatedAt')
+      .select('billNo period fromDate toDate grandTotal totalAmount paidAmount dueAmount status dueDate cloudinary.secure_url generatedAt')
       .lean();
 
     return reply.code(200).send({
@@ -1676,6 +1720,11 @@ export const getCustomerInvoices = async (request, reply) => {
         fromDate: inv.fromDate,
         toDate: inv.toDate,
         grandTotal: inv.grandTotal,
+        totalAmount: inv.totalAmount,
+        paidAmount: inv.paidAmount,
+        dueAmount: inv.dueAmount,
+        status: inv.status,
+        dueDate: inv.dueDate,
         url: inv.cloudinary?.secure_url,
         generatedAt: inv.generatedAt,
       }))
@@ -1720,12 +1769,33 @@ export const regenerateInvoice = async (request, reply) => {
       }
     }
 
+    // Extract period info for regeneration
+    const { customerId, period, fromDate, toDate, totalAmount, dueAmount } = existingInvoice;
+
+    // Update customer's payment-related fields (reverse the old invoice's impact)
+    const regenerateCustomer = await Customer.findById(customerId);
+    if (regenerateCustomer) {
+      const newTotalPayable = Math.max(0, (regenerateCustomer.totalAmountPayable || 0) - (totalAmount || 0));
+      const newCurrentDue = Math.max(0, (regenerateCustomer.currentDueAmount || 0) - (dueAmount || 0));
+      
+      // Recalculate customer payment status
+      let newCustomerPaymentStatus = "Unpaid";
+      if (newCurrentDue === 0) {
+        newCustomerPaymentStatus = "Paid";
+      } else if (newCurrentDue > 0 && newTotalPayable > newCurrentDue) {
+        newCustomerPaymentStatus = "Partially Paid";
+      }
+      
+      await Customer.findByIdAndUpdate(customerId, {
+        totalAmountPayable: newTotalPayable,
+        currentDueAmount: newCurrentDue,
+        paymentStatus: newCustomerPaymentStatus
+      });
+    }
+
     // Delete from database
     await Invoice.findByIdAndDelete(invoiceId);
     console.log(`Deleted old invoice from DB: ${invoiceId}`);
-
-    // Extract period info for regeneration
-    const { customerId, period, fromDate, toDate } = existingInvoice;
 
     // Regenerate with the same period information
     let regenerateBody;
@@ -1788,6 +1858,29 @@ export const deleteInvoice = async (request, reply) => {
         });
       } catch (cloudErr) {
         console.warn("Cloudinary deletion warning:", cloudErr);
+      }
+    }
+
+    // Update customer's payment-related fields (reverse the invoice's impact)
+    if (invoice.totalAmount && invoice.customerId) {
+      const deleteCustomer = await Customer.findById(invoice.customerId);
+      if (deleteCustomer) {
+        const newTotalPayable = Math.max(0, (deleteCustomer.totalAmountPayable || 0) - (invoice.totalAmount || 0));
+        const newCurrentDue = Math.max(0, (deleteCustomer.currentDueAmount || 0) - (invoice.dueAmount || 0));
+        
+        // Recalculate customer payment status
+        let newCustomerPaymentStatus = "Unpaid";
+        if (newCurrentDue === 0) {
+          newCustomerPaymentStatus = "Paid";
+        } else if (newCurrentDue > 0 && newTotalPayable > newCurrentDue) {
+          newCustomerPaymentStatus = "Partially Paid";
+        }
+        
+        await Customer.findByIdAndUpdate(invoice.customerId, {
+          totalAmountPayable: newTotalPayable,
+          currentDueAmount: newCurrentDue,
+          paymentStatus: newCustomerPaymentStatus
+        });
       }
     }
 
