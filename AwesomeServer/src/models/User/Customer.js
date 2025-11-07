@@ -28,13 +28,7 @@ const customerSchema = new mongoose.Schema({
     default: 'StoreManager',
   },
   
-  // Payment related fields
-  paymentStatus: {
-    type: String,
-    enum: ["Paid", "Unpaid", "Partially Paid"],
-    default: "Unpaid",
-  },
-  currentDueAmount: { type: Number, default: 0 }, // Outstanding amount
+  // Payment related fields (no aggregated financial data stored here)
   lastPaymentDate: Date, // Date of last payment
   paymentCycle: { 
     type: String, 
@@ -42,8 +36,7 @@ const customerSchema = new mongoose.Schema({
     default: 'Monthly' 
   },
   lastBillPeriod: String, // Format: "Month Year" or "YYYY-MM-DD to YYYY-MM-DD"
-  totalAmountPayable: { type: Number, default: 0 },
-  totalAmountPaid: { type: Number, default: 0 },
+  creditBalance: { type: Number, default: 0 }, // Customer credit from overpayments
   
   address: {
     Apartment: { type: String },

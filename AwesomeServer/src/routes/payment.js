@@ -4,7 +4,8 @@ import {
     getCustomerPaymentHistory, 
     getCustomerPaymentStatus, 
     updatePaymentStatus,
-    getAllPayments 
+    getAllPayments,
+    deletePayment
 } from '../controllers/Finance/Payment.js';
 import { verifyToken } from "../middleware/auth.js";
 
@@ -20,6 +21,9 @@ export default async function paymentRoutes(fastify, opts) {
     
     // Update payment status
     fastify.patch('/payment/update/:paymentId', { preHandler: [verifyToken] }, updatePaymentStatus);
+    
+    // Delete a payment
+    fastify.delete('/payment/:paymentId', { preHandler: [verifyToken] }, deletePayment);
     
     // Get all payments (with optional filters)
     fastify.get('/payment/list', { preHandler: [verifyToken] }, getAllPayments);

@@ -27,16 +27,50 @@ export const ReceivePaymentScreen = () => {
   const [transactionId, setTransactionId] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [isPartialPayment, setIsPartialPayment] = useState<boolean>(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCustomer();
   }, [customerId]);
 
+  // ... existing code ...
+
   const fetchCustomer = async () => {
     try {
       setLoading(true);
-      const response = await apiService.get(`/customer/${customerId}`);
-      setCustomer(response.data.data);
+      // Fetch customer details
+      const customerResponse = await apiService.get(`/customer/${customerId}`);
+      const customerData = customerResponse.data.data;
+      
+      // Fetch customer's payment status (real-time calculated)
+      const paymentStatusResponse = await apiService.get(`/payment/status/${customerId}`);
+      const paymentStatusData = paymentStatusResponse.data.data;
+      
+      // Fetch customer's invoices to show what they're paying for
+      const invoicesResponse = await apiService.get(`/invoice/customer/${customerId}`);
+      const invoicesData = invoicesResponse.data.invoices || [];
+      
+      // Filter unpaid invoices to show what can be paid
+      const unpaidInvoices = invoicesData.filter(invoice => 
+        invoice.status !== 'Paid' && parseFloat(invoice.dueAmount) > 0
+      );
+      
+      // If there's only one unpaid invoice, auto-select it for payment
+      if (unpaidInvoices.length === 1) {
+        setSelectedInvoiceId(unpaidInvoices[0]._id);
+      }
+      
+      // Combine customer, payment status and invoice data
+      const combinedData = {
+        ...customerData,
+        ...paymentStatusData,
+        unpaidInvoices
+      };
+      setCustomer(combinedData);
+      
+      // Initialize amount with current due amount for full payment
+      setAmount(combinedData.currentDueAmount.toString());
     } catch (err: any) {
       console.error('Failed to fetch customer:', err);
       Alert.alert('Error', err.response?.data?.message || 'Failed to load customer details');
@@ -51,21 +85,49 @@ export const ReceivePaymentScreen = () => {
       return;
     }
 
-    if (parseFloat(amount) > (customer?.currentDueAmount || 0)) {
+    // For partial payments, check if amount exceeds current due
+    if (isPartialPayment && parseFloat(amount) > (customer?.currentDueAmount || 0)) {
       Alert.alert('Error', `Amount exceeds current due amount of ₹${customer?.currentDueAmount}`);
       return;
+    }
+    
+    // For full payment, amount should match the current due (with small tolerance for rounding)
+    if (!isPartialPayment) {
+      const requestedAmount = parseFloat(customer?.currentDueAmount || 0);
+      const enteredAmount = parseFloat(amount);
+      const tolerance = 0.01; // Small tolerance for floating-point comparison
+      
+      if (Math.abs(enteredAmount - requestedAmount) > tolerance) {
+        Alert.alert('Error', `Full payment amount should be exactly ₹${requestedAmount}`);
+        return;
+      }
+    }
+    
+    // Prepare payment allocations based on selection
+    let paymentPayload: any = {
+      customerId,
+      amount: parseFloat(amount),
+      paymentMethod,
+      notes: notes || undefined
+    };
+
+    // If user has selected a specific invoice to pay
+    if (selectedInvoiceId) {
+      paymentPayload.invoiceId = selectedInvoiceId;
+    } else if (customer?.unpaidInvoices && customer.unpaidInvoices.length === 1) {
+      // If only one unpaid invoice, allocate to that invoice
+      paymentPayload.invoiceId = customer.unpaidInvoices[0]._id;
+    }
+    // If no selection is made and multiple invoices exist, payment will be applied to oldest invoices
+
+    if (transactionId) {
+      paymentPayload.transactionId = transactionId;
     }
 
     try {
       setSubmitting(true);
       
-      const response = await apiService.post('/payment/receive', {
-        customerId,
-        amount: parseFloat(amount),
-        paymentMethod,
-        transactionId: transactionId || undefined,
-        notes: notes || undefined
-      });
+      const response = await apiService.post('/payment/receive', paymentPayload);
 
       Alert.alert('Success', 'Payment recorded successfully!');
       
@@ -111,13 +173,66 @@ export const ReceivePaymentScreen = () => {
           <Text style={styles.statusValue}>₹{customer?.totalAmountPaid || 0}</Text>
         </View>
         
-        <View style={[styles.statusRow, { borderBottomWidth: 0 }]}>
+        <View style={styles.statusRow}>
           <Text style={styles.statusText}>Current Due:</Text>
           <Text style={[styles.statusValue, { color: COLORS.error }]}>
             ₹{customer?.currentDueAmount || 0}
           </Text>
         </View>
+        
+        <View style={styles.statusRow}>
+          <Text style={styles.statusText}>Unpaid Invoices:</Text>
+          <Text style={styles.statusValue}>{customer?.unpaidInvoices?.length || 0}</Text>
+        </View>
+        
+        <View style={[styles.statusRow, { borderBottomWidth: 0, paddingTop: 10 }]}>
+          <Text style={styles.statusText}>Credit Balance:</Text>
+          <Text style={[styles.statusValue, { color: '#4CAF50' }]}>₹{customer?.creditBalance || 0}</Text>
+        </View>
       </View>
+      
+      {/* Show unpaid invoices list */}
+      {customer?.unpaidInvoices && customer.unpaidInvoices.length > 0 && (
+        <>
+          {customer.unpaidInvoices.length > 1 ? (
+            <View style={styles.invoicesCard}>
+              <Text style={styles.sectionTitle}>Select Invoice to Pay</Text>
+              {customer.unpaidInvoices.map((invoice: any, index: number) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.invoiceRow,
+                    selectedInvoiceId === invoice._id && styles.selectedInvoiceRow
+                  ]}
+                  onPress={() => setSelectedInvoiceId(invoice._id)}
+                >
+                  <View style={styles.invoiceInfo}>
+                    <Text style={styles.invoicePeriod}>{invoice.period}</Text>
+                    <Text style={styles.invoiceBillNo}>{invoice.billNo}</Text>
+                  </View>
+                  <Text style={styles.invoiceAmount}>₹{invoice.dueAmount}</Text>
+                  {selectedInvoiceId === invoice._id && (
+                    <Feather name="check" size={20} color={COLORS.primary} style={styles.checkIcon} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.invoicesCard}>
+              <Text style={styles.sectionTitle}>Invoice to be Paid</Text>
+              {customer.unpaidInvoices.map((invoice: any, index: number) => (
+                <View key={index} style={styles.invoiceRow}>
+                  <View style={styles.invoiceInfo}>
+                    <Text style={styles.invoicePeriod}>{invoice.period}</Text>
+                    <Text style={styles.invoiceBillNo}>{invoice.billNo}</Text>
+                  </View>
+                  <Text style={styles.invoiceAmount}>₹{invoice.dueAmount}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      )}
 
       <View style={styles.paymentForm}>
         <Text style={styles.sectionTitle}>Payment Details</Text>
@@ -146,16 +261,64 @@ export const ReceivePaymentScreen = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Amount (₹)</Text>
-          <TextInput
-            style={styles.input}
-            value={amount}
-            onChangeText={setAmount}
-            placeholder="Enter payment amount"
-            keyboardType="numeric"
-            placeholderTextColor="#999"
-          />
+          <Text style={styles.label}>Payment Type</Text>
+          <View style={styles.paymentTypeSelector}>
+            <TouchableOpacity
+              style={[
+                styles.paymentTypeButton,
+                !isPartialPayment && styles.paymentTypeButtonSelected
+              ]}
+              onPress={() => {
+                setIsPartialPayment(false);
+                setAmount(customer?.currentDueAmount.toString() || '0');
+              }}
+            >
+              <View style={[
+                styles.radioButton,
+                !isPartialPayment && styles.radioButtonSelected
+              ]}>
+                {!isPartialPayment && <View style={styles.radioButtonInner} />}
+              </View>
+              <Text style={styles.paymentTypeText}>Full Payment (₹{customer?.currentDueAmount || 0})</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.paymentTypeButton,
+                isPartialPayment && styles.paymentTypeButtonSelected
+              ]}
+              onPress={() => setIsPartialPayment(true)}
+            >
+              <View style={[
+                styles.radioButton,
+                isPartialPayment && styles.radioButtonSelected
+              ]}>
+                {isPartialPayment && <View style={styles.radioButtonInner} />}
+              </View>
+              <Text style={styles.paymentTypeText}>Partial Payment</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+        
+        {isPartialPayment && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Enter Amount (₹)</Text>
+            <TextInput
+              style={styles.input}
+              value={amount}
+              onChangeText={setAmount}
+              placeholder="Enter payment amount"
+              keyboardType="numeric"
+              placeholderTextColor="#999"
+            />
+          </View>
+        )}
+        
+        {!isPartialPayment && (
+          <View style={styles.fullPaymentContainer}>
+            <Text style={styles.fullPaymentAmount}>₹{customer?.currentDueAmount || 0}</Text>
+          </View>
+        )}
 
         {paymentMethod !== 'Cash' && (
           <View style={styles.inputGroup}>
@@ -277,6 +440,104 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  paymentTypeSelector: {
+    flexDirection: 'column',
+  },
+  paymentTypeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    marginBottom: 8,
+  },
+  paymentTypeButtonSelected: {
+    backgroundColor: '#E3F2FD',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  radioButton: {
+    height: 20,
+    width: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#999',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  radioButtonSelected: {
+    borderColor: COLORS.primary,
+  },
+  radioButtonInner: {
+    height: 10,
+    width: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.primary,
+  },
+  paymentTypeText: {
+    fontSize: 16,
+    color: COLORS.text,
+    flex: 1,
+  },
+  fullPaymentContainer: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  fullPaymentAmount: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  invoicesCard: {
+    backgroundColor: COLORS.white,
+    margin: 16,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  invoiceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+  },
+  invoiceInfo: {
+    flex: 1,
+  },
+  invoicePeriod: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  invoiceBillNo: {
+    fontSize: 12,
+    color: COLORS.accent,
+  },
+  invoiceAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.error,
+  },
+  selectedInvoiceRow: {
+    backgroundColor: '#E3F2FD',
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+  },
+  checkIcon: {
+    marginLeft: 10,
   },
   paymentForm: {
     backgroundColor: COLORS.white,

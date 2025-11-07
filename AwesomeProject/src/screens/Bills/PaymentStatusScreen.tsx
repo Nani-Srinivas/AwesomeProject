@@ -171,10 +171,10 @@ export const PaymentStatusScreen = () => {
 
         <TouchableOpacity 
           style={[styles.actionButton, styles.historyButton]} 
-          onPress={() => navigation.navigate('PaymentHistory', { customerId })}
+          onPress={() => navigation.navigate('InvoiceHistory', { customerId })}
         >
           <Feather name="clock" size={20} color={COLORS.white} />
-          <Text style={styles.actionButtonText}>Payment History</Text>
+          <Text style={styles.actionButtonText}>Invoice History</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

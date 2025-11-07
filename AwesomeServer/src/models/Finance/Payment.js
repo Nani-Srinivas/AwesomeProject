@@ -1,16 +1,31 @@
 // models/Finance/Payment.js
 import mongoose from 'mongoose';
 
+const paymentAllocationSchema = new mongoose.Schema({
+  invoiceId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Invoice',
+    required: true
+  },
+  amount: { 
+    type: Number, 
+    required: true 
+  }
+});
+
 const paymentSchema = new mongoose.Schema({
   customerId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Customer', 
     required: true 
   },
+  // Keep for backward compatibility, but primarily use allocations
   invoiceId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Invoice' 
   },
+  // New field for multiple invoice allocation
+  allocations: [paymentAllocationSchema],
   amount: { type: Number, required: true },
   paymentMethod: { 
     type: String, 

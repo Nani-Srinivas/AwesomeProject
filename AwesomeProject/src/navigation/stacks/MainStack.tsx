@@ -24,7 +24,6 @@ import { SelectCategoryScreen } from '../../screens/StoreManagement/SelectCatego
 import { SelectProductScreen } from '../../screens/StoreManagement/SelectProductScreen';
 import { CardsScreen } from '../../screens/Cards/CardsScreen';
 import { InvoiceHistoryScreen } from '../../screens/Bills/InvoiceHistoryScreen';
-import { PaymentHistoryScreen } from '../../screens/Bills/PaymentHistoryScreen';
 import { PaymentStatusScreen } from '../../screens/Bills/PaymentStatusScreen';
 import { ReceivePaymentScreen } from '../../screens/Bills/ReceivePaymentScreen';
 
@@ -58,9 +57,9 @@ export const MainStack = () => {
       <Stack.Screen name="SelectProduct" component={SelectProductScreen} options={{ title: 'Select Product' }} />
       <Stack.Screen name="Cards" component={CardsScreen} options={{ title: 'Cards' }} />
       <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} options={{ title: 'Invoice History' }} />
-      <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} options={{ title: 'Payment History' }} />
       <Stack.Screen name="PaymentStatus" component={PaymentStatusScreen} options={{ title: 'Payment Status' }} />
       <Stack.Screen name="ReceivePayment" component={ReceivePaymentScreen} options={{ title: 'Record Payment' }} />
+
 
     </Stack.Navigator>
   );

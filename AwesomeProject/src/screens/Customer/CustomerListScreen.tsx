@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator, Dimensions, TextInput } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { EditCustomerModal } from '../../components/customer/EditCustomerModal';
 import { AddCustomerModal } from '../../components/customer/AddCustomerModal';
 import { apiService } from '../../services/apiService';
+import { debounce } from 'lodash';
 
 const getStatusStyle = (status: string) => {
   switch (status) {
@@ -56,6 +57,7 @@ const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill, onViewP
 export const CustomerListScreen = ({ navigation, route }: { navigation: any, route: any }) => {
   const [filter, setFilter] = useState(route.params?.filter || 'All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [customers, setCustomers] = useState([]);
   const [areas, setAreas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,6 +66,19 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isAddModalVisible, setAddModalVisible] = useState(false);
+
+  // Debounce search input
+  const debouncedSearch = useCallback(
+    debounce((text) => {
+      setDebouncedSearchQuery(text);
+    }, 300), // 300ms delay
+    []
+  );
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    debouncedSearch(text);
+  };
 
   const fetchCustomers = async () => {
     try {
@@ -109,17 +124,20 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         return status === filter;
       });
     }
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
+    if (debouncedSearchQuery.trim() !== '') {
+      const q = debouncedSearchQuery.toLowerCase();
       list = list.filter(
         (customer: any) =>
           customer.name.toLowerCase().includes(q) ||
           customer.phone.toLowerCase().includes(q) ||
-          customer._id.toLowerCase().includes(q)
+          customer._id.toLowerCase().includes(q) ||
+          (customer.address?.FlatNo && customer.address.FlatNo.toLowerCase().includes(q)) ||
+          (customer.address?.Apartment && customer.address.Apartment.toLowerCase().includes(q)) ||
+          (customer.address?.city && customer.address.city.toLowerCase().includes(q))
       );
     }
     return list;
-  }, [filter, searchQuery, customers]);
+  }, [filter, debouncedSearchQuery, customers]);
 
   const handleCustomerPress = (customer: any) => {
     navigation.navigate('Details', { customer });
@@ -131,7 +149,10 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   };
 
   const handleViewBillPress = (customer: any) => {
-    navigation.navigate('StatementPeriodSelection', { customerId: customer._id });
+    navigation.navigate('StatementPeriodSelection', { 
+      customerId: customer._id,
+      onBillOperationComplete: fetchCustomers  // Pass callback to refresh customer list
+    });
   };
 
   const handleViewPaymentPress = (customer: any) => {
@@ -223,9 +244,9 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
       <View style={styles.searchContainer}>
         <Feather name="search" size={18} color="#6B6B6B" style={{ marginRight: 8 }} />
         <TextInput
-          placeholder="Search by name, contact or ID"
+          placeholder="Search by name, contact, address, or ID"
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={handleSearchChange}
           style={styles.searchInput}
         />
       </View>

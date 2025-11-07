@@ -56,12 +56,24 @@ import { connectDB } from "./src/config/connect.js";
 import fastify from 'fastify';
 import { PORT } from "./src/config/config.js";
 import websocketPlugin from '@fastify/websocket';
+import rateLimit from '@fastify/rate-limit';
 import { registerRoutes } from "./src/routes/index.js";
 import { admin, buildAdminRouter } from './src/config/setup.js';
 
 const start = async () => {
   await connectDB(process.env.MONGO_URI);
   const app = fastify();
+
+  // Add rate limiting
+  await app.register(rateLimit, {
+    max: 100, // limit each IP to 100 requests per window
+    timeWindow: '1 minute',
+    addHeaders: {
+      'x-ratelimit-limit': true,
+      'x-ratelimit-remaining': true,
+      'x-ratelimit-reset': true,
+    }
+  });
 
   // Register WebSocket plugin
   await app.register(websocketPlugin, {

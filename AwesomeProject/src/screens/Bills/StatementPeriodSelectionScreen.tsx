@@ -3119,6 +3119,7 @@ const Tab = createMaterialTopTabNavigator();
 
 type Props = { 
   customerId?: string;
+  onBillOperationComplete?: () => void;
   onInvoiceGenerated?: () => void;
 };
 
@@ -3127,10 +3128,12 @@ type Props = {
 // =====================================================
 const InvoiceList = ({ 
   customerId, 
-  onRefresh
+  onRefresh,
+  onBillOperationComplete
 }: { 
   customerId: string; 
   onRefresh?: () => void;
+  onBillOperationComplete?: () => void;
 }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
@@ -3261,6 +3264,7 @@ const InvoiceList = ({
               await apiService.post(`/invoice/regenerate/${invoice.id}`);
               Alert.alert('Success', 'Invoice regenerated successfully');
               fetchInvoices();
+              onBillOperationComplete?.(); // Call the callback to refresh customer list
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to regenerate');
             } finally {
@@ -3287,6 +3291,7 @@ const InvoiceList = ({
               await apiService.delete(`/invoice/${invoice.id}`);
               Alert.alert('Success', 'Invoice deleted successfully');
               fetchInvoices();
+              onBillOperationComplete?.(); // Call the callback to refresh customer list
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to delete');
             } finally {
@@ -3453,7 +3458,7 @@ const InvoiceList = ({
 // =====================================================
 // MONTHLY STATEMENT TAB (Fixed Layout)
 // =====================================================
-const MonthlyStatement = ({ customerId }: Props) => {
+const MonthlyStatement = ({ customerId, onBillOperationComplete }: Props) => {
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [generatingInvoice, setGeneratingInvoice] = useState<boolean>(false);
@@ -3513,6 +3518,7 @@ const MonthlyStatement = ({ customerId }: Props) => {
       Alert.alert('Success', 'Bill generated successfully!');
       setSelectedPeriod(null);
       setRefreshKey(prev => prev + 1);
+      onBillOperationComplete?.(); // Call the callback to refresh customer list
     } catch (err: any) {
       console.error('Invoice generation error:', err);
       if (err.response?.status === 409) {
@@ -3538,6 +3544,7 @@ const MonthlyStatement = ({ customerId }: Props) => {
         <InvoiceList 
           customerId={customerId!} 
           onRefresh={() => setRefreshKey(prev => prev + 1)}
+          onBillOperationComplete={onBillOperationComplete}
         />
       </View>
 
@@ -3625,7 +3632,7 @@ const MonthlyStatement = ({ customerId }: Props) => {
 // =====================================================
 // CUSTOM STATEMENT TAB (Fixed Layout)
 // =====================================================
-const CustomStatement = ({ customerId }: Props) => {
+const CustomStatement = ({ customerId, onBillOperationComplete }: Props) => {
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -3740,6 +3747,7 @@ const CustomStatement = ({ customerId }: Props) => {
       Alert.alert('Success', 'Bill generated successfully!');
       handleClear();
       setRefreshKey(prev => prev + 1);
+      onBillOperationComplete?.(); // Call the callback to refresh customer list
     } catch (err: any) {
       console.error('Invoice generation error:', err);
       if (err.response?.status === 409) {
@@ -3765,6 +3773,7 @@ const CustomStatement = ({ customerId }: Props) => {
         <InvoiceList 
           customerId={customerId!} 
           onRefresh={() => setRefreshKey(prev => prev + 1)}
+          onBillOperationComplete={onBillOperationComplete}
         />
       </View>
 
@@ -3866,6 +3875,7 @@ const requestStoragePermission = async () => {
 // =====================================================
 export const StatementPeriodSelection = ({ route }: any) => {
   const customerId = route?.params?.customerId;
+  const onBillOperationComplete = route?.params?.onBillOperationComplete;
 
   return (
     <Tab.Navigator
@@ -3876,10 +3886,10 @@ export const StatementPeriodSelection = ({ route }: any) => {
       }}
     >
       <Tab.Screen name="Monthly">
-        {() => <MonthlyStatement customerId={customerId} />}
+        {() => <MonthlyStatement customerId={customerId} onBillOperationComplete={onBillOperationComplete} />}
       </Tab.Screen>
       <Tab.Screen name="Custom">
-        {() => <CustomStatement customerId={customerId} />}
+        {() => <CustomStatement customerId={customerId} onBillOperationComplete={onBillOperationComplete} />}
       </Tab.Screen>
     </Tab.Navigator>
   );

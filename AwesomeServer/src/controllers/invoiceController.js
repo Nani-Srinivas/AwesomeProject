@@ -1652,26 +1652,43 @@ export const generateInvoice = async (request, reply) => {
     });
 
     // ------------------------------
-    // 💰 Update customer payment status
+    // 💰 Update customer last bill period and apply any credit balance
     // ------------------------------
     const invoiceCustomer = await Customer.findById(customerId);
-    if (invoiceCustomer) {
-      // Update customer's payment-related fields
-      const totalAmountPayable = (invoiceCustomer.totalAmountPayable || 0) + totalAmount;
-      const currentDueAmount = (invoiceCustomer.currentDueAmount || 0) + dueAmount;
+    const creditBalance = invoiceCustomer.creditBalance || 0;
+    
+    // Apply credit balance to the new invoice if possible
+    if (creditBalance > 0) {
+      // Calculate adjusted due amount after applying credit
+      const adjustedDue = Math.max(0, totalAmount - creditBalance);
+      const remainingCredit = Math.max(0, creditBalance - totalAmount);
       
-      // Determine customer payment status based on all invoices
-      let customerPaymentStatus = "Unpaid";
-      if (currentDueAmount === 0) {
-        customerPaymentStatus = "Paid";
-      } else if (currentDueAmount > 0 && totalAmountPayable > currentDueAmount) {
-        customerPaymentStatus = "Partially Paid";
+      // Update the invoice with the adjusted payment values
+      if (adjustedDue === 0) {
+        // Full invoice paid by credit
+        await Invoice.findByIdAndUpdate(invoiceDoc._id, {
+          paidAmount: totalAmount,
+          dueAmount: 0,
+          status: 'Paid',
+          paidDate: new Date()
+        });
+      } else if (creditBalance < totalAmount) {
+        // Partial payment by credit
+        await Invoice.findByIdAndUpdate(invoiceDoc._id, {
+          paidAmount: creditBalance,
+          dueAmount: adjustedDue,
+          status: 'Partially Paid'
+        });
       }
       
+      // Update customer's remaining credit balance
       await Customer.findByIdAndUpdate(customerId, {
-        totalAmountPayable,
-        currentDueAmount,
-        paymentStatus: customerPaymentStatus,
+        lastBillPeriod: normalizedPeriod,
+        creditBalance: remainingCredit
+      });
+    } else {
+      // No credit to apply, just update last bill period
+      await Customer.findByIdAndUpdate(customerId, {
         lastBillPeriod: normalizedPeriod
       });
     }
@@ -1772,26 +1789,8 @@ export const regenerateInvoice = async (request, reply) => {
     // Extract period info for regeneration
     const { customerId, period, fromDate, toDate, totalAmount, dueAmount } = existingInvoice;
 
-    // Update customer's payment-related fields (reverse the old invoice's impact)
-    const regenerateCustomer = await Customer.findById(customerId);
-    if (regenerateCustomer) {
-      const newTotalPayable = Math.max(0, (regenerateCustomer.totalAmountPayable || 0) - (totalAmount || 0));
-      const newCurrentDue = Math.max(0, (regenerateCustomer.currentDueAmount || 0) - (dueAmount || 0));
-      
-      // Recalculate customer payment status
-      let newCustomerPaymentStatus = "Unpaid";
-      if (newCurrentDue === 0) {
-        newCustomerPaymentStatus = "Paid";
-      } else if (newCurrentDue > 0 && newTotalPayable > newCurrentDue) {
-        newCustomerPaymentStatus = "Partially Paid";
-      }
-      
-      await Customer.findByIdAndUpdate(customerId, {
-        totalAmountPayable: newTotalPayable,
-        currentDueAmount: newCurrentDue,
-        paymentStatus: newCustomerPaymentStatus
-      });
-    }
+    // No customer financial data updates needed - will be calculated on-the-fly when retrieved
+    // Invoice regeneration will automatically be accounted for when calculating status on retrieval
 
     // Delete from database
     await Invoice.findByIdAndDelete(invoiceId);
@@ -1861,28 +1860,8 @@ export const deleteInvoice = async (request, reply) => {
       }
     }
 
-    // Update customer's payment-related fields (reverse the invoice's impact)
-    if (invoice.totalAmount && invoice.customerId) {
-      const deleteCustomer = await Customer.findById(invoice.customerId);
-      if (deleteCustomer) {
-        const newTotalPayable = Math.max(0, (deleteCustomer.totalAmountPayable || 0) - (invoice.totalAmount || 0));
-        const newCurrentDue = Math.max(0, (deleteCustomer.currentDueAmount || 0) - (invoice.dueAmount || 0));
-        
-        // Recalculate customer payment status
-        let newCustomerPaymentStatus = "Unpaid";
-        if (newCurrentDue === 0) {
-          newCustomerPaymentStatus = "Paid";
-        } else if (newCurrentDue > 0 && newTotalPayable > newCurrentDue) {
-          newCustomerPaymentStatus = "Partially Paid";
-        }
-        
-        await Customer.findByIdAndUpdate(invoice.customerId, {
-          totalAmountPayable: newTotalPayable,
-          currentDueAmount: newCurrentDue,
-          paymentStatus: newCustomerPaymentStatus
-        });
-      }
-    }
+    // No customer financial data updates needed - will be calculated on-the-fly when retrieved
+    // Invoice deletion will automatically be accounted for when calculating status on retrieval
 
     // Delete from database
     await Invoice.findByIdAndDelete(invoiceId);

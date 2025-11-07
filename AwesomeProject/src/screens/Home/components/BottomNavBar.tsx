@@ -16,7 +16,7 @@ export const BottomNavBar = ({ navigation }: { navigation: any }) => {
       <NavItem icon="layers" label="Stock" onPress={() => navigation.navigate('Calendar')} />
       <NavItem icon="shopping-bag" label="Orders" onPress={() => navigation.navigate('Order')} />
       <NavItem icon="credit-card" label="Cards" onPress={() => navigation.navigate('Cards')} />
-      <NavItem icon="dollar-sign" label="Payment" onPress={() => navigation.navigate('PayableTemp')} />
+      <NavItem icon="dollar-sign" label="Payment" onPress={() => navigation.navigate('PaymentHistory')} />
     </View>
   );
 };
@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
   },
   navItem: {
     alignItems: 'center',
+    flex: 1,
   },
   navLabel: {
     fontSize: 12,
