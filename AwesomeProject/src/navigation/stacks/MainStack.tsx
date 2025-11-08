@@ -26,6 +26,9 @@ import { CardsScreen } from '../../screens/Cards/CardsScreen';
 import { InvoiceHistoryScreen } from '../../screens/Bills/InvoiceHistoryScreen';
 import { PaymentStatusScreen } from '../../screens/Bills/PaymentStatusScreen';
 import { ReceivePaymentScreen } from '../../screens/Bills/ReceivePaymentScreen';
+import PayablesScreen from '../../screens/Payables/PayablesScreen';
+import NotesScreen from '../../screens/Notes/NotesScreen';
+import VendorSelectionScreen from '../../screens/VendorSelection/VendorSelectionScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -59,6 +62,9 @@ export const MainStack = () => {
       <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} options={{ title: 'Invoice History' }} />
       <Stack.Screen name="PaymentStatus" component={PaymentStatusScreen} options={{ title: 'Payment Status' }} />
       <Stack.Screen name="ReceivePayment" component={ReceivePaymentScreen} options={{ title: 'Record Payment' }} />
+      <Stack.Screen name="Payables" component={PayablesScreen} options={{ title: 'Payables' }} />
+      <Stack.Screen name="Notes" component={NotesScreen} options={{ title: 'Notes' }} />
+      <Stack.Screen name="VendorSelection" component={VendorSelectionScreen} options={{ title: 'Select Vendor' }} />
 
 
     </Stack.Navigator>

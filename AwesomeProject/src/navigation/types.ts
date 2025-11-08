@@ -19,11 +19,13 @@ export type MainStackParamList = {
   Calendar: undefined;
   SideMenu: undefined;
   AddStock: undefined;
+  VendorSelection: undefined;
   Products: undefined;
   AddAttendance: undefined;
   CustomerList: undefined;
   Bills: undefined;
   PayableTemp: undefined;
+  Payables: undefined;
   StatementPeriodSelection?: { customerId?: string }; // customerId is now optional
   Invoice: undefined;
   Order: undefined;

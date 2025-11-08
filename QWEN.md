@@ -514,3 +514,921 @@ To overcome this pen and book and register i want to develop an application, the
 
 The most critical missing component is the **Inventory Management System**, which directly impacts the store manager's daily operations as described in the user story. The store manager receives inventory daily from vendors, needs to track what was received and payables, and this inventory needs to be linked to products available for customer delivery. This is the core operational gap that needs to be filled for the MVP to be viable for store managers.
 
+## Visual Flow for Inventory Management System Implementation
+
+### Flow 1: Add Stock Screen (Inventory Receipt)
+**When clicked on "Add Stock" in the home screen:**
+- See a "Receive Today's Inventory" header
+- Select date (defaults to today)
+- Display list of vendors to choose from (or "Add New Vendor" option)
+- After selecting vendor, show product entry section
+- Product entry: Search/select products, enter quantity, unit price, batch/lot number, expiry date
+- Show running total amount at bottom
+- Payment section: Select payment status (Paid, Partial, Pending), enter amount paid if partial, payment method
+- Save button to create the inventory receipt
+
+### Flow 2: Vendor Selection
+**In Add Stock screen when selecting vendor:**
+- Click on "Select Vendor" field
+- See a modal/list of existing vendors with name, phone, and recent activity
+- Option to "Add New Vendor" which opens vendor creation form
+- After selecting vendor, return to product entry section
+
+### Flow 3: Product Entry
+**After vendor selection:**
+- See "Add Products" section with "Add Product" button
+- Click "Add Product" to see searchable list of products (from existing product catalog)
+- Select product, then enter: quantity received, unit price, batch number, expiry date (if applicable)
+- Each added product appears as a card in the list with all details
+- Can edit or remove each product entry
+- Total amount updates automatically as products are added
+
+### Flow 4: Payment Section
+**In Add Stock screen:**
+- After adding products, see payment section
+- Select payment status: "Paid", "Partial", or "Pending"
+- If "Partial", show amount paid field and payment method selection
+- If "Pending", show due date field (defaults to today)
+- Save button creates the inventory receipt
+
+### Flow 5: Vendor Management
+**When clicked on "Vendors" in main menu:**
+- See list of all vendors with name, phone, last delivery date, payment status
+- Search bar at top to filter vendors
+- "Add New Vendor" floating button
+- Click on vendor to edit details or view history
+
+### Flow 6: Add New Vendor
+**From Vendors screen when clicking "Add New Vendor":**
+- Form with fields: Vendor Name, Phone (required), Email, Address, Contact Person, Payment Terms, Notes
+- Save button to create new vendor
+
+### Flow 7: Inventory Receipts List
+**When clicked on "Inventory Receipts" in main menu:**
+- See list of all inventory receipts (most recent at top)
+- Each receipt shows: Receipt number, vendor name, date received, total amount, payment status
+- Filter button at top to filter by vendor, date range, or payment status
+- Click on receipt to see detailed view
+
+### Flow 8: Receipt Details
+**When clicked on a receipt in the list:**
+- See receipt header with: Receipt number, date, vendor details
+- List of all products received with quantity, unit price, batch, expiry
+- Payment details: Status, amount paid, payment method, transaction ID
+- Option to add payment if status is pending/partial
+- Option to edit receipt if needed
+
+### Flow 9: Add Payment to Receipt
+**From receipt details when payment status is pending/partial:**
+- Click "Add Payment" button
+- Enter amount paid
+- Select payment method (Cash, Bank Transfer, Digital, etc.)
+- Enter transaction ID if applicable
+- Submit to update payment status
+
+### Flow 10: Inventory Reports
+**When clicked on "Inventory Reports" in main menu:**
+- See dashboard with cards: "Today's Inventory", "Pending Payments", "Expiring Soon", "Low Stock"
+- Click on any card to see detailed report
+- "Today's Inventory" shows all items received today
+- "Pending Payments" shows all unpaid/unpaid receipts
+- "Expiring Soon" shows products expiring in next 7 days
+- "Low Stock" shows items below minimum threshold
+
+### Flow 11: Product Search
+**When searching products in Add Stock screen:**
+- Click on search field shows product catalog
+- Filter by category, subcategory, and product name
+- Results show products with name, price, and image
+- Click on product to add to inventory receipt
+
+### Flow 12: Barcode Scanning (Optional)
+**In Add Stock screen:**
+- Click "Scan Barcode" button
+- Camera opens to scan product barcode
+- Product automatically added to list if recognized
+- If not recognized, show option to search manually
+
+### Flow 13: Batch Management
+**When entering product details:**
+- See "Batch/Lot Number" field to enter specific batch
+- See "Expiry Date" field for products with expiry dates
+- System groups items by batch for tracking
+
+### Flow 14: Stock Dashboard
+**In home screen or navigation:**
+- Clicking on "Stock" shows: Current stock levels, low stock alerts, recently received items
+- Each product shows: Product name, current quantity, reserved quantity, available quantity
+- Red alert for items below threshold
+
+This flow creates a seamless experience for the store manager to receive inventory, track payables, and manage vendors all within the existing app structure.
+
+
+
+
+
+//Add Stock By Vendor individual Product
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  FlatList,
+} from 'react-native';
+import { apiService } from '../../services/apiService';
+import { COLORS } from '../../constants/colors';
+import Feather from 'react-native-vector-icons/Feather';
+
+interface Vendor {
+  _id: string;
+  name: string;
+  phone: string;
+  email?: string;
+}
+
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+}
+
+interface InventoryItem {
+  id: string;
+  product: Product;
+  quantity: number;
+  unitPrice: number;
+  batchNumber?: string;
+  expiryDate?: string;
+  notes?: string;
+}
+
+export const AddStockScreen = () => {
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [newProduct, setNewProduct] = useState({
+    productId: '',
+    quantity: '',
+    unitPrice: '',
+    batchNumber: '',
+    expiryDate: '',
+    notes: '',
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [showProductSelector, setShowProductSelector] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState({
+    paymentStatus: 'pending' as 'paid' | 'partial' | 'pending',
+    amountPaid: '',
+    paymentMethod: '',
+    transactionId: '',
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadVendors();
+  }, []);
+
+  const loadVendors = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.get('/vendors');
+      if (response.data.success) {
+        setVendors(response.data.data);
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to load vendors');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load vendors');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadProducts = async (search: string) => {
+    try {
+      // In a real app, this would call an API to search products
+      // For now, we'll use a mock implementation
+      const response = await apiService.get(`/product/store-products?search=${search}`);
+      if (response.data.success) {
+        setFilteredProducts(response.data.data);
+      } else {
+        setFilteredProducts([]);
+      }
+    } catch (error) {
+      setFilteredProducts([]);
+      console.error(error);
+    }
+  };
+
+  const handleAddProduct = () => {
+    if (!newProduct.productId || !newProduct.quantity || !newProduct.unitPrice) {
+      Alert.alert('Error', 'Please fill in all required fields (Product, Quantity, Unit Price)');
+      return;
+    }
+
+    const product = filteredProducts.find(p => p._id === newProduct.productId);
+    if (!product) {
+      Alert.alert('Error', 'Selected product not found');
+      return;
+    }
+
+    const newItem: InventoryItem = {
+      id: Date.now().toString(),
+      product,
+      quantity: parseInt(newProduct.quantity, 10),
+      unitPrice: parseFloat(newProduct.unitPrice),
+      batchNumber: newProduct.batchNumber,
+      expiryDate: newProduct.expiryDate,
+      notes: newProduct.notes,
+    };
+
+    setInventoryItems([...inventoryItems, newItem]);
+
+    // Reset the form
+    setNewProduct({
+      productId: '',
+      quantity: '',
+      unitPrice: '',
+      batchNumber: '',
+      expiryDate: '',
+      notes: '',
+    });
+    
+    setShowProductSelector(false);
+  };
+
+  const handleSaveReceipt = async () => {
+    if (!selectedVendor) {
+      Alert.alert('Error', 'Please select a vendor');
+      return;
+    }
+
+    if (inventoryItems.length === 0) {
+      Alert.alert('Error', 'Please add at least one product');
+      return;
+    }
+
+    try {
+      // Calculate total amount
+      const totalAmount = inventoryItems.reduce(
+        (sum, item) => sum + item.quantity * item.unitPrice,
+        0
+      );
+
+      // Prepare the receipt data
+      const receiptData = {
+        vendorId: selectedVendor._id,
+        items: inventoryItems.map(item => ({
+          storeProductId: item.product._id,
+          receivedQuantity: item.quantity,
+          unitPrice: item.unitPrice,
+          batchNumber: item.batchNumber,
+          expiryDate: item.expiryDate,
+          notes: item.notes,
+        })),
+        totalAmount,
+        paymentStatus: paymentDetails.paymentStatus,
+        amountPaid: paymentDetails.paymentStatus === 'paid' ? totalAmount : 
+                  paymentDetails.paymentStatus === 'partial' ? parseFloat(paymentDetails.amountPaid) || 0 : 0,
+        paymentMethod: paymentDetails.paymentMethod || undefined,
+        transactionId: paymentDetails.transactionId || undefined,
+        notes: 'Inventory receipt',
+      };
+
+      // Save the inventory receipt
+      const response = await apiService.post('/inventory/receipts', receiptData);
+
+      if (response.data.success) {
+        Alert.alert('Success', 'Inventory receipt saved successfully');
+        
+        // Reset the form
+        setSelectedVendor(null);
+        setInventoryItems([]);
+        setPaymentDetails({
+          paymentStatus: 'pending',
+          amountPaid: '',
+          paymentMethod: '',
+          transactionId: '',
+        });
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to save inventory receipt');
+      }
+    } catch (error) {
+      console.error('Error saving inventory receipt:', error);
+      Alert.alert('Error', 'Failed to save inventory receipt');
+    }
+  };
+
+  const handleVendorSelect = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setShowProductSelector(false);
+  };
+
+  const handleSearchProducts = (text: string) => {
+    setSearchTerm(text);
+    if (text.length > 0) {
+      loadProducts(text);
+      setShowProductSelector(true);
+    } else {
+      setShowProductSelector(false);
+    }
+  };
+
+  const handleProductSelect = (product: Product) => {
+    setNewProduct({
+      ...newProduct,
+      productId: product._id,
+    });
+    setShowProductSelector(false);
+  };
+
+  const removeItem = (id: string) => {
+    setInventoryItems(inventoryItems.filter(item => item.id !== id));
+  };
+
+  const renderInventoryItem = ({ item }: { item: InventoryItem }) => (
+    <View style={styles.inventoryItem}>
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{item.product.name}</Text>
+        <Text style={styles.itemDetails}>
+          Qty: {item.quantity} | Unit Price: ₹{item.unitPrice.toFixed(2)} | Batch: {item.batchNumber || 'N/A'}
+        </Text>
+        {item.expiryDate && (
+          <Text style={styles.itemDetails}>Expiry: {item.expiryDate}</Text>
+        )}
+        {item.notes && (
+          <Text style={styles.itemNotes}>Notes: {item.notes}</Text>
+        )}
+      </View>
+      <View style={styles.itemActions}>
+        <Text style={styles.itemTotal}>₹{(item.quantity * item.unitPrice).toFixed(2)}</Text>
+        <TouchableOpacity onPress={() => removeItem(item.id)} style={styles.removeButton}>
+          <Feather name="trash-2" size={20} color={COLORS.error} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderProductOption = ({ item }: { item: Product }) => (
+    <TouchableOpacity
+      style={styles.productOption}
+      onPress={() => handleProductSelect(item)}
+    >
+      <Text style={styles.productOptionText}>{item.name}</Text>
+      <Text style={styles.productOptionPrice}>₹{item.price.toFixed(2)}</Text>
+    </TouchableOpacity>
+  );
+
+  const totalAmount = inventoryItems.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0
+  );
+
+  const pendingAmount = totalAmount - 
+    (paymentDetails.paymentStatus === 'paid' ? totalAmount : 
+     paymentDetails.paymentStatus === 'partial' ? parseFloat(paymentDetails.amountPaid) || 0 : 0);
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Receive Inventory</Text>
+
+      {/* Vendor Selection */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Select Vendor</Text>
+        {selectedVendor ? (
+          <View style={styles.selectedVendor}>
+            <Text style={styles.selectedVendorName}>{selectedVendor.name}</Text>
+            <Text style={styles.selectedVendorInfo}>Phone: {selectedVendor.phone}</Text>
+            {selectedVendor.email && <Text style={styles.selectedVendorInfo}>Email: {selectedVendor.email}</Text>}
+            <TouchableOpacity 
+              style={styles.changeVendorButton} 
+              onPress={() => setSelectedVendor(null)}
+            >
+              <Text style={styles.changeVendorText}>Change Vendor</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View>
+            <Text style={styles.placeholderText}>Select a vendor to begin</Text>
+            <FlatList
+              data={vendors}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.vendorOption}
+                  onPress={() => handleVendorSelect(item)}
+                >
+                  <Text style={styles.vendorOptionName}>{item.name}</Text>
+                  <Text style={styles.vendorOptionPhone}>{item.phone}</Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>No vendors found</Text>
+              }
+            />
+          </View>
+        )}
+      </View>
+
+      {/* Product Selection (only if vendor is selected) */}
+      {selectedVendor && (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Add Products</Text>
+            
+            {/* Product Search */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Search Product</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Search for products..."
+                value={searchTerm}
+                onChangeText={handleSearchProducts}
+              />
+            </View>
+            
+            {/* Product Selector Dropdown */}
+            {showProductSelector && (
+              <FlatList
+                data={filteredProducts}
+                keyExtractor={(item) => item._id}
+                renderItem={renderProductOption}
+                style={styles.productSelector}
+                ListEmptyComponent={<Text style={styles.emptyText}>No products found</Text>}
+              />
+            )}
+
+            {/* Product Details Form */}
+            <View style={styles.formRow}>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Quantity</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter quantity"
+                  value={newProduct.quantity}
+                  onChangeText={(text) => setNewProduct({...newProduct, quantity: text})}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Unit Price (₹)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter unit price"
+                  value={newProduct.unitPrice}
+                  onChangeText={(text) => setNewProduct({...newProduct, unitPrice: text})}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            
+            <View style={styles.formRow}>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Batch Number</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Batch number"
+                  value={newProduct.batchNumber}
+                  onChangeText={(text) => setNewProduct({...newProduct, batchNumber: text})}
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Expiry Date</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="YYYY-MM-DD"
+                  value={newProduct.expiryDate}
+                  onChangeText={(text) => setNewProduct({...newProduct, expiryDate: text})}
+                  placeholderTextColor="#999"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Notes</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Additional notes..."
+                value={newProduct.notes}
+                onChangeText={(text) => setNewProduct({...newProduct, notes: text})}
+                multiline
+                numberOfLines={2}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={handleAddProduct}
+            >
+              <Feather name="plus" size={20} color={COLORS.white} />
+              <Text style={styles.addButtonText}>Add Product to Receipt</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Current Items List */}
+          {inventoryItems.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Current Receipt Items</Text>
+              <FlatList
+                data={inventoryItems}
+                keyExtractor={(item) => item.id}
+                renderItem={renderInventoryItem}
+                ListFooterComponent={
+                  <View style={styles.totalContainer}>
+                    <Text style={styles.totalLabel}>Total Amount:</Text>
+                    <Text style={styles.totalAmount}>₹{totalAmount.toFixed(2)}</Text>
+                  </View>
+                }
+              />
+            </View>
+          )}
+
+          {/* Payment Details */}
+          {inventoryItems.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Payment Details</Text>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Payment Status</Text>
+                <View style={styles.radioGroup}>
+                  <TouchableOpacity
+                    style={[
+                      styles.radioButton,
+                      paymentDetails.paymentStatus === 'paid' && styles.radioButtonSelected,
+                    ]}
+                    onPress={() => setPaymentDetails({...paymentDetails, paymentStatus: 'paid', amountPaid: totalAmount.toString()})}
+                  >
+                    <Text style={[
+                      styles.radioText,
+                      paymentDetails.paymentStatus === 'paid' && styles.radioTextSelected,
+                    ]}>Paid</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.radioButton,
+                      paymentDetails.paymentStatus === 'partial' && styles.radioButtonSelected,
+                    ]}
+                    onPress={() => setPaymentDetails({...paymentDetails, paymentStatus: 'partial'})}
+                  >
+                    <Text style={[
+                      styles.radioText,
+                      paymentDetails.paymentStatus === 'partial' && styles.radioTextSelected,
+                    ]}>Partial</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.radioButton,
+                      paymentDetails.paymentStatus === 'pending' && styles.radioButtonSelected,
+                    ]}
+                    onPress={() => setPaymentDetails({...paymentDetails, paymentStatus: 'pending', amountPaid: '0'})}
+                  >
+                    <Text style={[
+                      styles.radioText,
+                      paymentDetails.paymentStatus === 'pending' && styles.radioTextSelected,
+                    ]}>Pending</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {paymentDetails.paymentStatus === 'partial' && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Amount Paid (₹)</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter amount paid"
+                    value={paymentDetails.amountPaid}
+                    onChangeText={(text) => setPaymentDetails({...paymentDetails, amountPaid: text})}
+                    keyboardType="numeric"
+                  />
+                </View>
+              )}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Payment Method</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Cash, Bank Transfer, UPI, etc."
+                  value={paymentDetails.paymentMethod}
+                  onChangeText={(text) => setPaymentDetails({...paymentDetails, paymentMethod: text})}
+                />
+              </View>
+
+              {paymentDetails.paymentMethod.toLowerCase() !== 'cash' && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Transaction ID</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter transaction ID"
+                    value={paymentDetails.transactionId}
+                    onChangeText={(text) => setPaymentDetails({...paymentDetails, transactionId: text})}
+                  />
+                </View>
+              )}
+
+              {pendingAmount > 0 && (
+                <View style={styles.pendingAmountContainer}>
+                  <Text style={styles.pendingAmountText}>
+                    Pending Amount: ₹{pendingAmount.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Save Button */}
+          {inventoryItems.length > 0 && (
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveReceipt}
+              >
+                <Feather name="save" size={20} color={COLORS.white} />
+                <Text style={styles.saveButtonText}>Save Inventory Receipt</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
+      )}
+
+      {!selectedVendor && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>Select a vendor to start receiving inventory</Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    padding: 16,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  section: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  selectedVendor: {
+    padding: 12,
+    backgroundColor: 'rgba(98, 0, 238, 0.1)',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  selectedVendorName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  selectedVendorInfo: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginTop: 4,
+  },
+  changeVendorButton: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  changeVendorText: {
+    color: COLORS.primary,
+    fontSize: 14,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#999',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  vendorOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  vendorOptionName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  vendorOptionPhone: {
+    fontSize: 14,
+    color: '#666',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  textArea: {
+    height: 60,
+    textAlignVertical: 'top',
+  },
+  formRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  halfInput: {
+    width: '48%',
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    padding: 12,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  productSelector: {
+    maxHeight: 150,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  productOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  productOptionText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  productOptionPrice: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  inventoryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  itemDetails: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  itemNotes: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  itemActions: {
+    alignItems: 'flex-end',
+  },
+  itemTotal: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  removeButton: {
+    padding: 4,
+  },
+  totalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  totalAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  radioButton: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  radioButtonSelected: {
+    backgroundColor: 'rgba(98, 0, 238, 0.1)',
+    borderColor: COLORS.primary,
+  },
+  radioText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  radioTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  pendingAmountContainer: {
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  pendingAmountText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.error,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.success,
+    padding: 16,
+    borderRadius: 8,
+  },
+  saveButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#999',
+  },
+  emptyText: {
+    textAlign: 'center',
+    padding: 16,
+    color: '#999',
+  },
+});
+

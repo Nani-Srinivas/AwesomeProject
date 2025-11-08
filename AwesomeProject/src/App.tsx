@@ -11,7 +11,7 @@ const App = () => {
 
   return (
     <GestureHandlerRootView style={{flex: 1}}>
-      <AppNavigator />
+        <AppNavigator />
     </GestureHandlerRootView>
   );
 };

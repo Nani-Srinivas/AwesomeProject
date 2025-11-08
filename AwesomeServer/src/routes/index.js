@@ -11,6 +11,8 @@ import { adminRoutes } from "./admin.js";
 import { attendanceRoutes } from "./attendance.js";
 import { invoiceRoutes } from "./invoice.js";
 import paymentRoutes from "./payment.js";
+import { inventoryRoutes } from "./inventory.js";
+import { vendorRoutes } from "./vendor.js";
 
 
 const prefix = "/api";
@@ -28,4 +30,6 @@ export const registerRoutes = async (fastify) => {
   fastify.register(attendanceRoutes, { prefix: prefix });
   fastify.register(invoiceRoutes, { prefix: prefix });
   fastify.register(paymentRoutes, { prefix: prefix });
+  fastify.register(inventoryRoutes, { prefix: prefix });
+  fastify.register(vendorRoutes, { prefix: prefix });
 }
