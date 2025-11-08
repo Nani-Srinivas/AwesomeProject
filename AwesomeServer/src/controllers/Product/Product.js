@@ -2,8 +2,9 @@ import MasterProduct from "../../models/Product/MasterProduct.js";
 import Category from "../../models/Product/Category.js";
 import Store from "../../models/Store/Store.js";
 import StoreProduct from "../../models/Product/StoreProduct.js";
-import StoreCategory from "../../models/Store/StoreCategory.js";
-import StoreSubcategory from "../../models/Store/StoreSubcategory.js";
+import StoreCategory from "../../models/Product/StoreCategory.js";
+import StoreSubcategory from "../../models/Product/StoreSubcategory.js";
+import Vendor from "../../models/Vendor.js";
 
 // MASTER PRODUCTS
 export const getProducts = async (req, reply) => {
@@ -170,6 +171,7 @@ export const importCatalog = async (req, reply) => {
 };
 
 export const getStoreCategories = async (req, reply) => {
+  console.log("getStoreCategory API Called");
   try {
     const storeManagerId = req.user.id;
     const store = await Store.findOne({ ownerId: storeManagerId });
@@ -182,6 +184,47 @@ export const getStoreCategories = async (req, reply) => {
   } catch (error) {
     console.error('Error fetching store categories:', error);
     return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+// Assign a vendor to a store category
+export const assignVendorToStoreCategory = async (req, reply) => {
+  try {
+    const { id } = req.params;
+    const { vendorId } = req.body;
+    const storeManagerId = req.user.id;
+
+    // Verify the user has a store
+    const store = await Store.findOne({ ownerId: storeManagerId });
+    if (!store) {
+      return reply.status(404).send({ success: false, message: 'Store not found for this manager.' });
+    }
+
+    // Validate vendor exists
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return reply.status(404).send({ success: false, message: 'Vendor not found' });
+    }
+
+    // Find and update the specific store category
+    const updatedCategory = await StoreCategory.findOneAndUpdate(
+      { _id: id, storeId: store._id }, // Ensure it belongs to the current user's store
+      { vendorId: vendorId },
+      { new: true }
+    );
+
+    if (!updatedCategory) {
+      return reply.status(404).send({ success: false, message: 'Store category not found or does not belong to your store.' });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Vendor assigned to store category successfully',
+      data: updatedCategory
+    });
+  } catch (error) {
+    console.error('Error assigning vendor to store category:', error);
+    return reply.status(500).send({ success: false, message: error.message });
   }
 };
 
@@ -215,7 +258,7 @@ export const createStoreCategory = async (req, reply) => {
 export const updateStoreCategory = async (req, reply) => {
   try {
     const { id } = req.params;
-    const { name, description, imageUrl, isActive } = req.body;
+    const { name, description, imageUrl, isActive, vendorId } = req.body;
     const storeManagerId = req.user.id;
 
     const store = await Store.findOne({ ownerId: storeManagerId });
@@ -223,9 +266,15 @@ export const updateStoreCategory = async (req, reply) => {
       return reply.status(404).send({ message: 'Store not found for this manager.' });
     }
 
+    // Prepare update object
+    const updateFields = { name, description, imageUrl, isActive };
+    if (vendorId !== undefined) {
+      updateFields.vendorId = vendorId;
+    }
+
     const updatedCategory = await StoreCategory.findOneAndUpdate(
       { _id: id, storeId: store._id },
-      { name, description, imageUrl, isActive },
+      updateFields,
       { new: true }
     );
 
@@ -342,6 +391,26 @@ export const deleteStoreProduct = async (req, reply) => {
     return reply.status(500).send({ message: 'Internal server error' });
   }
 };
+
+// Get store categories for a specific store
+// export const getStoreCategories = async (req, reply) => {
+//   try {
+//     const storeId = req.user.storeId;
+
+//     // Fetch all store categories for this store
+//     const storeCategories = await StoreCategory.find({ storeId })
+//       .populate('masterCategoryId')
+//       .populate('vendorId', 'name phone'); // Populate vendor info
+
+//     return reply.status(200).send({ 
+//       success: true, 
+//       data: storeCategories 
+//     });
+//   } catch (error) {
+//     console.error('Error fetching store categories:', error);
+//     return reply.status(500).send({ success: false, message: error.message });
+//   }
+// };
 
 export const getAllProducts = async (req, reply) => {
   try {

@@ -95,9 +95,11 @@ export const createStoreCategory = async (req, reply) => {
 };
 
 export const updateStoreCategory = async (req, reply) => {
+  console.log("Upadte Store Catgory API is called");
+  console.log("Request Body", req.body);
   try {
     const { id } = req.params;
-    const { name, description, imageUrl, isActive } = req.body;
+    const { name, description, imageUrl, isActive, vendorId } = req.body;
     const createdBy = req.user?.id;
 
     if (!createdBy || req.user?.role !== 'StoreManager') {
@@ -111,9 +113,15 @@ export const updateStoreCategory = async (req, reply) => {
 
     const storeId = store._id;
 
+    // Prepare update object
+    const updateFields = { name, description, imageUrl, isActive };
+    if (vendorId !== undefined) {
+      updateFields.vendorId = vendorId;
+    }
+
     const updatedCategory = await StoreCategory.findOneAndUpdate(
       { _id: id, storeId },
-      { name, description, imageUrl, isActive },
+      updateFields,
       { new: true, runValidators: true }
     );
 

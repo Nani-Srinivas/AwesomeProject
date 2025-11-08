@@ -47,7 +47,12 @@ const VendorSchema = new Schema({
     type: String,
     enum: ['active', 'inactive', 'blacklisted'],
     default: 'active'
-  }
+  },
+  assignedCategories: [{
+    type: mongoose.Schema.Types.ObjectId,
+    require: true,
+    ref: 'StoreCategory'  // Reference to StoreCategory model
+  }]
 }, {
   timestamps: true
 });

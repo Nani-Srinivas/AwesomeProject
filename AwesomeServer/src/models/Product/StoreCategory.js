@@ -31,6 +31,11 @@ const StoreCategorySchema = new Schema({
     type: Boolean,
     default: true,
   },
+  vendorId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Vendor', // Reference to the Vendor model
+    default: null,
+  },
 }, { timestamps: true });
 
 StoreCategorySchema.index({ storeId: 1, name: 1 }, { unique: true });

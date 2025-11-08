@@ -6,8 +6,6 @@ import { DetailsScreen } from '../../screens/Details/DetailsScreen';
 import { DashboardScreen } from '../../screens/Dashboard/DashboardScreen';
 import { CustomerListScreen } from '../../screens/Customer/CustomerListScreen';
 import { CalendarScreen } from '../../screens/Calendar/CalendarScreen';
-
-
 import { DeliveryBoyListScreen } from '../../screens/DeliveryBoy/DeliveryBoyListScreen';
 import { AreaListScreen } from '../../screens/Area/AreaListScreen';
 import { SideMenu } from '../../components/common/SideMenu';
@@ -65,8 +63,6 @@ export const MainStack = () => {
       <Stack.Screen name="Payables" component={PayablesScreen} options={{ title: 'Payables' }} />
       <Stack.Screen name="Notes" component={NotesScreen} options={{ title: 'Notes' }} />
       <Stack.Screen name="VendorSelection" component={VendorSelectionScreen} options={{ title: 'Select Vendor' }} />
-
-
     </Stack.Navigator>
   );
 };

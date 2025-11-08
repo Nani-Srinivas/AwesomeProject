@@ -4,7 +4,8 @@ import {
   getVendors,
   updateVendor,
   getVendorById,
-  deleteVendor
+  deleteVendor,
+  toggleVendorStatus
 } from "../controllers/Inventory/VendorController.js";
 import { verifyToken } from "../middleware/auth.js";
 
@@ -14,5 +15,6 @@ export const vendorRoutes = async (fastify, options) => {
   fastify.get('/vendors', {preHandler: [verifyToken]}, getVendors);
   fastify.get('/vendors/:id', {preHandler: [verifyToken]}, getVendorById);
   fastify.put('/vendors/:id', {preHandler: [verifyToken]}, updateVendor);
+  fastify.put('/vendors/:id/status', {preHandler: [verifyToken]}, toggleVendorStatus);
   fastify.delete('/vendors/:id', {preHandler: [verifyToken]}, deleteVendor);
 };
