@@ -26,6 +26,11 @@ export type MainStackParamList = {
   Bills: undefined;
   PayableTemp: undefined;
   Payables: undefined;
+  PayablesDashboard: undefined;
+  VendorDetails: { vendorId: string };
+  RecordPaymentToVendor: { vendorId: string };
+  VendorSelectionForInventory: undefined;
+  InventoryReceipt: { vendorId: string };
   StatementPeriodSelection?: { customerId?: string }; // customerId is now optional
   Invoice: undefined;
   Order: undefined;

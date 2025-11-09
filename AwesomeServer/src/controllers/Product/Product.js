@@ -309,6 +309,39 @@ export const getStoreProducts = async (req, reply) => {
   }
 };
 
+// Get products filtered by vendor
+export const getStoreProductsByVendor = async (req, reply) => {
+  try {
+    const storeManagerId = req.user.id;
+    const { vendorId } = req.query;
+
+    const store = await Store.findOne({ ownerId: storeManagerId });
+    if (!store) {
+      return reply.status(404).send({ message: 'Store not found for this manager.' });
+    }
+
+    // Find store categories assigned to this vendor
+    const storeCategories = await StoreCategory.find({ vendorId: vendorId, storeId: store._id });
+
+    // Get the IDs of the categories
+    const categoryIds = storeCategories.map(category => category._id);
+
+    // Find products that belong to these categories
+    const products = await StoreProduct.find({ 
+      storeId: store._id,
+      storeCategoryId: { $in: categoryIds }
+    })
+      .populate('storeCategoryId')
+      .populate('storeSubcategoryId')
+      .populate('masterProductId');
+
+    return reply.status(200).send({ success: true, data: products });
+  } catch (error) {
+    console.error('Error fetching store products by vendor:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
 export const createStoreProduct = async (req, reply) => {
   try {
     const { name, description, price, stock, isAvailable, images, storeCategoryId, storeSubcategoryId, masterProductId } = req.body;

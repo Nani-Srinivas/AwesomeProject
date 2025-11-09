@@ -2,6 +2,7 @@ import {
   getProducts,
   getProductsByCategoryId,
   getStoreProducts,
+  getStoreProductsByVendor,
   getStoreCategories,
   assignVendorToStoreCategory,
   getAllProducts,
@@ -16,6 +17,7 @@ export const productRoutes = async (fastify, options) => {
 
   // Store-specific routes
   fastify.get('/product/store', { preHandler: [verifyToken] }, getStoreProducts);
+  fastify.get('/product/store-by-vendor', { preHandler: [verifyToken] }, getStoreProductsByVendor);
   fastify.get('/product/store-categories', { preHandler: [verifyToken] }, getStoreCategories);
   fastify.put('/product/store-categories/:id', { preHandler: [verifyToken] }, assignVendorToStoreCategory);
 

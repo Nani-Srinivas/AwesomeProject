@@ -13,6 +13,7 @@ import { invoiceRoutes } from "./invoice.js";
 import paymentRoutes from "./payment.js";
 import { inventoryRoutes } from "./inventory.js";
 import { vendorRoutes } from "./vendor.js";
+import { financeRoutes } from "./finance.js";
 
 
 const prefix = "/api";
@@ -32,4 +33,5 @@ export const registerRoutes = async (fastify) => {
   fastify.register(paymentRoutes, { prefix: prefix });
   fastify.register(inventoryRoutes, { prefix: prefix });
   fastify.register(vendorRoutes, { prefix: prefix });
+  fastify.register(financeRoutes, { prefix: prefix });
 }

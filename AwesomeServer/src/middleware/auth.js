@@ -16,7 +16,8 @@ export const verifyToken = async (req, reply) => {
 
     req.user = {
       id: decoded.id,
-      roles: decoded.roles
+      roles: decoded.roles,
+      storeId: decoded.storeId
     };
 
     return true;

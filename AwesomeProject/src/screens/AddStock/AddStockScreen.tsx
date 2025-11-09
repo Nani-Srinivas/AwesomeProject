@@ -4,8 +4,8 @@ import { ExpandableCalendar, CalendarProvider } from 'react-native-calendars';
 import Feather from 'react-native-vector-icons/Feather';
 
 const agendaItems = {
-  '2025-09-20': [{ time: '10:00 AM', title: 'Meeting with John' }],
-  '2025-09-21': [{ time: '02:00 PM', title: 'Project Deadline' }],
+  '2025-11-20': [{ time: '10:00 AM', title: 'Meeting with John' }],
+  '2025-11-21': [{ time: '02:00 PM', title: 'Project Deadline' }],
 };
 
 // Payment data structure

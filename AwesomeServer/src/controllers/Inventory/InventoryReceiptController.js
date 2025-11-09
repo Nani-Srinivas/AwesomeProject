@@ -7,6 +7,8 @@ import Store from '../../models/Store/Store.js';
 
 // Create a new inventory receipt
 export const createInventoryReceipt = async (req, reply) => {
+  console.log("Create Inventory Receipt API Called");
+  console.log("Req", req.body);
   try {
     const {
       vendorId,
@@ -96,12 +98,16 @@ export const createInventoryReceipt = async (req, reply) => {
     const receiptCount = await InventoryReceipt.countDocuments();
     const receiptNumber = `INV-${Date.now()}-${receiptCount + 1}`;
 
+    // Set received date to provided date or default to today
+    const receivedDate = req.body.receivedDate || new Date();
+
     // Create the inventory receipt
     const inventoryReceipt = new InventoryReceipt({
       receiptNumber,
       storeId,
       vendorId,
       receivedBy,
+      receivedDate,
       items,
       totalAmount,
       paymentStatus,
@@ -122,6 +128,17 @@ export const createInventoryReceipt = async (req, reply) => {
     }
 
     await inventoryReceipt.save();
+
+    // Update the vendor's payable amount after creating the receipt
+    vendor.payableAmount = (vendor.payableAmount || 0) + totalAmount;
+    if (paymentStatus === 'paid') {
+      vendor.paymentStatus = 'paid';
+    } else if (paymentStatus === 'partial' || (paymentStatus === 'pending' && amountPaid > 0)) {
+      vendor.paymentStatus = 'partial';
+    } else {
+      vendor.paymentStatus = 'pending';
+    }
+    await vendor.save();
 
     return reply.code(201).send({
       success: true,

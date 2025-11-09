@@ -48,9 +48,18 @@ const VendorSchema = new Schema({
     enum: ['active', 'inactive', 'blacklisted'],
     default: 'active'
   },
+  payableAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['paid', 'partial', 'pending'],
+    default: 'pending'
+  },
   assignedCategories: [{
     type: mongoose.Schema.Types.ObjectId,
-    require: true,
     ref: 'StoreCategory'  // Reference to StoreCategory model
   }]
 }, {

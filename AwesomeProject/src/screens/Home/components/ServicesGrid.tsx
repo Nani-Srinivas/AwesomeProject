@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
 const services = [
   { name: 'Bills', icon: '💵', screen: 'Bills' },
-  { name: 'Payables', icon: '💳', screen: 'Payables' },
-  { name: 'Add Stock', icon: '🛒', screen: 'AddStock' }, // Changed to navigate to VendorSelection
+  { name: 'Payables', icon: '💳', screen: 'PayablesDashboard' },
+  { name: 'Receive Inventory', icon: '🛒', screen: 'VendorSelectionForInventory' }, // Changed to navigate to VendorSelection
   { name: 'Delivery Boy', icon: '🚴', screen: 'DeliveryBoyList' },
   { name: 'Products', icon: '🛍️', screen: 'Products' },
   { name: 'Attendance', icon: '✅', screen: 'AddAttendance' },

@@ -182,15 +182,25 @@ export const register = async (req, reply) => {
 
 
 // Token generation
-const generateTokens = (user) => {
+const generateTokens = (user, storeId = null) => {
+  const tokenPayload = { 
+    id: user._id, 
+    roles: user.roles 
+  };
+  
+  // Include storeId if provided
+  if (storeId) {
+    tokenPayload.storeId = storeId;
+  }
+
   const accessToken = jwt.sign(
-    { id: user._id, roles: user.roles },
+    tokenPayload,
     process.env.ACCESS_TOKEN_SECRET,
     { expiresIn: '1d' }
   );
 
   const refreshToken = jwt.sign(
-    { id: user._id, roles: user.roles },
+    tokenPayload,
     process.env.REFRESH_TOKEN_SECRET,
     { expiresIn: '7d' }
   );
@@ -241,7 +251,7 @@ export const loginStoreManager = async (req, reply) => {
     const storeManagerDoc = await StoreManager.findById(user._id);
 
     // 6. Generate tokens
-    const { accessToken, refreshToken } = await generateTokens(user);
+    const { accessToken, refreshToken } = await generateTokens(user, storeManagerDoc?.storeId);
 
     // 7. Hash refresh token and save
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
