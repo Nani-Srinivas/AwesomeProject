@@ -176,9 +176,21 @@ const VendorSelectionForInventoryScreen = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No vendors found</Text>
+            <Text style={styles.emptySubtext}>
+              Add vendors from the Payables screen
+            </Text>
           </View>
         }
+        contentContainerStyle={{ paddingBottom: 80 }} // Make space for FAB
       />
+
+      {/* Add Vendor FAB - Navigate to Payables screen where vendors can be added */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('Payables' as never)} // Navigate to payables screen to add vendors
+      >
+        <Feather name="plus" size={24} color={COLORS.white} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -240,6 +252,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.grey,
   },
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.grey,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -292,6 +310,22 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    right: 30,
+    bottom: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 });
 
