@@ -19,17 +19,16 @@ export type MainStackParamList = {
   Calendar: undefined;
   SideMenu: undefined;
   AddStock: undefined;
-  VendorSelection: undefined;
+  VendorManagement: undefined; // Consolidated vendor management screen
   Products: undefined;
   AddAttendance: undefined;
   CustomerList: undefined;
   Bills: undefined;
   PayableTemp: undefined;
   Payables: undefined;
-  PayablesDashboard: undefined;
+  PayablesDashboard: undefined; // Enhanced dashboard with full functionality
   VendorDetails: { vendorId: string };
   RecordPaymentToVendor: { vendorId: string };
-  VendorSelectionForInventory: undefined;
   InventoryReceipt: { vendorId: string };
   StatementPeriodSelection?: { customerId?: string }; // customerId is now optional
   Invoice: undefined;

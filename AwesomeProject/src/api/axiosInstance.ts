@@ -18,8 +18,10 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-const baseURL = API_URL;
-// const baseURL = Platform.OS === \'ios\' ? \'http://192.168.1.3:3000/api\' : API_URL;
+// Fix for Android Emulator - use 10.0.2.2 instead of localhost
+const baseURL = Platform.OS === 'android'
+  ? 'http://10.0.2.2:3000/api'  // Android emulator's special IP for host machine localhost
+  : API_URL;
 console.log('Axios Base URL:', baseURL);
 // IMPORTANT: For Android physical devices, ensure your API_URL in .env is set to your computer's local IP address.
 
