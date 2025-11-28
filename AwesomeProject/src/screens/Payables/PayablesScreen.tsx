@@ -15,8 +15,10 @@ interface ExtendedVendor extends Vendor {
   payableAmount: number;
 }
 
-const PayablesScreen = () => {
+const PayablesScreen = ({ route }: any) => {
   const navigation = useNavigation<PayablesScreenNavigationProp>();
+  const source = route?.params?.source || 'default'; // Get navigation source
+
   const [vendors, setVendors] = useState<ExtendedVendor[]>([]);
   const [filteredVendors, setFilteredVendors] = useState<ExtendedVendor[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,7 +48,7 @@ const PayablesScreen = () => {
   useEffect(() => {
     // Filter vendors based on search query
     if (searchQuery) {
-      const filtered = vendors.filter(vendor => 
+      const filtered = vendors.filter(vendor =>
         vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         vendor.phone.includes(searchQuery) ||
         (vendor.email && vendor.email.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -60,35 +62,35 @@ const PayablesScreen = () => {
   const loadVendorsAndPayables = async () => {
     try {
       setLoading(true);
-      
+
       // First, get all vendors
       const vendorsResponse = await apiService.get('/vendors');
       const vendorsData: Vendor[] = vendorsResponse.data.data || [];
-      
+
       // Then, get all inventory receipts to calculate payables
       const receiptsResponse = await apiService.get('/inventory/receipts');
       const receipts = receiptsResponse.data.data || [];
-      
+
       // Calculate payable amounts for each vendor
       const extendedVendors: ExtendedVendor[] = vendorsData.map(vendor => {
         // Get receipts for this vendor
         const vendorReceipts = receipts.filter(
           (receipt: any) => receipt.vendorId._id === vendor._id
         );
-        
+
         // Calculate total amount and paid amount
         const totalAmount = vendorReceipts.reduce(
           (sum: number, receipt: any) => sum + (receipt.totalAmount || 0),
           0
         );
-        
+
         const paidAmount = vendorReceipts.reduce(
           (sum: number, receipt: any) => sum + (receipt.amountPaid || 0),
           0
         );
-        
+
         const payableAmount = totalAmount - paidAmount;
-        
+
         // Determine payment status
         let paymentStatus: 'paid' | 'partial' | 'pending' = 'paid';
         if (payableAmount > 0 && paidAmount > 0) {
@@ -96,14 +98,14 @@ const PayablesScreen = () => {
         } else if (payableAmount > 0) {
           paymentStatus = 'pending';
         }
-        
+
         return {
           ...vendor,
           payableAmount,
           paymentStatus,
         };
       });
-      
+
       setVendors(extendedVendors);
       setFilteredVendors(extendedVendors);
     } catch (error) {
@@ -121,16 +123,21 @@ const PayablesScreen = () => {
   };
 
   const handleVendorPress = (vendor: ExtendedVendor) => {
-    // Navigate to vendor details screen
-    // For now, we'll just log the vendor ID
-    console.log('Vendor pressed:', vendor._id);
+    // Check navigation source to determine destination
+    if (source === 'addStock') {
+      // Navigate to AddStock screen with vendor ID
+      navigation.navigate('AddStock', { vendorId: vendor._id });
+    } else {
+      // Default behavior - just log for now (could navigate to vendor details)
+      console.log('Vendor pressed:', vendor._id);
+    }
   };
 
   useEffect(() => {
     if (isAddVendorModalVisible || isEditVendorModalVisible) {
       // Load store categories
       loadStoreCategories();
-      
+
       // If editing, we'll set the selected categories based on the vendor's assigned categories
       if (isEditVendorModalVisible && editingVendor) {
         // Set the selected categories to match the current vendor's assignments
@@ -152,17 +159,17 @@ const PayablesScreen = () => {
         });
         setSelectedCategories([]);
       }
-      
-      Animated.timing(slideAnim, { 
-        toValue: 0, 
-        duration: 300, 
-        useNativeDriver: true 
+
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true
       }).start();
     } else {
-      Animated.timing(slideAnim, { 
-        toValue: Dimensions.get('window').height, 
-        duration: 300, 
-        useNativeDriver: true 
+      Animated.timing(slideAnim, {
+        toValue: Dimensions.get('window').height,
+        duration: 300,
+        useNativeDriver: true
       }).start();
     }
   }, [isAddVendorModalVisible, isEditVendorModalVisible, editingVendor, slideAnim]);
@@ -172,7 +179,7 @@ const PayablesScreen = () => {
       const response = await apiService.get('/product/store-categories');
       if (response.data.success) {
         let availableCategories;
-        
+
         if (isEditVendorModalVisible && editingVendor) {
           // If we're editing a vendor, show categories assigned to this vendor plus unassigned ones
           availableCategories = response.data.data.filter(
@@ -184,7 +191,7 @@ const PayablesScreen = () => {
             (category: any) => !category.vendorId
           );
         }
-        
+
         setStoreCategories(availableCategories);
       } else {
         console.error('Failed to load store categories:', response.data.message);
@@ -203,7 +210,7 @@ const PayablesScreen = () => {
         const response = await apiService.put(`/product/store-categories/${categoryId}`, {
           vendorId: vendorId
         });
-        
+
         // Check if the update was successful
         if (!response.data.success) {
           console.error('Failed to update category:', categoryId, response.data.message);
@@ -219,9 +226,9 @@ const PayablesScreen = () => {
   };
 
   const toggleCategorySelection = (categoryId: string) => {
-    setSelectedCategories(prev => 
-      prev.includes(categoryId) 
-        ? prev.filter(id => id !== categoryId) 
+    setSelectedCategories(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
         : [...prev, categoryId]
     );
   };
@@ -246,7 +253,7 @@ const PayablesScreen = () => {
     // Ask user for confirmation
     const newStatus = vendor.status === 'active' ? 'inactive' : 'active';
     const action = vendor.status === 'active' ? 'deactivate' : 'activate';
-    
+
     Alert.alert(
       `Confirm ${action}`,
       `Are you sure you want to ${action} vendor "${vendor.name}"?`,
@@ -262,7 +269,7 @@ const PayablesScreen = () => {
               const response = await apiService.put(`/vendors/${vendor._id}/status`, {
                 status: newStatus
               });
-              
+
               if (response.data.success) {
                 // Update the vendor in the list
                 const updatedVendor = {
@@ -272,7 +279,7 @@ const PayablesScreen = () => {
 
                 setVendors(prev => prev.map(v => v._id === vendor._id ? updatedVendor : v));
                 setFilteredVendors(prev => prev.map(v => v._id === vendor._id ? updatedVendor : v));
-                
+
                 Alert.alert('Success', `Vendor "${vendor.name}" has been ${action}d.`);
               } else {
                 Alert.alert('Error', response.data.message || `Failed to ${action} vendor.`);
@@ -338,7 +345,7 @@ const PayablesScreen = () => {
 
         setVendors(prev => prev.map(v => v._id === editingVendor._id ? updatedVendor : v));
         setFilteredVendors(prev => prev.map(v => v._id === editingVendor._id ? updatedVendor : v));
-        
+
         setEditVendorModalVisible(false);
         setEditingVendor(null);
         Alert.alert('Success', `Vendor "${response.data.data.name}" has been updated.`);
@@ -364,27 +371,27 @@ const PayablesScreen = () => {
 
     try {
       setIsSaving(true);
-      
+
       // Include the selected categories in the vendor creation request
       const vendorData = {
         ...newVendor,
         assignedCategories: selectedCategories
       };
-      
+
       const response = await apiService.post('/vendors', vendorData);
 
       if (response.data.success) {
         // If categories were selected, try to update them with the new vendorId
         if (selectedCategories.length > 0) {
           const categoryUpdateSuccess = await updateStoreCategoriesWithVendor(response.data.data._id, selectedCategories);
-          
+
           // Only show success message if both vendor creation and category updates succeed
           if (categoryUpdateSuccess) {
             Alert.alert('Success', `Vendor "${response.data.data.name}" has been added and assigned to ${selectedCategories.length} categories.`);
           } else {
             // Show partial success message if category updates failed
             Alert.alert(
-              'Partial Success', 
+              'Partial Success',
               `Vendor "${response.data.data.name}" has been added, but failed to assign to categories. Please assign categories manually later.`,
               [
                 {
@@ -449,54 +456,54 @@ const PayablesScreen = () => {
                 <TextInput
                   style={styles.input}
                   value={newVendor.name}
-                  onChangeText={(text) => setNewVendor({...newVendor, name: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, name: text })}
                   placeholder="Enter vendor name"
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Phone *</Text>
                 <TextInput
                   style={styles.input}
                   value={newVendor.phone}
-                  onChangeText={(text) => setNewVendor({...newVendor, phone: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, phone: text })}
                   placeholder="Enter phone number"
                   keyboardType="phone-pad"
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Email</Text>
                 <TextInput
                   style={styles.input}
                   value={newVendor.email}
-                  onChangeText={(text) => setNewVendor({...newVendor, email: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, email: text })}
                   placeholder="Enter email"
                   keyboardType="email-address"
                 />
               </View>
-              
+
               <Text style={styles.sectionTitle}>Address</Text>
               <View style={styles.inputGroup}>
                 <TextInput
                   style={styles.input}
                   value={newVendor.address.street}
                   onChangeText={(text) => setNewVendor({
-                    ...newVendor, 
-                    address: {...newVendor.address, street: text}
+                    ...newVendor,
+                    address: { ...newVendor.address, street: text }
                   })}
                   placeholder="Street"
                 />
               </View>
-              
+
               <View style={styles.row}>
                 <View style={styles.halfInput}>
                   <TextInput
                     style={styles.input}
                     value={newVendor.address.city}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      address: {...newVendor.address, city: text}
+                      ...newVendor,
+                      address: { ...newVendor.address, city: text }
                     })}
                     placeholder="City"
                   />
@@ -506,22 +513,22 @@ const PayablesScreen = () => {
                     style={styles.input}
                     value={newVendor.address.state}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      address: {...newVendor.address, state: text}
+                      ...newVendor,
+                      address: { ...newVendor.address, state: text }
                     })}
                     placeholder="State"
                   />
                 </View>
               </View>
-              
+
               <View style={styles.row}>
                 <View style={styles.halfInput}>
                   <TextInput
                     style={styles.input}
                     value={newVendor.address.zip}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      address: {...newVendor.address, zip: text}
+                      ...newVendor,
+                      address: { ...newVendor.address, zip: text }
                     })}
                     placeholder="ZIP Code"
                   />
@@ -531,35 +538,35 @@ const PayablesScreen = () => {
                     style={styles.input}
                     value={newVendor.address.country}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      address: {...newVendor.address, country: text}
+                      ...newVendor,
+                      address: { ...newVendor.address, country: text }
                     })}
                     placeholder="Country"
                   />
                 </View>
               </View>
-              
+
               <Text style={styles.sectionTitle}>Contact Person</Text>
               <View style={styles.inputGroup}>
                 <TextInput
                   style={styles.input}
                   value={newVendor.contactPerson.name}
                   onChangeText={(text) => setNewVendor({
-                    ...newVendor, 
-                    contactPerson: {...newVendor.contactPerson, name: text}
+                    ...newVendor,
+                    contactPerson: { ...newVendor.contactPerson, name: text }
                   })}
                   placeholder="Contact person name"
                 />
               </View>
-              
+
               <View style={styles.row}>
                 <View style={styles.halfInput}>
                   <TextInput
                     style={styles.input}
                     value={newVendor.contactPerson.phone}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      contactPerson: {...newVendor.contactPerson, phone: text}
+                      ...newVendor,
+                      contactPerson: { ...newVendor.contactPerson, phone: text }
                     })}
                     placeholder="Contact phone"
                     keyboardType="phone-pad"
@@ -570,37 +577,37 @@ const PayablesScreen = () => {
                     style={styles.input}
                     value={newVendor.contactPerson.email}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      contactPerson: {...newVendor.contactPerson, email: text}
+                      ...newVendor,
+                      contactPerson: { ...newVendor.contactPerson, email: text }
                     })}
                     placeholder="Contact email"
                     keyboardType="email-address"
                   />
                 </View>
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Payment Terms</Text>
                 <TextInput
                   style={styles.input}
                   value={newVendor.paymentTerms}
-                  onChangeText={(text) => setNewVendor({...newVendor, paymentTerms: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, paymentTerms: text })}
                   placeholder="Payment terms (e.g. Net 30, Cash on Delivery)"
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Notes</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   value={newVendor.notes}
-                  onChangeText={(text) => setNewVendor({...newVendor, notes: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, notes: text })}
                   placeholder="Additional notes"
                   multiline
                   numberOfLines={3}
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Assign to Store Categories</Text>
                 <Text style={styles.helperText}>Select the categories this delivery agent will supply</Text>
@@ -630,16 +637,16 @@ const PayablesScreen = () => {
                 )}
               </View>
             </ScrollView>
-            
+
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.button, styles.cancelButton]} 
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
                 onPress={() => setAddVendorModalVisible(false)}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.button, styles.saveButton]} 
+              <TouchableOpacity
+                style={[styles.button, styles.saveButton]}
                 onPress={handleSaveVendor}
                 disabled={isSaving}
               >
@@ -671,54 +678,54 @@ const PayablesScreen = () => {
                 <TextInput
                   style={styles.input}
                   value={newVendor.name}
-                  onChangeText={(text) => setNewVendor({...newVendor, name: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, name: text })}
                   placeholder="Enter vendor name"
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Phone *</Text>
                 <TextInput
                   style={styles.input}
                   value={newVendor.phone}
-                  onChangeText={(text) => setNewVendor({...newVendor, phone: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, phone: text })}
                   placeholder="Enter phone number"
                   keyboardType="phone-pad"
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Email</Text>
                 <TextInput
                   style={styles.input}
                   value={newVendor.email}
-                  onChangeText={(text) => setNewVendor({...newVendor, email: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, email: text })}
                   placeholder="Enter email"
                   keyboardType="email-address"
                 />
               </View>
-              
+
               <Text style={styles.sectionTitle}>Address</Text>
               <View style={styles.inputGroup}>
                 <TextInput
                   style={styles.input}
                   value={newVendor.address.street}
                   onChangeText={(text) => setNewVendor({
-                    ...newVendor, 
-                    address: {...newVendor.address, street: text}
+                    ...newVendor,
+                    address: { ...newVendor.address, street: text }
                   })}
                   placeholder="Street"
                 />
               </View>
-              
+
               <View style={styles.row}>
                 <View style={styles.halfInput}>
                   <TextInput
                     style={styles.input}
                     value={newVendor.address.city}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      address: {...newVendor.address, city: text}
+                      ...newVendor,
+                      address: { ...newVendor.address, city: text }
                     })}
                     placeholder="City"
                   />
@@ -728,22 +735,22 @@ const PayablesScreen = () => {
                     style={styles.input}
                     value={newVendor.address.state}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      address: {...newVendor.address, state: text}
+                      ...newVendor,
+                      address: { ...newVendor.address, state: text }
                     })}
                     placeholder="State"
                   />
                 </View>
               </View>
-              
+
               <View style={styles.row}>
                 <View style={styles.halfInput}>
                   <TextInput
                     style={styles.input}
                     value={newVendor.address.zip}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      address: {...newVendor.address, zip: text}
+                      ...newVendor,
+                      address: { ...newVendor.address, zip: text }
                     })}
                     placeholder="ZIP Code"
                   />
@@ -753,35 +760,35 @@ const PayablesScreen = () => {
                     style={styles.input}
                     value={newVendor.address.country}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      address: {...newVendor.address, country: text}
+                      ...newVendor,
+                      address: { ...newVendor.address, country: text }
                     })}
                     placeholder="Country"
                   />
                 </View>
               </View>
-              
+
               <Text style={styles.sectionTitle}>Contact Person</Text>
               <View style={styles.inputGroup}>
                 <TextInput
                   style={styles.input}
                   value={newVendor.contactPerson.name}
                   onChangeText={(text) => setNewVendor({
-                    ...newVendor, 
-                    contactPerson: {...newVendor.contactPerson, name: text}
+                    ...newVendor,
+                    contactPerson: { ...newVendor.contactPerson, name: text }
                   })}
                   placeholder="Contact person name"
                 />
               </View>
-              
+
               <View style={styles.row}>
                 <View style={styles.halfInput}>
                   <TextInput
                     style={styles.input}
                     value={newVendor.contactPerson.phone}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      contactPerson: {...newVendor.contactPerson, phone: text}
+                      ...newVendor,
+                      contactPerson: { ...newVendor.contactPerson, phone: text }
                     })}
                     placeholder="Contact phone"
                     keyboardType="phone-pad"
@@ -792,37 +799,37 @@ const PayablesScreen = () => {
                     style={styles.input}
                     value={newVendor.contactPerson.email}
                     onChangeText={(text) => setNewVendor({
-                      ...newVendor, 
-                      contactPerson: {...newVendor.contactPerson, email: text}
+                      ...newVendor,
+                      contactPerson: { ...newVendor.contactPerson, email: text }
                     })}
                     placeholder="Contact email"
                     keyboardType="email-address"
                   />
                 </View>
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Payment Terms</Text>
                 <TextInput
                   style={styles.input}
                   value={newVendor.paymentTerms}
-                  onChangeText={(text) => setNewVendor({...newVendor, paymentTerms: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, paymentTerms: text })}
                   placeholder="Payment terms (e.g. Net 30, Cash on Delivery)"
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Notes</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   value={newVendor.notes}
-                  onChangeText={(text) => setNewVendor({...newVendor, notes: text})}
+                  onChangeText={(text) => setNewVendor({ ...newVendor, notes: text })}
                   placeholder="Additional notes"
                   multiline
                   numberOfLines={3}
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Assign to Store Categories</Text>
                 <Text style={styles.helperText}>Select the categories this delivery agent will supply</Text>
@@ -852,16 +859,16 @@ const PayablesScreen = () => {
                 )}
               </View>
             </ScrollView>
-            
+
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.button, styles.cancelButton]} 
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
                 onPress={() => setEditVendorModalVisible(false)}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.button, styles.saveButton]} 
+              <TouchableOpacity
+                style={[styles.button, styles.saveButton]}
                 onPress={handleEditSave}
                 disabled={isSaving}
               >
@@ -876,7 +883,7 @@ const PayablesScreen = () => {
     </Modal>
   );
 
-    const getStatusStyle = (status: string) => {
+  const getStatusStyle = (status: string) => {
     switch (status) {
       case 'paid':
         return { color: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)' };
@@ -905,24 +912,24 @@ const PayablesScreen = () => {
           {vendor.paymentStatus?.toUpperCase()}
         </Text>
       </View>
-      <View style={[styles.vendorStatusBadge, { 
-        backgroundColor: vendor.status === 'active' ? '#4CAF50' : 
-                         vendor.status === 'inactive' ? '#FFC107' : '#F44336' 
+      <View style={[styles.vendorStatusBadge, {
+        backgroundColor: vendor.status === 'active' ? '#4CAF50' :
+          vendor.status === 'inactive' ? '#FFC107' : '#F44336'
       }]}>
         <Text style={styles.statusText}>
           {vendor.status?.charAt(0).toUpperCase() + vendor.status?.slice(1)}
         </Text>
       </View>
       <View style={styles.actionsContainer}>
-        <TouchableOpacity 
-          onPress={() => handleToggleVendorStatus(vendor)} 
+        <TouchableOpacity
+          onPress={() => handleToggleVendorStatus(vendor)}
           style={styles.actionButton}
           title={`Mark as ${vendor.status === 'active' ? 'Inactive' : 'Active'}`}
         >
-          <Feather 
-            name={vendor.status === 'active' ? 'toggle-left' : 'toggle-right'} 
-            size={20} 
-            color={vendor.status === 'active' ? COLORS.success : COLORS.warning} 
+          <Feather
+            name={vendor.status === 'active' ? 'toggle-left' : 'toggle-right'}
+            size={20}
+            color={vendor.status === 'active' ? COLORS.success : COLORS.warning}
           />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => handleEditVendor(vendor)} style={styles.actionButton}>
@@ -964,8 +971,8 @@ const PayablesScreen = () => {
         contentContainerStyle={{ paddingBottom: 80 }} // Make space for FAB
       />
 
-      <TouchableOpacity 
-        style={styles.fab} 
+      <TouchableOpacity
+        style={styles.fab}
         onPress={handleAddVendor}
       >
         <Feather name="plus" size={24} color={COLORS.white} />
@@ -1116,17 +1123,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
-  modalOverlay: { 
-    flex: 1, 
-    justifyContent: 'flex-end', 
-    backgroundColor: 'rgba(0, 0, 0, 0.5)' 
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)'
   },
-  modalContainer: { 
-    backgroundColor: COLORS.white, 
-    width: '100%', 
-    borderTopLeftRadius: 20, 
-    borderTopRightRadius: 20, 
-    paddingHorizontal: 20, 
+  modalContainer: {
+    backgroundColor: COLORS.white,
+    width: '100%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
     minHeight: Dimensions.get('window').height * 0.6, // Minimum 60% of screen
     maxHeight: Dimensions.get('window').height * 0.9, // Maximum 90% of screen
     paddingBottom: 40

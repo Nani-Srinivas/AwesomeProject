@@ -74,7 +74,7 @@ export const SelectProductsScreen = ({ navigation, route }: SelectProductsScreen
       await storeCatalogService.importCatalog(selectedCategoryIds, selectedProductIds);
       Alert.alert('Success', 'Selected products imported to your catalog!');
       // Navigate to the main store management screen or dashboard
-      navigation.navigate('Dashboard'); // Adjust this to your actual dashboard route
+      navigation.navigate('Home'); // Adjust this to your actual dashboard route
     } catch (err: any) {
       console.error('Failed to import catalog:', err);
       Alert.alert('Error', err.message || 'Failed to import catalog.');

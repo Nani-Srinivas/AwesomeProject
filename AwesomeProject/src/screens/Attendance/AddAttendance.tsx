@@ -37,7 +37,7 @@ export const AddAttendance = () => {
   const [feedbackMessageType, setFeedbackMessageType] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-// ✅ fetch areas
+  // ✅ fetch areas
   useEffect(() => {
     const fetchAreas = async () => {
       try {
@@ -147,7 +147,7 @@ export const AddAttendance = () => {
     setSelectedCustomer(null);
   };
 
-// ✅ New: open bottom sheet for Add Extra Product
+  // ✅ New: open bottom sheet for Add Extra Product
   const openAddExtraProductModal = customer => {
     setSelectedCustomer(customer);
     setIsAddExtraProductModalVisible(true);
@@ -306,9 +306,10 @@ export const AddAttendance = () => {
     }
   };
 
-  const renderCustomHeader = date => {
+  const renderCustomHeader = (date: any) => {
     const header = date.toString('MMMM yyyy');
     const [month, year] = header.split(' ');
+
     return (
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -345,13 +346,19 @@ export const AddAttendance = () => {
       {/* Calendar + List */}
       <CalendarProvider date={selectedDate} onDateChanged={onDateChanged}>
         <ExpandableCalendar
-          hideArrows={true}
+          renderHeader={renderCustomHeader}
+          hideArrows
           markedDates={{
             [selectedDate]: { selected: true, selectedColor: '#1E73B8' },
             ...Object.keys(agendaItems).reduce((acc, date) => {
               acc[date] = { marked: true };
               return acc;
             }, {}),
+          }}
+          theme={{
+            selectedDayBackgroundColor: COLORS.primary,
+            todayTextColor: COLORS.primary,
+            arrowColor: COLORS.primary,
           }}
         />
         {/* Header */}
@@ -431,6 +438,25 @@ export const AddAttendance = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF', paddingBottom: 20 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  headerRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  monthText: { fontSize: 18, fontWeight: 'bold', marginLeft: 8 },
   attendanceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

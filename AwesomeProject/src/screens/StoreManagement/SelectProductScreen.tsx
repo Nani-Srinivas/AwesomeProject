@@ -121,7 +121,7 @@ export const SelectProductScreen = ({ route }: SelectProductScreenProps) => {
 
       if (response.data && response.data.success) {
         Alert.alert('Success', response.data.message);
-        reset('Dashboard');
+        reset('Home');
       } else {
         Alert.alert('Error', response.data?.message || 'Failed to import catalog.');
       }

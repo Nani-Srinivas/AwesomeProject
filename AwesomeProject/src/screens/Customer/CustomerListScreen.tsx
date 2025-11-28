@@ -20,14 +20,16 @@ const getStatusStyle = (status: string) => {
   }
 };
 
-const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill, onViewPayment }: { customer: any, onPress: () => void, onEdit: (customer: any) => void, onDelete: (customer: any) => void, onViewBill: (customer: any) => void, onViewPayment: (customer: any) => void }) => (
+const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill, onViewHistory, onViewPayment }: { customer: any, onPress: () => void, onEdit: (customer: any) => void, onDelete: (customer: any) => void, onViewBill: (customer: any) => void, onViewHistory: (customer: any) => void, onViewPayment: (customer: any) => void }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
     <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(customer.paymentStatus || customer.Bill).color }]} />
     <View style={styles.cardContent}>
       <Text style={styles.customerName}>{customer.name}</Text>
-      <Text style={styles.customerInfo}>Customer ID | {customer._id}</Text>
-      <Text style={styles.customerInfo}>Contact: {customer.phone}</Text>
-      
+      <View style={styles.contactRow}>
+        <Feather name="phone" size={13} color="#6B6B6B" style={{ marginRight: 6 }} />
+        <Text style={styles.customerInfo}>{customer.phone}</Text>
+      </View>
+
       {customer.currentDueAmount !== undefined && (
         <Text style={styles.dueAmount}>Due: ₹{customer.currentDueAmount || 0}</Text>
       )}
@@ -40,6 +42,9 @@ const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill, onViewP
     <View style={styles.actionsContainer}>
       <TouchableOpacity onPress={() => onViewBill(customer)} style={styles.actionButton}>
         <Feather name="file-text" size={20} color={COLORS.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => onViewHistory(customer)} style={styles.actionButton}>
+        <Feather name="archive" size={20} color={COLORS.primary} />
       </TouchableOpacity>
       <TouchableOpacity onPress={() => onViewPayment(customer)} style={styles.actionButton}>
         <Feather name="credit-card" size={20} color={COLORS.primary} />
@@ -149,7 +154,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   };
 
   const handleViewBillPress = (customer: any) => {
-    navigation.navigate('StatementPeriodSelection', { 
+    navigation.navigate('StatementPeriodSelection', {
       customerId: customer._id,
       onBillOperationComplete: fetchCustomers  // Pass callback to refresh customer list
     });
@@ -157,6 +162,10 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
 
   const handleViewPaymentPress = (customer: any) => {
     navigation.navigate('PaymentStatus', { customerId: customer._id });
+  };
+
+  const handleViewHistoryPress = (customer: any) => {
+    navigation.navigate('InvoiceHistory', { customerId: customer._id });
   };
 
   const handleSaveCustomer = async (updatedCustomer: any) => {
@@ -271,10 +280,11 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
           <CustomerCard
             customer={item}
             onPress={() => handleCustomerPress(item)}
-            onEdit={handleEditPress}
-            onDelete={handleDeletePress}
-            onViewBill={handleViewBillPress}
-            onViewPayment={handleViewPaymentPress}
+            onViewBill={(customer) => handleViewBillPress(customer)}
+            onViewHistory={(customer) => handleViewHistoryPress(customer)}
+            onViewPayment={(customer) => handleViewPaymentPress(customer)}
+            onEdit={(customer) => handleEditPress(customer)}
+            onDelete={(customer) => handleDeletePress(customer)}
           />
         )}
         keyExtractor={(item: any) => item._id}
@@ -293,7 +303,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         />
       )}
 
-      <AddCustomerModal 
+      <AddCustomerModal
         isVisible={isAddModalVisible}
         onClose={() => setAddModalVisible(false)}
         onSave={handleAddNewCustomer}
@@ -338,8 +348,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 20,
+    marginBottom: 20,
     flexDirection: 'row',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -363,15 +373,19 @@ const styles = StyleSheet.create({
     color: '#1C1C1C',
     marginRight: 80, // Make space for the badge
   },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
   customerInfo: {
     fontSize: 13,
     color: '#6B6B6B',
-    marginTop: 4,
   },
   dueAmount: {
     fontSize: 12,
     color: COLORS.error,
-    marginTop: 4,
+    marginTop: 6,
     fontWeight: '600',
   },
   statusBadge: {
@@ -396,7 +410,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   actionButton: {
-    marginLeft: 15,
+    marginLeft: 20,
   },
   searchContainer: {
     flexDirection: 'row',

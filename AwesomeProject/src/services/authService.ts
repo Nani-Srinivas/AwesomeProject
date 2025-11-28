@@ -2,7 +2,9 @@ import { apiService } from './apiService';
 import { UserRegistration, LoginCredentials } from '../types/user';
 
 const register = (userData: UserRegistration) => {
-  return apiService.post('/auth/register', userData);
+  return apiService.postWithConfig('/auth/register', userData, {
+    headers: { 'X-Suppress-Global-Error-Alert': true },
+  });
 };
 
 const login = (role: 'Customer' | 'DeliveryPartner' | 'StoreManager', credentials: LoginCredentials) => {
@@ -18,7 +20,9 @@ const login = (role: 'Customer' | 'DeliveryPartner' | 'StoreManager', credential
       endpoint = '/auth/login/store-manager';
       break;
   }
-  return apiService.post(endpoint, credentials);
+  return apiService.postWithConfig(endpoint, credentials, {
+    headers: { 'X-Suppress-Global-Error-Alert': true },
+  });
 };
 
 export const authService = {

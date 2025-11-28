@@ -1,24 +1,27 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { Button } from '../../components/common/Button';
 
+import { useToast } from '../../contexts/ToastContext';
+
 export const ForgotPasswordScreen = ({ navigation }: { navigation: any }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
 
   const handleResetPassword = async () => {
     setLoading(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(() => resolve(true), 2000));
     setLoading(false);
 
     if (email) {
-      Alert.alert('Success', 'Password reset link sent to your email!');
+      showToast('Password reset link sent to your email!', 'success');
       navigation.navigate('Login');
     } else {
-      Alert.alert('Error', 'Please enter your email');
+      showToast('Please enter your email', 'error');
     }
   };
 

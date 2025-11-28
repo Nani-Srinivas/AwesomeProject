@@ -23,10 +23,10 @@ export const AppNavigator = () => {
         } else if (!user.hasSelectedProducts) {
           reset('SelectProduct', { selectedCategories: user.selectedCategoryIds });
         } else {
-          reset('Dashboard');
+          reset('Home');
         }
       } else {
-        reset('Dashboard');
+        reset('Home');
       }
     }
   }, [authToken, user]);

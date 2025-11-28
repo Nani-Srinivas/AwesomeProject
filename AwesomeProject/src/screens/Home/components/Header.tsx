@@ -10,22 +10,18 @@ interface HeaderProps {
 export const Header = ({ onMenuPress, userName }: HeaderProps) => {
   return (
     <View style={styles.wrapper}>
-      <View style={styles.topRow}>
-        <TouchableOpacity onPress={onMenuPress}>
+      <View style={styles.singleRow}>
+        <TouchableOpacity onPress={onMenuPress} style={styles.menuButton}>
           <Feather name="menu" size={24} color="#000000" />
         </TouchableOpacity>
-        <View style={styles.topRightIcons}>
-          <Feather name="bell" size={24} color="#1E73B8" />
-        </View>
-      </View>
-      <View style={styles.bottomRow}>
         <Text style={styles.userName}>{userName || 'User'}</Text>
-        <View style={styles.bottomRightIcons}>
-            <Feather name="search" size={24} color="#000000" style={styles.searchIconMargin} />
-            <Image 
-                source={{ uri: 'https://picsum.photos/40' }} // Placeholder for avatar
-                style={styles.avatar} 
-            />
+        <View style={styles.rightIcons}>
+          <Feather name="search" size={24} color="#000000" style={styles.iconSpacing} />
+          <Feather name="bell" size={24} color="#1E73B8" style={styles.iconSpacing} />
+          <Image
+            source={{ uri: 'https://picsum.photos/40' }} // Placeholder for avatar
+            style={styles.avatar}
+          />
         </View>
       </View>
     </View>
@@ -33,40 +29,34 @@ export const Header = ({ onMenuPress, userName }: HeaderProps) => {
 };
 
 const styles = StyleSheet.create({
-    wrapper: {
-        paddingHorizontal: 16,
-        paddingBottom: 12,
-    },
-    topRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    topRightIcons: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    bottomRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 20,
-    },
-    userName: {
-        fontSize: 18,
-        fontWeight: '500',
-        color: '#000000',
-    },
-    bottomRightIcons: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-    },
-    searchIconMargin: {
-        marginRight: 12,
-    },
+  wrapper: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  singleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  menuButton: {
+    marginRight: 16,
+  },
+  userName: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  rightIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconSpacing: {
+    marginRight: 16,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
 });

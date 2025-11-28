@@ -12,7 +12,7 @@ import { useUserStore } from '../../store/userStore';
 
 export const HomeScreen = ({ navigation }: HomeScreenProps) => {
   const [isSideMenuVisible, setIsSideMenuVisible] = useState(false);
-  
+
   const user = useUserStore(state => state.user) as { name?: string } | null;
   const logout = useUserStore(state => state.logout);
   console.log(user);
@@ -38,7 +38,7 @@ export const HomeScreen = ({ navigation }: HomeScreenProps) => {
           <View style={styles.separator} />
           <PayablesSection />
         </ScrollView>
-        <BottomNavBar navigation={navigation} />
+        {/* <BottomNavBar navigation={navigation} /> */}
       </View>
       <SideMenu
         isVisible={isSideMenuVisible}

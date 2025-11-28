@@ -1,24 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
+  Animated,
+  Image,
+  Keyboard,
   TouchableOpacity,
-  Alert,
-  Switch,
-  PermissionsAndroid,
   Platform,
+  SafeAreaView,
+  PermissionsAndroid,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+} from 'react-native-gesture-handler';
 import Geolocation from '@react-native-community/geolocation';
-import { COLORS } from '../../constants/colors';
-import { Button } from '../../components/common/Button';
+import CustomSafeAreaView from '../../components/global/CustomSafeAreaView';
+import ProductSlider from '../../components/login/ProductSlider';
+import { Colors, Fonts, lightColors } from '../../utils/Constants';
+import CustomText from '../../components/ui/CustomText';
+import { RFValue } from 'react-native-responsive-fontsize';
+import useKeyboardOffsetHeight from '../../utils/useKeyboardOffsetHeight';
+import LinearGradient from 'react-native-linear-gradient';
+import CustomInput from '../../components/ui/CustomInput';
+import CustomButton from '../../components/ui/CustomButton';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { authService } from '../../services/authService';
+import { useToast } from '../../contexts/ToastContext';
 import { useNavigation } from '@react-navigation/native';
+
+const bottomColors = [...lightColors].reverse();
 
 export const RegisterScreen = () => {
   const navigation = useNavigation();
+  const { showToast } = useToast();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -26,7 +41,7 @@ export const RegisterScreen = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [role, setRole] = useState<'Customer' | 'DeliveryPartner' | 'StoreManager'>('Customer');
+  const [role, setRole] = useState<'Customer' | 'DeliveryPartner' | 'StoreManager'>('StoreManager');
   const [storeName, setStoreName] = useState('');
   const [aadhar, setAadhar] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,6 +55,25 @@ export const RegisterScreen = () => {
   const [storeNameError, setStoreNameError] = useState('');
   const [aadharError, setAadharError] = useState('');
 
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const keyboardOffsetHeight = useKeyboardOffsetHeight();
+
+  useEffect(() => {
+    if (keyboardOffsetHeight === 0) {
+      Animated.timing(animatedValue, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(animatedValue, {
+        toValue: -keyboardOffsetHeight * 0.84,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [keyboardOffsetHeight]);
+
   useEffect(() => {
     const requestLocationPermission = async () => {
       const fetchLocation = () => {
@@ -49,7 +83,7 @@ export const RegisterScreen = () => {
             setLocation({ latitude, longitude });
           },
           (error) => {
-            Alert.alert('Location Error', error.message);
+            showToast(`Location Error: ${error.message}`, 'error');
           },
           { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
         );
@@ -73,7 +107,7 @@ export const RegisterScreen = () => {
           if (granted === PermissionsAndroid.RESULTS.GRANTED) {
             fetchLocation();
           } else {
-            Alert.alert('Permission Denied', 'Location permission is required for registration.');
+            showToast('Location permission is required for registration.', 'error');
           }
         } catch (err) {
           console.warn(err);
@@ -130,10 +164,7 @@ export const RegisterScreen = () => {
       isValid = false;
     }
     if (!location) {
-      Alert.alert(
-        'Location Error',
-        'Could not determine location. Please ensure location services are enabled.'
-      );
+      showToast('Could not determine location. Please ensure location services are enabled.', 'error');
       isValid = false;
     }
 
@@ -154,179 +185,318 @@ export const RegisterScreen = () => {
       };
 
       await authService.register(payload);
-      Alert.alert('Success', 'Verification email sent! Please check your inbox.');
+      showToast('Verification email sent! Please check your inbox.', 'success');
       navigation.navigate('Login' as never);
     } catch (error: any) {
-      const message = error.response?.data?.message || 'An unexpected error occurred.';
-      Alert.alert('Registration Error', message);
+      let message = error.response?.data?.message;
+      if (!message) {
+        message = error.message === 'Network Error' ? 'Network error. Please check your connection.' : 'An unexpected error occurred during registration.';
+      }
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Create Account</Text>
+  const renderInputs = () => {
+    return (
+      <>
+        <CustomInput
+          onChangeText={setName}
+          onClear={() => setName('')}
+          value={name}
+          placeholder="Name"
+          right={false}
+        />
+        {nameError ? <CustomText style={styles.errorText} variant="h8" fontFamily={Fonts.Regular}>{nameError}</CustomText> : null}
 
-        {/* Role selector */}
-        <View style={styles.roleSelectorContainer}>
-          <TouchableOpacity
-            style={[styles.roleButton, role === 'Customer' && styles.selectedRoleButton]}
-            onPress={() => setRole('Customer')}
-          >
-            <Text style={[styles.roleButtonText, role === 'Customer' && styles.selectedRoleButtonText]}>Customer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.roleButton, role === 'DeliveryPartner' && styles.selectedRoleButton]}
-            onPress={() => setRole('DeliveryPartner')}
-          >
-            <Text style={[styles.roleButtonText, role === 'DeliveryPartner' && styles.selectedRoleButtonText]}>Delivery Partner</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.roleButton, role === 'StoreManager' && styles.selectedRoleButton]}
-            onPress={() => setRole('StoreManager')}
-          >
-            <Text style={[styles.roleButtonText, role === 'StoreManager' && styles.selectedRoleButtonText]}>Store Manager</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Inputs */}
-        <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
-        {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
-
-        <TextInput
-          style={styles.input}
+        <CustomInput
+          onChangeText={setEmail}
+          onClear={() => setEmail('')}
+          value={email}
           placeholder="Email"
           keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
+          autoCapitalize="none"
+          right={false}
         />
-        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+        {emailError ? <CustomText style={styles.errorText} variant="h8" fontFamily={Fonts.Regular}>{emailError}</CustomText> : null}
 
-        <TextInput
-          style={styles.input}
+        <CustomInput
+          onChangeText={setPhone}
+          onClear={() => setPhone('')}
+          value={phone}
           placeholder="Phone Number"
           keyboardType="phone-pad"
-          value={phone}
-          onChangeText={setPhone}
+          right={false}
         />
-        {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+        {phoneError ? <CustomText style={styles.errorText} variant="h8" fontFamily={Fonts.Regular}>{phoneError}</CustomText> : null}
 
         {role === 'StoreManager' && (
           <>
-            <TextInput
-              style={styles.input}
-              placeholder="Store Name"
-              value={storeName}
+            <CustomInput
               onChangeText={setStoreName}
+              onClear={() => setStoreName('')}
+              value={storeName}
+              placeholder="Store Name"
+              right={false}
             />
-            {storeNameError ? <Text style={styles.errorText}>{storeNameError}</Text> : null}
+            {storeNameError ? <CustomText style={styles.errorText} variant="h8" fontFamily={Fonts.Regular}>{storeNameError}</CustomText> : null}
           </>
         )}
 
         {role === 'DeliveryPartner' && (
           <>
-            <TextInput
-              style={styles.input}
+            <CustomInput
+              onChangeText={setAadhar}
+              onClear={() => setAadhar('')}
+              value={aadhar}
               placeholder="Aadhar Number"
               keyboardType="numeric"
-              value={aadhar}
-              onChangeText={setAadhar}
+              right={false}
             />
-            {aadharError ? <Text style={styles.errorText}>{aadharError}</Text> : null}
+            {aadharError ? <CustomText style={styles.errorText} variant="h8" fontFamily={Fonts.Regular}>{aadharError}</CustomText> : null}
           </>
         )}
 
-        <TextInput
-          style={styles.input}
+        <CustomInput
+          onChangeText={setPassword}
+          onClear={() => setPassword('')}
+          value={password}
           placeholder="Password"
           secureTextEntry
-          value={password}
-          onChangeText={setPassword}
+          right={false}
         />
-        {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+        {passwordError ? <CustomText style={styles.errorText} variant="h8" fontFamily={Fonts.Regular}>{passwordError}</CustomText> : null}
 
-        <TextInput
-          style={styles.input}
+        <CustomInput
+          onChangeText={setConfirmPassword}
+          onClear={() => setConfirmPassword('')}
+          value={confirmPassword}
           placeholder="Confirm Password"
           secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
+          right={false}
         />
-        {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+        {confirmPasswordError ? <CustomText style={styles.errorText} variant="h8" fontFamily={Fonts.Regular}>{confirmPasswordError}</CustomText> : null}
+      </>
+    );
+  };
 
-        {location && (
-          <View style={styles.locationContainer}>
-            <Text style={styles.locationText}>Latitude: {location.latitude}</Text>
-            <Text style={styles.locationText}>Longitude: {location.longitude}</Text>
-          </View>
-        )}
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <View style={styles.container}>
+        <CustomSafeAreaView>
+          <ProductSlider />
 
-        <Button title={loading ? 'Registering...' : 'Register'} onPress={handleRegister} />
+          <PanGestureHandler>
+            <Animated.ScrollView
+              bounces={false}
+              style={{ transform: [{ translateY: animatedValue }] }}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.subContainer}>
 
-        <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login' as never)}>
-            <Text style={styles.loginLink}>Login</Text>
-          </TouchableOpacity>
+              <LinearGradient colors={bottomColors} style={styles.gradient} />
+
+              <View style={styles.content}>
+                <Image
+                  source={require('../../assets/images/logo.jpeg')}
+                  style={styles.logo}
+                />
+
+                <CustomText variant="h2" fontFamily={Fonts.Bold}>
+                  Grocery Delivery App
+                </CustomText>
+                <CustomText
+                  variant="h5"
+                  fontFamily={Fonts.SemiBold}
+                  style={styles.text}>
+                  Create an account
+                </CustomText>
+
+
+
+                {renderInputs()}
+
+                {location && (
+                  <View style={styles.locationContainer}>
+                    <CustomText variant="h8" fontFamily={Fonts.Medium} style={styles.locationText}>
+                      Lat: {location.latitude.toFixed(4)}, Long: {location.longitude.toFixed(4)}
+                    </CustomText>
+                  </View>
+                )}
+
+                <CustomButton
+                  onPress={() => handleRegister()}
+                  loading={loading}
+                  disabled={loading}
+                  title="Register"
+                />
+
+                <View style={styles.loginContainer}>
+                  <CustomText variant="h7" fontFamily={Fonts.Medium}>
+                    Already have an account?{' '}
+                  </CustomText>
+                  <TouchableOpacity onPress={() => navigation.navigate('Login' as never)}>
+                    <CustomText variant="h7" fontFamily={Fonts.Bold} style={styles.loginLink}>
+                      Login
+                    </CustomText>
+                  </TouchableOpacity>
+                </View>
+
+              </View>
+            </Animated.ScrollView>
+          </PanGestureHandler>
+        </CustomSafeAreaView>
+
+        <View style={styles.footer}>
+          <SafeAreaView />
+          <CustomText fontSize={RFValue(6)}>
+            By Continuing, you agree to our Terms of Service & Privacy Policy
+          </CustomText>
+          <SafeAreaView />
         </View>
+
+        <TouchableOpacity
+          style={[
+            styles.absoluteSwitch,
+            styles.storeSwitch,
+            role === 'StoreManager' && styles.activeSwitch
+          ]}
+          onPress={() => setRole('StoreManager')}
+        >
+          <CustomText style={styles.emojiText}>🏪</CustomText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.absoluteSwitch,
+            styles.customerSwitch,
+            role === 'Customer' && styles.activeSwitch
+          ]}
+          onPress={() => setRole('Customer')}
+        >
+          <CustomText style={styles.emojiText}>👤</CustomText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.absoluteSwitch,
+            styles.deliverySwitch,
+            role === 'DeliveryPartner' && styles.activeSwitch
+          ]}
+          onPress={() => setRole('DeliveryPartner')}
+        >
+          <CustomText style={styles.emojiText}>🚴‍♂️</CustomText>
+        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.white },
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
-  title: { fontSize: 28, fontWeight: 'bold', color: COLORS.text, marginBottom: 10 },
-  input: {
-    width: '100%',
-    height: 50,
-    borderColor: COLORS.primary,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 15,
+  container: {
+    flex: 1,
+  },
+  text: {
+    marginTop: 2,
     marginBottom: 15,
-    color: COLORS.text,
-    backgroundColor: COLORS.background,
+    opacity: 0.8,
   },
-  errorText: { color: 'red', alignSelf: 'flex-start', marginBottom: 10, marginLeft: 5 },
-  loginContainer: { flexDirection: 'row', marginTop: 30 },
-  loginText: { color: COLORS.text },
-  loginLink: { color: COLORS.primary, fontWeight: 'bold' },
-  roleSelectorContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    width: '100%',
-    justifyContent: 'space-around',
-  },
-  roleButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+  logo: {
+    height: 50,
+    width: 50,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    marginVertical: 10,
   },
-  selectedRoleButton: {
-    backgroundColor: COLORS.primary,
+  subContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  roleButtonText: {
-    color: COLORS.primary,
-    fontWeight: 'bold',
+  footer: {
+    borderTopWidth: 0.8,
+    borderColor: Colors.border,
+    paddingBottom: 10,
+    zIndex: 22,
+    position: 'absolute',
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#f8f9fc',
+    width: '100%',
   },
-  selectedRoleButtonText: {
-    color: COLORS.white,
+  gradient: {
+    paddingTop: 60,
+    width: '100%',
+  },
+  content: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  absoluteSwitch: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
+    padding: 10,
+    height: 55,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 55,
+    borderRadius: 50,
+    zIndex: 99,
+  },
+  storeSwitch: {
+    backgroundColor: '#C8E6C9',
+    right: 140,
+  },
+  customerSwitch: {
+    backgroundColor: '#BBDEFB',
+    right: 75,
+  },
+  deliverySwitch: {
+    backgroundColor: '#FFCCBC',
+    right: 10,
+  },
+  activeSwitch: {
+    borderWidth: 3,
+    borderColor: Colors.primary,
+    transform: [{ scale: 1.1 }],
+  },
+  emojiText: {
+    fontSize: RFValue(24),
+  },
+  loginContainer: {
+    flexDirection: 'row',
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  loginLink: {
+    color: Colors.primary,
+  },
+  errorText: {
+    color: 'red',
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+    marginLeft: 5,
   },
   locationContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
+    marginTop: 5,
   },
   locationText: {
-    fontSize: 14,
-    color: COLORS.text,
-    marginHorizontal: 10,
+    color: '#666',
   },
 });

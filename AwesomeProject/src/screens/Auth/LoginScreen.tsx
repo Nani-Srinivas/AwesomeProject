@@ -1,78 +1,97 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CommonActions } from '@react-navigation/native';
-import { COLORS } from '../../constants/colors';
-import { Button } from '../../components/common/Button';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Animated,
+  Image,
+  Keyboard,
+  TouchableOpacity,
+  Platform,
+  SafeAreaView,
+} from 'react-native';
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+  State,
+} from 'react-native-gesture-handler';
+import CustomSafeAreaView from '../../components/global/CustomSafeAreaView';
+import ProductSlider from '../../components/login/ProductSlider';
+import { Colors, Fonts, lightColors } from '../../utils/Constants';
+import CustomText from '../../components/ui/CustomText';
+import { RFValue } from 'react-native-responsive-fontsize';
+import useKeyboardOffsetHeight from '../../utils/useKeyboardOffsetHeight';
+import LinearGradient from 'react-native-linear-gradient';
+import CustomInput from '../../components/ui/CustomInput';
+import CustomButton from '../../components/ui/CustomButton';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useUserStore } from '../../store/userStore';
 import { authService } from '../../services/authService';
-import { LoginResponse, User } from '../../types/user';
+import { useToast } from '../../contexts/ToastContext';
+import { LoginResponse } from '../../types/user';
 
-interface LoginScreenProps {
-  navigation: any;
-}
+const bottomColors = ['rgba(255,255,255,0)', 'rgba(255,255,255,0.5)', '#FFFFFF', '#FFFFFF'];
 
-export const LoginScreen = ({ navigation }: LoginScreenProps) => {
+export const LoginScreen = ({ navigation }: { navigation: any }) => {
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('deliveryboy1@gmail.com');
   const [password, setPassword] = useState('123456');
-  const [phone, setPhone] = useState('9876543210');
   const [loading, setLoading] = useState(false);
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
-  const [role, setRole] = useState<'Customer' | 'DeliveryPartner' | 'StoreManager'>('Customer');
+  const [role, setRole] = useState<'Customer' | 'DeliveryPartner' | 'StoreManager' | 'Admin'>('StoreManager');
+  const [gestureSequence, setGestureSequence] = useState<string[]>([]);
+
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const keyboardOffsetHeight = useKeyboardOffsetHeight();
+
   const { setAuthToken, setUser, setRefreshToken } = useUserStore();
+  const { showToast } = useToast();
 
   useEffect(() => {
-    const abortController = new AbortController();
-    return () => {
-      abortController.abort();
-    };
-  }, []);
+    if (keyboardOffsetHeight === 0) {
+      Animated.timing(animatedValue, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(animatedValue, {
+        toValue: -keyboardOffsetHeight * 0.84,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [keyboardOffsetHeight]);
+
+  const handleGesture = ({ nativeEvent }: any) => {
+    if (nativeEvent.state === State.END) {
+      const { translationX, translationY } = nativeEvent;
+      let direction = '';
+      if (Math.abs(translationX) > Math.abs(translationY)) {
+        direction = translationX > 0 ? 'right' : 'left';
+      } else {
+        direction = translationY > 0 ? 'down' : 'up';
+      }
+
+      const newSequence = [...gestureSequence, direction].slice(-5);
+      setGestureSequence(newSequence);
+
+      if (newSequence?.join(' ') === 'up up down left right') {
+        setGestureSequence([]);
+        setRole('Admin');
+        showToast('Admin Mode Activated! 🔐', 'info');
+      }
+    }
+  };
 
   const handleLogin = async () => {
-    setEmailError('');
-    setPasswordError('');
-    setPhoneError('');
-
-    let isValid = true;
-    if (role === 'DeliveryPartner' || role === 'StoreManager') {
-      if (!email) {
-        setEmailError('Email is required');
-        isValid = false;
-      }
-      else if (!/\S+@\S+\.\S+/.test(email)) {
-        setEmailError('Invalid email format');
-        isValid = false;
-      }
-
-      if (!password) {
-        setPasswordError('Password is required');
-        isValid = false;
-      }
-      else if (password.length < 6) {
-        setPasswordError('Password must be at least 6 characters');
-        isValid = false;
-      }
-    } else {
-      if (!phone) {
-        setPhoneError('Phone number is required');
-        isValid = false;
-      }
-    }
-
-    if (!isValid) {
-      return;
-    }
-
+    Keyboard.dismiss();
     setLoading(true);
     try {
-      const credentials = (role === 'Customer') ? { phone } : { email, password };
-      const response = await authService.login(role, credentials);
-      console.log('Login API Response:', JSON.stringify(response.data, null, 2));
+      const credentials = (role === 'Customer')
+        ? { phone: phoneNumber }
+        : { email, password };
 
+      const response = await authService.login(role, credentials);
       const { accessToken, refreshToken, user } = response.data as LoginResponse;
-      console.log('User object to be set in store:', JSON.stringify(user, null, 2));
 
       setUser(user);
       setAuthToken(accessToken);
@@ -80,166 +99,263 @@ export const LoginScreen = ({ navigation }: LoginScreenProps) => {
         setRefreshToken(refreshToken);
       }
 
-      // Navigation is now handled by AppNavigator's useEffect
-      // if (user.roles.includes('StoreManager')) {
-      //   if (!user.storeId) {
-      //     navigation.navigate('StoreCreation');
-      //   } else {
-      //     navigation.navigate('Dashboard');
-      //   }
-      // } else {
-      //   navigation.navigate('Dashboard');
-      // }
-
+      showToast('Login successful!', 'success');
+      // Navigation is handled by AppNavigator
     } catch (err: any) {
-      // Global error handler in axiosInstance will show an alert
-      console.error('Login failed', err);
+      console.log('Login failed', err);
+      let message = err.response?.data?.message;
+      if (!message) {
+        message = err.message === 'Network Error' ? 'Network error. Please check your connection.' : 'Login failed. Please check your credentials.';
+      }
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Welcome Back!</Text>
-        <Text style={styles.subtitle}>Login to continue</Text>
+  const renderInputs = () => {
+    if (role === 'Customer') {
+      return (
+        <CustomInput
+          onChangeText={text => setPhoneNumber(text.slice(0, 10))}
+          onClear={() => setPhoneNumber('')}
+          value={phoneNumber}
+          placeholder="Enter mobile number"
+          inputMode="numeric"
+          left={
+            <CustomText
+              style={styles.phoneText}
+              variant="h6"
+              fontFamily={Fonts.SemiBold}>
+              + 91
+            </CustomText>
+          }
+        />
+      );
+    } else {
+      return (
+        <>
+          <CustomInput
+            onChangeText={setEmail}
+            onClear={() => setEmail('')}
+            value={email}
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            right={false}
+          />
+          <CustomInput
+            onChangeText={setPassword}
+            onClear={() => setPassword('')}
+            value={password}
+            placeholder="Password"
+            secureTextEntry
+            right={false}
+          />
+        </>
+      );
+    }
+  };
 
-        <View style={styles.roleSwitcher}>
-          <TouchableOpacity onPress={() => setRole('Customer')} style={[styles.roleButton, role === 'Customer' && styles.activeRole]}>
-            <Text style={styles.roleText}>Customer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setRole('DeliveryPartner')} style={[styles.roleButton, role === 'DeliveryPartner' && styles.activeRole]}>
-            <Text style={styles.roleText}>Delivery Partner</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setRole('StoreManager')} style={[styles.roleButton, role === 'StoreManager' && styles.activeRole]}>
-            <Text style={styles.roleText}>Store Manager</Text>
-          </TouchableOpacity>
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <View style={styles.container}>
+        <CustomSafeAreaView>
+          <ProductSlider />
+
+          <PanGestureHandler onHandlerStateChange={handleGesture}>
+            <Animated.ScrollView
+              bounces={false}
+              style={{ transform: [{ translateY: animatedValue }] }}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.subContainer}>
+
+              <LinearGradient colors={bottomColors} style={styles.gradient} />
+
+              <View style={styles.content}>
+                <Image
+                  source={require('../../assets/images/logo.jpeg')}
+                  style={styles.logo}
+                />
+
+                <CustomText variant="h2" fontFamily={Fonts.Bold}>
+                  Grocery Delivery App
+                </CustomText>
+                <CustomText
+                  variant="h5"
+                  fontFamily={Fonts.SemiBold}
+                  style={styles.text}>
+                  Login to continue
+                </CustomText>
+
+
+                {renderInputs()}
+
+                <CustomButton
+                  disabled={role === 'Customer' ? phoneNumber?.length !== 10 : (!email || !password)}
+                  onPress={() => handleLogin()}
+                  loading={loading}
+                  title="Login"
+                />
+
+                <View style={styles.signUpContainer}>
+                  <CustomText variant="h7" fontFamily={Fonts.Medium}>
+                    Don't have an account?{' '}
+                  </CustomText>
+                  <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                    <CustomText variant="h7" fontFamily={Fonts.Bold} style={styles.signUpLink}>
+                      Sign Up
+                    </CustomText>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={{ marginTop: 10 }}>
+                  <CustomText variant="h7" fontFamily={Fonts.Medium} style={{ color: Colors.primary }}>
+                    Forgot Password?
+                  </CustomText>
+                </TouchableOpacity>
+              </View>
+            </Animated.ScrollView>
+          </PanGestureHandler>
+        </CustomSafeAreaView>
+
+        <View style={styles.footer}>
+          <SafeAreaView />
+          <CustomText fontSize={RFValue(6)}>
+            By Continuing, you agree to our Terms of Service & Privacy Policy
+          </CustomText>
+          <SafeAreaView />
         </View>
 
-        {role === 'DeliveryPartner' || role === 'StoreManager' ? (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor={COLORS.text}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor={COLORS.text}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-          </>
-        ) : (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder="Phone Number"
-              placeholderTextColor={COLORS.text}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-            {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
-          </>
-        )}
-
-        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+        <TouchableOpacity
+          style={[
+            styles.absoluteSwitch,
+            styles.storeSwitch,
+            role === 'StoreManager' && styles.activeSwitch
+          ]}
+          onPress={() => setRole('StoreManager')}
+        >
+          <CustomText style={styles.emojiText}>🏪</CustomText>
         </TouchableOpacity>
 
-        <Button title={loading ? 'Logging In...' : 'Login'} onPress={handleLogin} />
+        <TouchableOpacity
+          style={[
+            styles.absoluteSwitch,
+            styles.customerSwitch,
+            role === 'Customer' && styles.activeSwitch
+          ]}
+          onPress={() => setRole('Customer')}
+        >
+          <CustomText style={styles.emojiText}>👤</CustomText>
+        </TouchableOpacity>
 
-        <View style={styles.signUpContainer}>
-          <Text style={styles.signUpText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.signUpLink}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.absoluteSwitch,
+            styles.deliverySwitch,
+            role === 'DeliveryPartner' && styles.activeSwitch
+          ]}
+          onPress={() => setRole('DeliveryPartner')}
+        >
+          <CustomText style={styles.emojiText}>🚴‍♂️</CustomText>
+        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
   container: {
     flex: 1,
+  },
+  phoneText: {
+    marginLeft: 10,
+  },
+  text: {
+    marginTop: 2,
+    marginBottom: 15,
+    opacity: 0.8,
+  },
+  logo: {
+    height: 50,
+    width: 50,
+    borderRadius: 20,
+    marginVertical: 10,
+  },
+  subContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  footer: {
+    borderTopWidth: 0.8,
+    borderColor: Colors.border,
+    paddingBottom: 10,
+    zIndex: 22,
+    position: 'absolute',
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.text,
-    marginBottom: 40,
-  },
-  input: {
+    padding: 10,
+    backgroundColor: '#f8f9fc',
     width: '100%',
-    height: 50,
-    borderColor: COLORS.primary,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    color: COLORS.text,
-    backgroundColor: COLORS.background,
   },
-  forgotPasswordText: {
-    color: COLORS.primary,
-    marginBottom: 20,
-    alignSelf: 'flex-end',
+  gradient: {
+    paddingTop: 60,
+    width: '100%',
   },
-  errorText: {
-    color: 'red',
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-    marginLeft: 5,
+  content: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  absoluteSwitch: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
+    padding: 10,
+    height: 55,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 55,
+    borderRadius: 50,
+    zIndex: 99,
+  },
+  storeSwitch: {
+    backgroundColor: '#C8E6C9',
+    right: 140,
+  },
+  customerSwitch: {
+    backgroundColor: '#BBDEFB',
+    right: 75,
+  },
+  deliverySwitch: {
+    backgroundColor: '#FFCCBC',
+    right: 10,
+  },
+  activeSwitch: {
+    borderWidth: 3,
+    borderColor: Colors.primary,
+    transform: [{ scale: 1.1 }],
+  },
+  emojiText: {
+    fontSize: RFValue(24),
   },
   signUpContainer: {
     flexDirection: 'row',
-    marginTop: 30,
-  },
-  signUpText: {
-    color: COLORS.text,
+    marginTop: 15,
+    alignItems: 'center',
   },
   signUpLink: {
-    color: COLORS.primary,
-    fontWeight: 'bold',
-  },
-  roleSwitcher: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  roleButton: {
-    padding: 10,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: 5,
-    marginHorizontal: 5,
-  },
-  activeRole: {
-    backgroundColor: COLORS.primary,
-  },
-  roleText: {
-    color: COLORS.text,
+    color: Colors.primary,
   },
 });
