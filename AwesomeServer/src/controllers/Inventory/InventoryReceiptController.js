@@ -20,7 +20,7 @@ export const createInventoryReceipt = async (req, reply) => {
       transactionId,
       notes
     } = req.body;
-    
+
     const storeId = req.user.storeId; // Assuming storeId is available in the user object
     const receivedBy = req.user.id;
 
@@ -59,7 +59,7 @@ export const createInventoryReceipt = async (req, reply) => {
       // Update quantities
       stock.currentQuantity += item.receivedQuantity;
       stock.availableQuantity += item.receivedQuantity;
-      
+
       // Add to restock history
       stock.restockHistory.push({
         quantity: item.receivedQuantity,
@@ -68,18 +68,18 @@ export const createInventoryReceipt = async (req, reply) => {
         referenceId: null, // Will be set after creating the receipt
         referenceType: 'InventoryReceipt'
       });
-      
+
       // Update cost price if needed
       if (item.unitPrice) {
         stock.costPrice = item.unitPrice;
       }
-      
+
       // Handle expiry dates if provided
       if (item.batchNumber && item.expiryDate) {
         const existingBatchIndex = stock.expiryDates.findIndex(
           batch => batch.batchNumber === item.batchNumber
         );
-        
+
         if (existingBatchIndex !== -1) {
           stock.expiryDates[existingBatchIndex].quantity += item.receivedQuantity;
         } else {
@@ -161,7 +161,7 @@ export const getInventoryReceipts = async (req, reply) => {
     const { page = 1, limit = 10, vendorId, paymentStatus, startDate, endDate } = req.query;
 
     const filter = { storeId };
-    
+
     if (vendorId) filter.vendorId = vendorId;
     if (paymentStatus) filter.paymentStatus = paymentStatus;
     if (startDate || endDate) {
@@ -169,6 +169,9 @@ export const getInventoryReceipts = async (req, reply) => {
       if (startDate) filter.receivedDate.$gte = new Date(startDate);
       if (endDate) filter.receivedDate.$lte = new Date(endDate);
     }
+
+    console.log('DEBUG: getInventoryReceipts Query:', req.query);
+    console.log('DEBUG: getInventoryReceipts Filter:', JSON.stringify(filter, null, 2));
 
     const receipts = await InventoryReceipt.find(filter)
       .populate('vendorId', 'name phone email')
@@ -248,22 +251,66 @@ export const updateInventoryReceipt = async (req, reply) => {
       });
     }
 
-    // If payment info is being updated, validate the payment status
+    // 1. Handle Stock Adjustments if items are updated
+    if (updates.items) {
+      for (const newItem of updates.items) {
+        // Find corresponding old item
+        const oldItem = existingReceipt.items.find(
+          item => item.storeProductId.toString() === newItem.storeProductId
+        );
+
+        const oldQty = oldItem ? oldItem.receivedQuantity : 0;
+        const newQty = newItem.receivedQuantity;
+        const delta = newQty - oldQty;
+
+        if (delta !== 0) {
+          // Update ProductStock
+          const stock = await ProductStock.findOne({ storeProductId: newItem.storeProductId, storeId });
+          if (stock) {
+            stock.currentQuantity += delta;
+            stock.availableQuantity += delta;
+
+            // Add to restock history for audit
+            stock.restockHistory.push({
+              quantity: delta,
+              date: new Date(),
+              reason: 'Receipt Correction',
+              referenceId: existingReceipt._id,
+              referenceType: 'InventoryReceipt'
+            });
+
+            await stock.save();
+          }
+        }
+      }
+    }
+
+    // 2. Handle Vendor Payable Amount Adjustment
+    if (updates.totalAmount !== undefined) {
+      const amountDiff = updates.totalAmount - existingReceipt.totalAmount;
+      if (amountDiff !== 0) {
+        const vendor = await Vendor.findById(existingReceipt.vendorId);
+        if (vendor) {
+          vendor.payableAmount = (vendor.payableAmount || 0) + amountDiff;
+          await vendor.save();
+        }
+      }
+    }
+
+    // 3. Update Payment Status Logic (if payment info changed)
     if (updates.paymentStatus) {
       if (updates.paymentStatus === 'paid') {
-        updates.amountPaid = existingReceipt.totalAmount;
+        updates.amountPaid = updates.totalAmount || existingReceipt.totalAmount;
       } else if (updates.paymentStatus === 'partial') {
         if (!updates.amountPaid || updates.amountPaid <= 0) {
-          return reply.code(400).send({
-            success: false,
-            message: 'Amount paid is required for partial payment status'
-          });
-        }
-        if (updates.amountPaid > existingReceipt.totalAmount) {
-          return reply.code(400).send({
-            success: false,
-            message: 'Amount paid cannot exceed total amount'
-          });
+          // If switching to partial but no amount provided, keep existing or error?
+          // Ideally client sends amountPaid. If not, we might keep existing if valid.
+          if (!existingReceipt.amountPaid) {
+            return reply.code(400).send({
+              success: false,
+              message: 'Amount paid is required for partial payment status'
+            });
+          }
         }
       }
     }
@@ -274,9 +321,9 @@ export const updateInventoryReceipt = async (req, reply) => {
       updates,
       { new: true }
     )
-    .populate('vendorId', 'name phone email')
-    .populate('receivedBy', 'name phone')
-    .populate('items.storeProductId', 'name price');
+      .populate('vendorId', 'name phone email')
+      .populate('receivedBy', 'name phone')
+      .populate('items.storeProductId', 'name price');
 
     return reply.code(200).send({
       success: true,
@@ -310,16 +357,16 @@ export const addPaymentToReceipt = async (req, reply) => {
     // Update payment information
     if (amountPaid) {
       const totalPaid = receipt.amountPaid + amountPaid;
-      
+
       if (totalPaid > receipt.totalAmount) {
         return reply.code(400).send({
           success: false,
           message: 'Total payment amount exceeds total amount due'
         });
       }
-      
+
       receipt.amountPaid = totalPaid;
-      
+
       if (totalPaid === receipt.totalAmount) {
         receipt.paymentStatus = 'paid';
       } else if (totalPaid > 0) {

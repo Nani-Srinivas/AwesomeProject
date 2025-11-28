@@ -13,10 +13,15 @@ const InventoryReceiptSchema = new mongoose.Schema({
     ref: 'Vendor',
     required: true
   },
+  storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store',
+    required: true,
+    index: true
+  },
   receivedDate: {
     type: Date,
-    default: Date.now,
-    index: true
+    default: Date.now
   },
   receivedBy: {
     type: mongoose.Schema.Types.ObjectId,

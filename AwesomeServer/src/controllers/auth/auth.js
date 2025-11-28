@@ -32,38 +32,38 @@ export const verifyEmail = async (req, reply) => {
   console.log("Verify API");
   try {
     const { token } = req.query;
-    
+
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
     const { id, purpose } = decoded;
-    
+
     if (purpose !== 'email_verification') {
       return reply.status(400).send({ message: 'Invalid verification link' });
     }
-    
+
     let user = await User.findById(id);
 
     if (!user) return reply.status(400).send({ message: 'Invalid verification link' });
-    
+
     if (user.isVerified) {
       return reply.send({ message: 'Email already verified' });
     }
 
     user.isVerified = true;
-    
+
     // SECURITY ENHANCEMENT: Mark token as used
     user.emailVerifiedAt = new Date();
     // You could also store used tokens in a blacklist
-    
+
     await user.save();
 
     return reply.send({ message: 'Email verified successfully' });
   } catch (err) {
     console.error('Email verification error:', err);
-    
+
     if (err.name === 'TokenExpiredError') {
       return reply.status(400).send({ message: 'Verification link has expired' });
     }
-    
+
     return reply.status(400).send({ message: 'Invalid or expired verification link' });
   }
 };
@@ -74,6 +74,7 @@ export const register = async (req, reply) => {
   console.log("Register API Calling");
   const { role, name, email, password, phone, storeName, longitude, latitude } = req.body;
 
+  let user;
   try {
     // 1. Check if user exists
     let existingUser = await User.findOne({
@@ -87,7 +88,6 @@ export const register = async (req, reply) => {
     let hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 
     // 3. Create using the correct discriminator
-    let user;
     switch (role) {
       case 'Customer':
         user = await Customer.create({
@@ -170,6 +170,13 @@ export const register = async (req, reply) => {
 
   } catch (err) {
     console.error('Registration error:', err);
+
+    // ROLLBACK: Delete user if created but error occurred (e.g. email failed)
+    if (user && user._id) {
+      console.log(`Rolling back creation of user ${user._id} due to error`);
+      await User.findByIdAndDelete(user._id);
+    }
+
     if (err.code === 11000) {
       const field = Object.keys(err.keyValue)[0];
       return reply.status(400).send({ message: `${field} already registered` });
@@ -183,11 +190,11 @@ export const register = async (req, reply) => {
 
 // Token generation
 const generateTokens = (user, storeId = null) => {
-  const tokenPayload = { 
-    id: user._id, 
-    roles: user.roles 
+  const tokenPayload = {
+    id: user._id,
+    roles: user.roles
   };
-  
+
   // Include storeId if provided
   if (storeId) {
     tokenPayload.storeId = storeId;
@@ -284,115 +291,115 @@ export const loginStoreManager = async (req, reply) => {
 
 // ✅ Login Customer
 export const loginCustomer = async (req, reply) => {
-    console.log("Customer Login API Is called")
-    const { phone } = req.body;
-  
-    try {
-      // 1. Validate input
-      if (!phone) {
-        return reply.status(400).send({
-          success: false,
-          message: 'Phone number is required'
-        });
-      }
-  
-      // 2. Find user and check role
-      const user = await User.findOne({ phone });
-      if (!user || !user.roles.includes('Customer')) {
-        return reply.status(404).send({ message: 'Customer not found or invalid credentials' });
-      }
-  
-      // 3. Generate tokens
-      const { accessToken, refreshToken } = await generateTokens(user);
-  
-      // 4. Hash refresh token before saving
-      const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-  
-      // 5. Save refresh token (optional)
-      user.refreshToken = hashedRefreshToken;
-      await user.save();
-  
-      // 6. Return response
-      return reply.send({
-        success: true,
-        message: 'Login successful',
-        accessToken,
-        refreshToken,
-        user: {
-          id: user._id,
-          name: user.name, // Include name for consistency
-          phone: user.phone,
-          roles: user.roles // Return all roles
-        }
-      });
-    } catch (err) {
-      console.error('Login error:', err);
-      return reply.status(500).send({ message: 'Server error' });
-    }
-  };
+  console.log("Customer Login API Is called")
+  const { phone } = req.body;
 
-  // ✅ Login Delivery Partner
+  try {
+    // 1. Validate input
+    if (!phone) {
+      return reply.status(400).send({
+        success: false,
+        message: 'Phone number is required'
+      });
+    }
+
+    // 2. Find user and check role
+    const user = await User.findOne({ phone });
+    if (!user || !user.roles.includes('Customer')) {
+      return reply.status(404).send({ message: 'Customer not found or invalid credentials' });
+    }
+
+    // 3. Generate tokens
+    const { accessToken, refreshToken } = await generateTokens(user);
+
+    // 4. Hash refresh token before saving
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    // 5. Save refresh token (optional)
+    user.refreshToken = hashedRefreshToken;
+    await user.save();
+
+    // 6. Return response
+    return reply.send({
+      success: true,
+      message: 'Login successful',
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        name: user.name, // Include name for consistency
+        phone: user.phone,
+        roles: user.roles // Return all roles
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    return reply.status(500).send({ message: 'Server error' });
+  }
+};
+
+// ✅ Login Delivery Partner
 export const loginDeliveryPartner = async (req, reply) => {
-    console.log("Delivery Partner Login API Is called")
-    const { email, password } = req.body;
-  
-    try {
-      // 1. Validate input
-      if (!email || !password) {
-        return reply.status(400).send({
-          success: false,
-          message: 'Email and password are required'
-        });
-      }
-  
-      // 2. Find user and check role
-      const user = await User.findOne({ email }).select('+password');
-      
-      if (!user || !user.roles.includes('DeliveryPartner')) {
-        return reply.status(404).send({ message: 'Delivery partner not found or invalid credentials' });
-      }
-  
-      // Cast to DeliveryPartner discriminator to access role-specific fields
-      let deliveryPartnerDoc = null;
-      if (user.roles.includes('DeliveryPartner')) {
-        deliveryPartnerDoc = await DeliveryPartner.findById(user._id);
-      }
+  console.log("Delivery Partner Login API Is called")
+  const { email, password } = req.body;
 
-      // 3. Validate password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return reply.status(401).send({ message: 'Invalid credentials' });
-      }
-  
-      // 4. Generate tokens
-      const { accessToken, refreshToken } = await generateTokens(user);
-  
-      // 5. Hash refresh token before saving
-      const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-  
-      // 6. Save refresh token (optional)
-      user.refreshToken = hashedRefreshToken;
-      await user.save();
-  
-      // 7. Return response
-      return reply.send({
-        success: true,
-        message: 'Login successful',
-        accessToken,
-        refreshToken,
-        user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            roles: user.roles,
-            aadhar: deliveryPartnerDoc ? deliveryPartnerDoc.aadhar : undefined // Include aadhar if available
-        }
+  try {
+    // 1. Validate input
+    if (!email || !password) {
+      return reply.status(400).send({
+        success: false,
+        message: 'Email and password are required'
       });
-    } catch (err) {
-      console.error('Login error:', err);
-      return reply.status(500).send({ message: 'Server error' });
     }
-  };
+
+    // 2. Find user and check role
+    const user = await User.findOne({ email }).select('+password');
+
+    if (!user || !user.roles.includes('DeliveryPartner')) {
+      return reply.status(404).send({ message: 'Delivery partner not found or invalid credentials' });
+    }
+
+    // Cast to DeliveryPartner discriminator to access role-specific fields
+    let deliveryPartnerDoc = null;
+    if (user.roles.includes('DeliveryPartner')) {
+      deliveryPartnerDoc = await DeliveryPartner.findById(user._id);
+    }
+
+    // 3. Validate password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return reply.status(401).send({ message: 'Invalid credentials' });
+    }
+
+    // 4. Generate tokens
+    const { accessToken, refreshToken } = await generateTokens(user);
+
+    // 5. Hash refresh token before saving
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    // 6. Save refresh token (optional)
+    user.refreshToken = hashedRefreshToken;
+    await user.save();
+
+    // 7. Return response
+    return reply.send({
+      success: true,
+      message: 'Login successful',
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        roles: user.roles,
+        aadhar: deliveryPartnerDoc ? deliveryPartnerDoc.aadhar : undefined // Include aadhar if available
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    return reply.status(500).send({ message: 'Server error' });
+  }
+};
 
 
 // ✅ Refresh Token (by Role)
@@ -451,7 +458,7 @@ export const fetchUser = async (req, reply) => {
   }
 
   try {
-    let user = await discriminator.findById(id).select('-password'); 
+    let user = await discriminator.findById(id).select('-password');
 
     if (!user || !user.roles.includes(role)) {
       return reply.code(404).send({ message: 'User not found or role mismatch' });

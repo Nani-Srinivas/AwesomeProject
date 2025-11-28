@@ -1,0 +1,505 @@
+import {
+  View,
+  StyleSheet,
+  SafeAreaView,
+  Animated,
+  Image,
+  Keyboard,
+  Alert,
+  TouchableOpacity,
+  Platform,
+} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+  State,
+} from 'react-native-gesture-handler';
+import CustomSafeAreaView from '@components/global/CustomSafeAreaView';
+import ProductSlider from '@components/login/ProductSlider';
+import {Colors, Fonts, lightColors} from '@utils/Constants';
+import CustomText from '@components/ui/CustomText';
+import {RFValue} from 'react-native-responsive-fontsize';
+import {resetAndNavigate} from '@utils/NavigationUtils';
+import useKeyboardOffsetHeight from '@utils/useKeyboardOffsetHeight';
+import LinearGradient from 'react-native-linear-gradient';
+import CustomInput from '@components/ui/CustomInput';
+import CustomButton from '@components/ui/CustomButton';
+import { customerLogin } from '@service/authService';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
+const bottomColors = [...lightColors].reverse();
+
+const CustomerLogin = () => {
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [gestureSequence, setGestureSequence] = useState<string[]>([]);
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const keyboardOffsetHeight = useKeyboardOffsetHeight();
+
+  useEffect(() => {
+    if (keyboardOffsetHeight === 0) {
+      Animated.timing(animatedValue, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(animatedValue, {
+        toValue: -keyboardOffsetHeight * 0.84,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [keyboardOffsetHeight]);
+
+  const handleGesture = ({nativeEvent}: any) => {
+    if (nativeEvent.state === State.END) {
+      const {translationX, translationY} = nativeEvent;
+      let direction = '';
+      if (Math.abs(translationX) > Math.abs(translationY)) {
+        direction = translationX > 0 ? 'right' : 'left';
+      } else {
+        direction = translationY > 0 ? 'down' : 'up';
+      }
+
+      const newSequence = [...gestureSequence, direction].slice(-5);
+      setGestureSequence(newSequence);
+
+      if (newSequence?.join(' ') === 'up up down left right') {
+        setGestureSequence([]);
+        resetAndNavigate('DeliveryLogin');
+      }
+    }
+    console.log(nativeEvent)
+  };
+
+  const handleAuth = async () => {
+    Keyboard.dismiss()
+    setLoading(true)
+    try {
+        await customerLogin(phoneNumber)
+        resetAndNavigate('ProductDashboard')
+    } catch (error) {
+        Alert.alert("Login Failed")
+    }finally{
+        setLoading(false)
+    }
+  };
+
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <View style={styles.container}>
+        <CustomSafeAreaView>
+          <ProductSlider />
+
+          <PanGestureHandler onHandlerStateChange={handleGesture}>
+            <Animated.ScrollView
+              bounces={false}
+              style={{transform: [{translateY: animatedValue}]}}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.subContainer}>
+
+              <LinearGradient colors={bottomColors} style={styles.gradient} />
+              
+              <View style={styles.content}>
+                <Image
+                  source={require('@assets/images/logo.jpeg')}
+                  style={styles.logo}
+                />
+
+                <CustomText variant="h2" fontFamily={Fonts.Bold}>
+                  Grocery Delivery App
+                </CustomText>
+                <CustomText
+                  variant="h5"
+                  fontFamily={Fonts.SemiBold}
+                  style={styles.text}>
+                  Log in or sign up
+                </CustomText>
+
+                <CustomInput
+                  onChangeText={text => setPhoneNumber(text.slice(0, 10))}
+                  onClear={() => setPhoneNumber('')}
+                  value={phoneNumber}
+                  placeholder="Enter mobile number"
+                  inputMode="numeric"
+                  left={
+                    <CustomText
+                      style={styles.phoneText}
+                      variant="h6"
+                      fontFamily={Fonts.SemiBold}>
+                      + 91
+                    </CustomText>
+                  }
+                />
+
+                <CustomButton
+                  disabled={phoneNumber?.length != 10}
+                  onPress={() => handleAuth()}
+                  loading={loading}
+                  title="Continue"
+                />
+              </View>
+            </Animated.ScrollView>
+          </PanGestureHandler>
+        </CustomSafeAreaView>
+
+        <View style={styles.footer}>
+          <SafeAreaView />
+          <CustomText fontSize={RFValue(6)}>
+            By Continuing, you agree to our Terms of Service & Privacy Policy
+          </CustomText>
+          <SafeAreaView />
+        </View>
+
+        <TouchableOpacity style={styles.absoluteSwitch} onPress={()=>resetAndNavigate('DeliveryLogin')}>
+          <Icon name='bike-fast' color="#000" size={RFValue(18)}/>
+        </TouchableOpacity>
+      </View>
+    </GestureHandlerRootView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  phoneText: {
+    marginLeft: 10,
+  },
+  absoluteSwitch:{
+    position:'absolute',
+    top:Platform.OS==='ios' ? 50:30,
+    backgroundColor:"#fff",
+    shadowColor:"#000",
+    shadowOffset:{width:1,height:1},
+    shadowOpacity:0.5,
+    shadowRadius:12,
+    elevation:10,
+    padding:10,
+    height:55,
+    justifyContent:"center",
+    alignItems:'center',
+    width:55,
+    borderRadius:50,
+    right:10,
+    zIndex:99
+  },
+  text: {
+    marginTop: 2,
+    marginBottom: 25,
+    opacity: 0.8,
+  },
+  logo: {
+    height: 50,
+    width: 50,
+    borderRadius: 20,
+    marginVertical: 10,
+  },
+  subContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  footer: {
+    borderTopWidth: 0.8,
+    borderColor: Colors.border,
+    paddingBottom: 10,
+    zIndex: 22,
+    position: 'absolute',
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#f8f9fc',
+    width: '100%',
+  },
+  gradient: {
+    paddingTop: 60,
+    width: '100%',
+  },
+  content: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+});
+
+export default CustomerLogin;
+
+//ProductSlider
+import { View, Text, StyleSheet, Image } from 'react-native'
+import React, { FC, useMemo } from 'react'
+import { imageData } from '@utils/dummyData'
+import AutoScroll from '@homielab/react-native-auto-scroll'
+import { screenWidth } from '@utils/Scaling'
+
+const ProductSlider = () => {
+
+  const rows= useMemo(()=>{
+    const result=[]
+    for(let i=0; i < imageData.length; i+=4){
+        result.push(imageData.slice(i,i+4))
+    }
+    return result
+  },[])
+
+  return (
+    <View pointerEvents='none'>
+        <AutoScroll duration={10000} endPaddingWidth={0} style={styles.autoScroll} >
+            <View style={styles.gridContainer}>
+                    {rows?.map((row:any,rowIndex:number)=>{
+                        return(
+                            <MemoizedRow key={rowIndex} row={row} rowIndex={rowIndex} />
+                        )
+                    })}
+            </View>
+        </AutoScroll>
+    </View>
+  )
+}
+
+const Row:FC<{row:typeof imageData; rowIndex:number}>=({row,rowIndex})=>{
+    return(
+        <View style={styles.row}>
+            {row?.map((image,imageIndex)=>{
+                const horizontalShift = rowIndex % 2===0 ? -18:18
+                return(
+                    <View key={imageIndex} style={[styles.itemContainer,{transform:[{translateX:horizontalShift}]}]}>
+                        <Image source={image} style={styles.image}/>
+                    </View>
+                )
+            })}
+        </View>
+    )
+}
+
+const MemoizedRow = React.memo(Row)
+
+const styles = StyleSheet.create({
+    autoScroll: {
+        position: 'absolute',
+        zIndex: -2
+    },
+    gridContainer: {
+        justifyContent: 'center',
+        overflow: 'visible',
+        alignItems: 'center'
+    },
+    image: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'contain'
+    },
+    row: {
+        flexDirection: "row",
+        marginBottom: 10
+    },
+    itemContainer: {
+        marginBottom: 12,
+        marginHorizontal: 10,
+        width: screenWidth * 0.26,
+        height: screenWidth * 0.26,
+        backgroundColor: '#f4f4f4',
+        justifyContent: 'center',
+        borderRadius: 25,
+        alignItems: 'center'
+    },
+})
+
+export default ProductSlider
+
+
+export const imageData = [
+    require('../assets/products/1.png'),
+    require('../assets/products/2.png'),
+    require('../assets/products/3.png'),
+    require('../assets/products/4.png'),
+    require('../assets/products/5.png'),
+    require('../assets/products/6.png'),
+    require('../assets/products/7.png'),
+    require('../assets/products/8.png'),
+    require('../assets/products/9.png'),
+    require('../assets/products/10.png'),
+    require('../assets/products/11.png'),
+    require('../assets/products/12.png'),
+    require('../assets/products/13.png'),
+    require('../assets/products/14.png'),
+    require('../assets/products/15.png'),
+    require('../assets/products/16.png'),
+]
+
+export const adData = [
+    require('../assets/products/c1.jpg'),
+    require('../assets/products/c2.jpg'),
+    require('../assets/products/c3.jpeg'),
+    require('../assets/products/c2.jpg'),
+    require('../assets/products/c1.jpg'),
+]
+
+const productsList =
+    [
+        {
+            id: 1,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 38,
+            quantity: '500 ml',
+        },
+        {
+            id: 2,
+            name: 'Gowardhan Panner',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=270/app/images/products/sliding_image/123007a.jpg?ts=1688973208',
+            price: 89,
+            discountPrice: 99,
+            quantity: '200 gm',
+        },
+        {
+            id: 3,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 45,
+            quantity: '500 ml',
+        },
+        {
+            id: 4,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 45,
+            quantity: '500 ml',
+        },
+        {
+            id: 5,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 45,
+            quantity: '500 ml',
+        },
+        {
+            id: 6,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 45,
+            quantity: '500 ml',
+        },
+        {
+            id: 7,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 45,
+            quantity: '500 ml',
+        },
+        {
+            id: 8,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 45,
+            quantity: '500 ml',
+        }
+        , {
+            id: 9,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 45,
+            quantity: '500 ml',
+        }
+        , {
+            id: 10,
+            name: 'Amul Gold Full Cream Fresh Milk',
+            image: 'https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=360/app/assets/products/sliding_images/jpeg/1c0db977-31ab-4d8e-abf3-d42e4a4b4632.jpg?ts=1706182142',
+            price: 34,
+            discountPrice: 45,
+            quantity: '500 ml',
+        }
+    ]
+
+
+
+export const categories = [
+    {
+        id: 1,
+        name: "Milk, Curd & Paneer",
+        image: require('../assets/category/1.png'),
+        products: productsList
+    },
+    {
+        id: 2,
+        name: "Pharma & Wellness",
+        image: require('../assets/category/2.png')
+    },
+    {
+        id: 3,
+        name: "Vegetables & Fruits",
+        image: require('../assets/category/3.png')
+    },
+    {
+        id: 4,
+        name: "Munchies",
+        image: require('../assets/category/4.png')
+    },
+    {
+        id: 5,
+        name: "Home & Office",
+        image: require('../assets/category/5.png')
+    },
+    {
+        id: 6,
+        name: "Baby Care",
+        image: require('../assets/category/6.png')
+    },
+    {
+        id: 7,
+        name: "Ata, Rice & Dal",
+        image: require('../assets/category/7.png')
+    },
+    {
+        id: 8,
+        name: "Cleaning Essentials",
+        image: require('../assets/category/8.png')
+    },
+]
+
+
+export const wavyData = "M 0 2000 0 500 Q 62.5 280 125 500 t 125 0 125 0 125 0 125 0 125 0 125 0 125 0 125 0 125 0 125 0   125 0 125 0 125 0  125 0 125 0 125 0  125 0 125 0 125 0  125 0 125 0 125 0  125 0 125 0 125 0  125 0 125 0 125 0  125 0 125 0 125 0  125 0 125 0 125 0  125 0 125 0 125 0  125 0 125 0 125 0 v1000 z"
+
+
+
+
+
+export const orders = [
+    {
+        orderId: 'ORDER21312',
+        items: [
+            { id: 'a', item: {name:'Milk'}, count: 2 },
+            { id: 'b', item: {name:'Tea'}, count: 1 },
+        ],
+        totalPrice: 25.00,
+        createdAt: '2024-08-10T10:00:00Z',
+        status: 'delivered'
+    },
+    {
+        orderId: 'ORDER21212',
+        items: [
+            { id: 'c', item: 'Burger', count: 1 },
+            { id: 'd', item: 'Fries', count: 3 },
+        ],
+        totalPrice: 15.00,
+        createdAt: '2024-08-11T11:30:00Z',
+        status: 'available'
+    },
+];
+

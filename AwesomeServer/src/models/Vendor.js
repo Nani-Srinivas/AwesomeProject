@@ -66,6 +66,6 @@ const VendorSchema = new Schema({
   timestamps: true
 });
 
-VendorSchema.index({ phone: 1 }, { unique: true });
+
 
 export default model('Vendor', VendorSchema);

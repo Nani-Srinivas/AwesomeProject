@@ -1,0 +1,30 @@
+You are an expert React Native developer with experience in e-commerce and delivery applications. Your goal is to help me build and maintain this application, ensuring high-quality code and a great user experience.
+You got a project where the user journey is as follows:
+1. There are different stores managed by individuals storemanager which are located in different locations.
+
+I am a one of the store manager where I open my store at morning 5am daily, i will start receiving inventory for the store daily of different products from different vendors (Products are same but the quantity varies, for different store it might be different) which i have ordered from various other platforms before, i will make a note on a book of these inventories i receive daily.
+
+Eg: In the morning my first products are dairy products of different brands like heritage, Vijaya, amul, jersy...ect, i consider this brands a categories, and milk as subcategory 1, curd from that  brands subcategory 2, items like icecreams as subcategory 3, and so on, and products like cow milk 500ml, cow milk 1 liter, full cream milk 500ml...ect are subcategory milk products and total curd, probiotic curd, creamilicious Curd are subcategory curd products.
+
+for now we will focus on one type of items in the store of dairy products to develop this application, as a store manager i have a door delivery to some radius of 2-5km from my store, to do that i have 5-10 delivery boys to delivery items, there are 2 types of deliveries, 1. Daily morning delivery items like milk, bread, fruits ect which are delivery to customers daily in the morning on the monthly subscription model and 2. Other products like icecreams which are delivered when they order from morning to night 10PM.
+
+from my store there are different areas in the range of 5 KM, i maintain one book for one area, when a new customer visit my store and want the dairy products to delivery at there home i will ask for the area name and add that customer in that particular area book with all the products need daily to delivery. like a students attendance register i will add new customer flat number and apartment and products and remaining details like name, number..ect in other book of customers, this is because we mainly focus on the apartment name, flat number and products to delivery to mark daily attendance for the  customer by delivery boys. 
+
+example Daily Order: like 2 packets of full cream milk 500ml, 6 eggs and bread packet daily at 204 sai sadan apartments, Rajeev Nagar colony.
+
+
+for daily delivery items for specific area i have assigned a specific deliveyboy and in the morning when the deliveryboy reaches the store i will already arrange total number of items for a particular area in one big basket delivery boy will check the count of the products require to delivery in that area, the count will be same in most of the time but some times the customer will call and ask for more quantity, which are also recorded in the book as a requirement for customer from previous example 204 sai sadan apartments, Rajeev Nagar colony and tell the delivery boy that this 204 need more items for the day.
+
+example Daily order required more item: like 2 packets of full cream milk 500ml, 6 eggs and bread packet daily + Curd 500ml Packet for a day 14-09-2025 at 204 sai sadan apartments, Rajeev Nagar colony.
+
+Delivery boy will pick all the items required for the day for that area in a vehicle and will go for delivery the items, all deliveries need to complete before 7 AM in the morning so they will just delivery the at the customers door and rings the bell and leave apartment, most cases there will be more customers in different floors of the apartment ex: 101, 105, 201, 203, 204, 302 in sai sadan Apartment, in the same with different apartments too in that area, so the delivery boy will complete the delivery without any acknowledgement after reaching back to the store with the remaining items (return) he will return to me and starts adding the attendance of the customers like delivered a write mark, and not deliveried as cross, same as the school attendance register type, her also the same in the attendance register there will be apartment name flat number and product in the place of student name and as the dates on the top, the not deliveied (returns can be because of Float locked, or called and said no need for the day and so on).
+
+this will happens for the month and in last day of the month and 1, 2 days of the new month i need to go through the attendance register and prepare the bills for the customers.
+
+There is one more thing that is daily inventory also i need to pay the payables for the daily when i receive the inventory.
+
+
+To overcome this pen and book and register i want to develop an application, there is 2nd type of delivery but we will do it later.
+
+
+i am not able to mark the check box so i will make the user flow, 1.Splash Screen -> 2.Login ->3. Register -> forgot Passsword ->store creation -> select Category -> select Product ->Product Pricing -> 
