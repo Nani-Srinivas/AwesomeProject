@@ -18,11 +18,13 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-// Fix for Android Emulator - use 10.0.2.2 instead of localhost
-const baseURL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:3000/api'  // Android emulator's special IP for host machine localhost
-  : API_URL;
-console.log('Axios Base URL:', baseURL);
+// Prioritize API_URL from .env, fallback to emulator/localhost if not set
+const baseURL = API_URL || (Platform.OS === 'android' ? 'http://10.0.2.2:3000/api' : 'http://localhost:3000/api');
+console.log('================================');
+console.log('🔍 DEBUG: API_URL from .env:', API_URL);
+console.log('🔍 DEBUG: Platform.OS:', Platform.OS);
+console.log('🔍 DEBUG: Final baseURL:', baseURL);
+console.log('================================');
 // IMPORTANT: For Android physical devices, ensure your API_URL in .env is set to your computer's local IP address.
 
 
@@ -50,6 +52,12 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Debug logging
+    const fullURL = `${config.baseURL}${config.url}`;
+    console.log('🚀 API REQUEST:', config.method?.toUpperCase(), fullURL);
+    console.log('📦 Request data:', JSON.stringify(config.data, null, 2));
+
     return config;
   },
   (error) => {
@@ -86,7 +94,8 @@ axiosInstance.interceptors.response.use(
           }
 
           // Request a new access token
-          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await axiosInstance.post('/refresh-token', { refreshToken });
+          const response = await axiosInstance.post('/refresh-token', { refreshToken });
+          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
 
           // Update the store with the new token
           useUserStore.getState().setAuthToken(newAccessToken);
@@ -131,7 +140,7 @@ axiosInstance.interceptors.response.use(
 
     } else if ((error.message === 'Network Error' || error.code === 'ERR_NETWORK') && !error.config?.headers?.['X-Suppress-Global-Error-Alert']) {
       Alert.alert('Connection Error', 'Could not connect to the server. Please check your internet connection and ensure the server is running.');
-    } else if (error.response?.status !== 401 && !error.config?.headers?.['X-Suppress-Global-Error-Alert']) {
+    } else if (!error.config?.headers?.['X-Suppress-Global-Error-Alert']) {
       Alert.alert('Error', error.message || 'An unknown error occurred.');
     }
 

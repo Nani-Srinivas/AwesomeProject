@@ -2,6 +2,12 @@
 import mongoose, { Schema, model } from 'mongoose';
 
 const StockSchema = new Schema({
+  storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store',
+    required: true,
+    index: true
+  },
   date: {
     type: Date,
     default: Date.now,
@@ -10,15 +16,22 @@ const StockSchema = new Schema({
       return this.timestamps ? this.createdAt : null;
     }
   },
-  storeProductId: [{ 
+  businessDate: {
+    type: String,
+    required: true,
+    index: true,
+    match: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD format
+  },
+  storeProductId: [{
     productId: { type: mongoose.Schema.Types.ObjectId, ref: 'StoreProduct', required: true },
-    quantity:  { type: Number, required: true, min: 0 }
+    quantity: { type: Number, required: true, min: 0 }
   }],
-createdBy: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: 'StoreManager',
-  required: true
-}}, { timestamps: true });
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'StoreManager',
+    required: true
+  }
+}, { timestamps: true });
 
 StockSchema.index({ storeProductId: 1 }, { unique: true });
 

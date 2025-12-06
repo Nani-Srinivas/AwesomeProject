@@ -33,4 +33,76 @@ export const apiService = {
     return response;
   },
 
+  // ===== Product Management APIs =====
+
+  /**
+   * Get all store products with optional filters
+   */
+  getStoreProducts: async (filters?: { search?: string; storeCategoryId?: string; storeSubcategoryId?: string }) => {
+    const response = await axiosInstance.get('/store/products', { params: filters });
+    return response;
+  },
+
+  /**
+   * Create a new store product
+   */
+  createStoreProduct: async (productData: {
+    name: string;
+    description?: string;
+    costPrice: number;
+    sellingPrice: number;
+    stock: number;
+    status?: 'active' | 'inactive' | 'out_of_stock';
+    isAvailable?: boolean;
+    storeCategoryId: string;
+    storeSubcategoryId?: string;
+    images?: string[];
+    masterProductId?: string;
+  }) => {
+    const response = await axiosInstance.post('/store/products', productData);
+    return response;
+  },
+
+  /**
+   * Update an existing store product
+   */
+  updateStoreProduct: async (productId: string, productData: {
+    name?: string;
+    description?: string;
+    price?: number;
+    stock?: number;
+    storeCategoryId?: string;
+    storeSubcategoryId?: string;
+    images?: string[];
+    isAvailable?: boolean;
+  }) => {
+    const response = await axiosInstance.put(`/store/products/${productId}`, productData);
+    return response;
+  },
+
+  /**
+   * Delete a store product
+   */
+  deleteStoreProduct: async (productId: string) => {
+    const response = await axiosInstance.delete(`/store/products/${productId}`);
+    return response;
+  },
+
+  /**
+   * Get all store categories
+   */
+  getStoreCategories: async () => {
+    const response = await axiosInstance.get('/store/categories');
+    return response;
+  },
+
+  /**
+   * Get all store subcategories (optionally filtered by category)
+   */
+  getStoreSubcategories: async (categoryId?: string) => {
+    const params = categoryId ? { storeCategoryId: categoryId } : {};
+    const response = await axiosInstance.get('/store/subcategories', { params });
+    return response;
+  },
+
 };

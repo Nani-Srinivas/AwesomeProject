@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, LayoutAnimation, 
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
 import { apiService } from '../../../services/apiService';
+import { useUserStore } from '../../../store/userStore';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -30,11 +31,15 @@ export const PayablesSection = () => {
     const [currentDate, setCurrentDate] = useState<string>('');
     const [expandedVendors, setExpandedVendors] = useState<{ [key: string]: boolean }>({});
 
+    const { user } = useUserStore();
+
     useEffect(() => {
-        if (isFocused) {
+        if (isFocused && user?.storeId) {
             fetchPayablesData();
+        } else {
+            setLoading(false);
         }
-    }, [isFocused]);
+    }, [isFocused, user]);
 
     const fetchPayablesData = async () => {
         try {

@@ -1,8 +1,9 @@
 // models/Customer.js
 import mongoose from 'mongoose';
-import { User } from '../User/User.js'; // Import the base User model
+import { baseUserSchemaDefinition, baseUserSchemaOptions } from './User.js';
 
 const customerSchema = new mongoose.Schema({
+  ...baseUserSchemaDefinition,
   requiredProduct: [{
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'StoreProduct' },
     quantity: { type: Number, required: true },
@@ -27,17 +28,17 @@ const customerSchema = new mongoose.Schema({
     enum: ['self', 'StoreManager'],
     default: 'StoreManager',
   },
-  
-  // Payment related fields (no aggregated financial data stored here)
-  lastPaymentDate: Date, // Date of last payment
-  paymentCycle: { 
-    type: String, 
-    enum: ['Daily', 'Weekly', 'Monthly'], 
-    default: 'Monthly' 
+
+  // Payment related fields
+  lastPaymentDate: Date,
+  paymentCycle: {
+    type: String,
+    enum: ['Daily', 'Weekly', 'Monthly'],
+    default: 'Monthly'
   },
-  lastBillPeriod: String, // Format: "Month Year" or "YYYY-MM-DD to YYYY-MM-DD"
-  creditBalance: { type: Number, default: 0 }, // Customer credit from overpayments
-  
+  lastBillPeriod: String,
+  creditBalance: { type: Number, default: 0 },
+
   address: {
     Apartment: { type: String },
     FlatNo: { type: String },
@@ -46,9 +47,6 @@ const customerSchema = new mongoose.Schema({
     state: { type: String, default: 'Telangana' },
     country: { type: String, default: 'India' }
   },
-  refreshToken: String,
-});
+}, baseUserSchemaOptions);
 
-customerSchema.index({ location: '2dsphere' });
-
-export const Customer = User.discriminator('Customer', customerSchema);
+export const Customer = mongoose.model('Customer', customerSchema);

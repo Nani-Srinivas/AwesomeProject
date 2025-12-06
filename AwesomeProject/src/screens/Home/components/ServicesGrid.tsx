@@ -1,16 +1,27 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
+// Services ordered by dependency flow to guide first-time users
 const services = [
-  // { name: 'Bills', icon: '💵', screen: 'Bills' },
-  // { name: 'Payables', icon: '💳', screen: 'PayablesDashboard' },
-  { name: 'Add Stock', icon: '📦', screen: 'Payables', params: { source: 'addStock' } },
-  // { name: 'Receive Inventory', icon: '🛒', screen: 'VendorSelectionForInventory' },
-  { name: 'Dispatch', icon: '🚚', screen: 'DispatchSummary' },
-  { name: 'Delivery Boy', icon: '🚴', screen: 'DeliveryBoyList' },
-  { name: 'Products', icon: '🛍️', screen: 'Products' },
-  { name: 'Attendance', icon: '✅', screen: 'AddAttendance' },
+  // Foundation - no dependencies
   { name: 'Area', icon: '🗺️', screen: 'AreaList' },
+
+  // Needs Area
+  { name: 'Delivery Boy', icon: '🚴', screen: 'DeliveryBoyList' },
+
+  // Can be managed independently (but useful early on)
+  { name: 'Products', icon: '🛍️', screen: 'Products' },
+
+  // Needs Products
+  { name: 'Add Stock', icon: '📦', screen: 'Payables', params: { source: 'addStock' } },
+
+  // Needs Customers (who need Area + Delivery Boy)
+  { name: 'Attendance', icon: '✅', screen: 'AddAttendance' },
+
+  // Operational views (need existing data)
+  { name: 'Dispatch', icon: '🚚', screen: 'DispatchSummary' },
+
+  // Utility features
   { name: 'Notes', icon: '🗒️', screen: 'Notes' },
 ];
 

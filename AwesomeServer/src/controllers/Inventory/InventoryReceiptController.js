@@ -4,6 +4,7 @@ import Vendor from '../../models/Vendor.js';
 import ProductStock from '../../models/ProductStock.js';  // Use the new ProductStock model
 import StoreProduct from '../../models/Product/StoreProduct.js';
 import Store from '../../models/Store/Store.js';
+import { getBusinessDate } from '../../utils/dateHelper.js';
 
 // Create a new inventory receipt
 export const createInventoryReceipt = async (req, reply) => {
@@ -108,6 +109,7 @@ export const createInventoryReceipt = async (req, reply) => {
       vendorId,
       receivedBy,
       receivedDate,
+      businessDate: getBusinessDate(),
       items,
       totalAmount,
       paymentStatus,

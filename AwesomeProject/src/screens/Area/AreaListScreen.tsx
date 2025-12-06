@@ -4,7 +4,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { AddAreaModal } from '../../components/area/AddAreaModal';
 import { EditAreaModal } from '../../components/area/EditAreaModal';
-
+import { EmptyState as EmptyStateComponent } from '../../components/common/EmptyState';
 import { apiService } from '../../services/apiService';
 
 const getStatusStyle = (status: boolean) => {
@@ -40,12 +40,14 @@ const AreaCard = ({ area, onPress, onEdit, onDelete }: { area: any, onPress: () 
   </TouchableOpacity>
 );
 
-const EmptyState = () => (
-  <View style={styles.emptyStateContainer}>
-    <Feather name="map-pin" size={50} color={COLORS.text} style={styles.emptyStateIcon} />
-    <Text style={styles.emptyStateText}>No areas found.</Text>
-    <Text style={styles.emptyStateSubText}>Tap the '+' button to add a new area.</Text>
-  </View>
+const AreaEmptyState = ({ onAddPress }: { onAddPress: () => void }) => (
+  <EmptyStateComponent
+    icon="🗺️"
+    title="No Delivery Areas Yet"
+    description="Areas help you organize deliveries by location. They're essential for managing delivery partners and customers. Create your first area to get started."
+    actionLabel="Create Your First Area"
+    onAction={onAddPress}
+  />
 );
 
 export const AreaListScreen = ({ navigation: _navigation, route }: { navigation: any, route: any }) => {
@@ -153,7 +155,7 @@ export const AreaListScreen = ({ navigation: _navigation, route }: { navigation:
         )}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.scrollViewContent}
-        ListEmptyComponent={<EmptyState />}
+        ListEmptyComponent={<AreaEmptyState onAddPress={handleAddArea} />}
       />
 
       {/* Floating Action Button */}

@@ -1,8 +1,20 @@
 import Stock from '../../models/Store/Stock.js';
 import DailyFinancial from '../../models/Finance/DailyFinancial.js';
 import StoreProduct from '../../models/Product/StoreProduct.js';
+import Store from '../../models/Store/Store.js';
 import { success } from 'zod/v4';
+import { getBusinessDate } from '../../utils/dateHelper.js';
 
+// Helper to get storeId
+const getStoreId = async (req) => {
+  if (req.user?.storeId) return req.user.storeId;
+
+  const ownerId = req.user?.id;
+  if (!ownerId) return null;
+
+  const store = await Store.findOne({ ownerId });
+  return store?._id;
+};
 
 export const addStock = async (req, reply) => {
   console.log("Add Stock API is called");
@@ -12,20 +24,27 @@ export const addStock = async (req, reply) => {
   const createdBy = req.user?.id;
 
   try {
-    // 1) ensure unique date
-    const exists = await Stock.findOne({ date });
+    const storeId = await getStoreId(req);
+    if (!storeId) {
+      return reply.code(401).send({ success: false, message: 'Store not found' });
+    }
+
+    // 1) ensure unique date for this store
+    const exists = await Stock.findOne({ date, storeId });
     if (exists) {
       return reply.code(200).send({
         success: false,
-        message: `Store already exists for : ${date}`
+        message: `Stock already exists for : ${date}`
       });
     }
 
     // 2) create stock
     const stock = await Stock.create({
       date,
+      businessDate: getBusinessDate(),
       storeProductId,
-      createdBy
+      createdBy,
+      storeId
     });
 
     // 3) compute per-manufacturer (category) totals
@@ -63,13 +82,14 @@ export const addStock = async (req, reply) => {
     // 4) upsert DailyFinancial per category
     await Promise.all(Object.entries(byCat).map(([catId, sums]) => {
       return DailyFinancial.findOneAndUpdate(
-        { date, category: catId },
+        { date, category: catId, storeId }, // Add storeId to filter
         {
           $set: {
             totalQuantity: sums.totalQuantity,
             totalPayable: sums.totalPayable,
             totalProfit: sums.totalProfit,
-            stockEntry: stock._id
+            stockEntry: stock._id,
+            storeId // Ensure storeId is saved
           }
         },
         { upsert: true, new: true }
@@ -88,45 +108,6 @@ export const addStock = async (req, reply) => {
 };
 
 
-// export const addStock = async (req, reply) => {
-//   console.log("✅ Add Stock API called with body:", req.body);
-
-//   const { date, storeProductId } = req.body;
-//   const createdBy = req.user?.id || req.user?._id;
-
-//   if (!date || !storeProductId?.length) {
-//     return reply.code(400).send({ error: "Date and storeProductId are required." });
-//   }
-
-//   try {
-//     console.log("Entered into Try Block")
-//     // 1. Ensure stock for this date doesn't already exist
-//     const exists = await Stock.findOne({ date });
-//     if (exists) {
-//       console.log("❌ Stock for this date already exists:", exists);
-//       return reply.code(409).send({ error: 'Stock for this date already exists' });
-//     }
-
-//     // 2. Create stock document
-//     const [stock] = await Stock.create([{
-//       date,
-//       storeProductId,
-//       createdBy
-//     }]);
-
-//     console.log("✅ Created Stock:", stock);
-//     return reply.code(201).send({ success: true, stock });
-//   } catch (err) {
-//     req.log.error(err);
-//     return reply.code(500).send({ error: err.message });
-//   }
-// };
-
-// ✅ Fix your API to read from query:
-
-
-// Update your getStockByDate to populate nested masterProductId as well
-
 export const getStockByDate = async (req, res) => {
   console.log("✅ Get Stock By Date API called")
   console.log("req.query", req.params.date)
@@ -136,6 +117,11 @@ export const getStockByDate = async (req, res) => {
       return res.code(400).send({ error: 'Date is required' });
     }
 
+    const storeId = await getStoreId(req);
+    if (!storeId) {
+      return res.code(401).send({ error: 'Store not found' });
+    }
+
     // Parse date to match only that day
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
@@ -143,18 +129,19 @@ export const getStockByDate = async (req, res) => {
     end.setHours(23, 59, 59, 999);
 
     const stocks = await Stock.find({
+      storeId, // Filter by storeId
       date: {
         $gte: start,
         $lte: end
       }
     })
-    .populate({
-      path: 'storeProductId.productId',
-      populate: {
-        path: 'masterProductId',
-        model: 'MasterProduct'  // adjust to your actual model name
-      }
-    });
+      .populate({
+        path: 'storeProductId.productId',
+        populate: {
+          path: 'masterProductId',
+          model: 'MasterProduct'  // adjust to your actual model name
+        }
+      });
 
     return res.code(200).send({
       success: true,

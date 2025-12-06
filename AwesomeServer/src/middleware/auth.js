@@ -17,6 +17,7 @@ export const verifyToken = async (req, reply) => {
     req.user = {
       id: decoded.id,
       roles: decoded.roles,
+      role: decoded.roles?.[0], // Extract first role for controllers that check req.user.role
       storeId: decoded.storeId
     };
 

@@ -4,7 +4,10 @@ import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { AddDeliveryBoyModal } from '../../components/deliveryBoy/AddDeliveryBoyModal';
 import { EditDeliveryBoyModal } from '../../components/deliveryBoy/EditDeliveryBoyModal';
+import { EmptyState } from '../../components/common/EmptyState';
+import { DependencyPrompt } from '../../components/common/DependencyPrompt';
 import { apiService } from '../../services/apiService';
+import { checkAreasExist } from '../../utils/dependencyChecks';
 
 const getStatusStyle = (status: boolean) => {
   switch (status) {
@@ -39,20 +42,23 @@ const DeliveryBoyCard = ({ deliveryBoy, onPress, onEdit, onDelete }: { deliveryB
   </TouchableOpacity>
 );
 
-const EmptyState = () => (
-  <View style={styles.emptyStateContainer}>
-    <Feather name="users" size={50} color={COLORS.text} style={styles.emptyStateIcon} />
-    <Text style={styles.emptyStateText}>No delivery boys found.</Text>
-    <Text style={styles.emptyStateSubText}>Tap the '+' button to add a new delivery boy.</Text>
-  </View>
+const DeliveryBoyEmptyState = ({ onAddPress }: { onAddPress: () => void }) => (
+  <EmptyState
+    icon="🚴"
+    title="No Delivery Partners Yet"
+    description="Delivery partners handle order deliveries in specific areas. Add your first delivery partner to get started."
+    actionLabel="Add Delivery Partner"
+    onAction={onAddPress}
+  />
 );
 
-export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navigation: any, route: any }) => {
+export const DeliveryBoyListScreen = ({ navigation, route }: { navigation: any, route: any }) => {
   const [filter, setFilter] = useState(route.params?.filter || 'All');
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [editingDeliveryBoy, setEditingDeliveryBoy] = useState<any>(null);
+  const [showDependencyPrompt, setShowDependencyPrompt] = useState(false);
 
   const fetchDeliveryBoys = async () => {
     try {
@@ -79,7 +85,13 @@ export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navi
     console.log('Delivery Boy Pressed:', deliveryBoy);
   };
 
-  const handleAddDeliveryBoy = useCallback(() => {
+  const handleAddDeliveryBoy = useCallback(async () => {
+    // Check if areas exist before allowing delivery boy creation
+    const hasAreas = await checkAreasExist();
+    if (!hasAreas) {
+      setShowDependencyPrompt(true);
+      return;
+    }
     setAddModalVisible(true);
   }, []);
 
@@ -154,7 +166,7 @@ export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navi
         )}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.scrollViewContent}
-        ListEmptyComponent={<EmptyState />}
+        ListEmptyComponent={<DeliveryBoyEmptyState onAddPress={handleAddDeliveryBoy} />}
       />
 
       {/* Floating Action Button */}
@@ -179,6 +191,15 @@ export const DeliveryBoyListScreen = ({ navigation: _navigation, route }: { navi
           onSave={handleSaveDeliveryBoy}
         />
       )}
+
+      <DependencyPrompt
+        visible={showDependencyPrompt}
+        title="Create an Area First"
+        message="To add delivery partners, please create a delivery area first. Areas help organize deliveries by location."
+        actionLabel="Create Area"
+        onAction={() => navigation.navigate('AreaList')}
+        onDismiss={() => setShowDependencyPrompt(false)}
+      />
     </View>
   );
 };

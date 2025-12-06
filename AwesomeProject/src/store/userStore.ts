@@ -7,9 +7,12 @@ interface UserState {
   user: User | null;
   authToken: string | null;
   refreshToken: string | null;
+  isCheckingAuth: boolean;
+  isSetupComplete: boolean;
   setUser: (user: User) => void;
   setAuthToken: (token: string) => void;
   setRefreshToken: (token: string) => void;
+  setSetupComplete: (complete: boolean) => void;
   logout: () => void;
   checkAuth: () => Promise<void>;
 }
@@ -18,6 +21,8 @@ export const useUserStore = create<UserState>((set) => ({
   user: null,
   authToken: null,
   refreshToken: null,
+  isCheckingAuth: true,
+  isSetupComplete: false,
   setUser: (user) => {
     set({ user });
   },
@@ -29,14 +34,26 @@ export const useUserStore = create<UserState>((set) => ({
     secureStorageService.saveRefreshToken(token);
     set({ refreshToken: token });
   },
+  setSetupComplete: (complete) => {
+    console.log('🔧 setSetupComplete called with:', complete);
+    secureStorageService.saveSetupComplete(complete);
+    set({ isSetupComplete: complete });
+    console.log('✅ Setup complete flag saved to storage and state');
+  },
   logout: () => {
     secureStorageService.clearAuthToken();
     secureStorageService.clearRefreshToken();
     set({ user: null, authToken: null, refreshToken: null });
   },
   checkAuth: async () => {
+    set({ isCheckingAuth: true });
     const token = await secureStorageService.getAuthToken();
+    const setupComplete = await secureStorageService.getSetupComplete();
     console.log('checkAuth: Retrieved token from secure storage:', token ? 'Exists' : 'Does not exist');
+    console.log('checkAuth: Setup complete status:', setupComplete);
+
+    set({ isSetupComplete: setupComplete });
+
     if (token) {
       set({ authToken: token });
       try {
@@ -49,5 +66,6 @@ export const useUserStore = create<UserState>((set) => ({
         // The axios interceptor will handle logging the user out if the token is invalid
       }
     }
+    set({ isCheckingAuth: false });
   },
 }));

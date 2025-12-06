@@ -59,12 +59,35 @@ export const getMasterProductsByCategories = async (req, reply) => {
   }
 };
 
+export const getSubcategoriesByCategories = async (req, reply) => {
+  try {
+    const { categoryIds } = req.body;
+
+    if (!categoryIds) {
+      return reply.status(400).send({ message: 'categoryIds in request body is required' });
+    }
+
+    const categoryIdArray = Array.isArray(categoryIds) ? categoryIds : [categoryIds];
+
+    const subcategories = await Subcategory.find({ categoryId: { $in: categoryIdArray } });
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Subcategories fetched successfully',
+      data: subcategories,
+    });
+  } catch (error) {
+    console.error('Error fetching subcategories by categories:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
 export const importCatalog = async (req, reply) => {
   console.log('importCatalog controller called.');
   console.log('req.body:', req.body);
   console.log('req.user:', req.user);
   try {
-    const { selectedMasterCategoryIds, selectedMasterProductIds } = req.body;
+    const { selectedMasterCategoryIds, productsWithPricing } = req.body;
     const createdBy = req.user?.id;
     const createdByModel = req.user?.roles[0]; // Use roles[0] for consistency
 
@@ -106,6 +129,7 @@ export const importCatalog = async (req, reply) => {
 
     // 2. Create StoreSubcategories (for selected products)
     console.log('Creating StoreSubcategories...');
+    const selectedMasterProductIds = productsWithPricing.map(p => p.masterProductId);
     const masterProducts = await MasterProduct.find({ _id: { $in: selectedMasterProductIds } }).populate('subcategory');
     const masterSubcategoryIds = [...new Set(masterProducts.map(p => p.subcategory?._id).filter(Boolean))];
     const masterSubcategories = await Subcategory.find({ _id: { $in: masterSubcategoryIds } });
@@ -132,6 +156,7 @@ export const importCatalog = async (req, reply) => {
     // 3. Create StoreProducts
     console.log('Creating StoreProducts...');
     for (const masterProd of masterProducts) {
+      const pricingInfo = productsWithPricing.find(p => p.masterProductId === masterProd._id.toString());
       const parentStoreCategory = storeCategoriesMap.get(masterProd.category.toString());
       const parentStoreSubcategory = masterProd.subcategory ? storeSubcategoriesMap.get(masterProd.subcategory._id.toString()) : null;
 
@@ -141,7 +166,9 @@ export const importCatalog = async (req, reply) => {
           masterProductId: masterProd._id,
           name: masterProd.name,
           description: masterProd.description,
-          price: masterProd.basePrice, // Initial price from master
+          costPrice: pricingInfo ? pricingInfo.costPrice : 0,
+          sellingPrice: pricingInfo ? pricingInfo.sellingPrice : masterProd.basePrice,
+          status: 'active',
           stock: 0, // Default initial stock
           storeCategoryId: parentStoreCategory._id,
           storeSubcategoryId: parentStoreSubcategory ? parentStoreSubcategory._id : null,
@@ -154,9 +181,29 @@ export const importCatalog = async (req, reply) => {
     }
     console.log(`Created ${masterProducts.length} StoreProducts.`);
 
-    // Update StoreManager's onboarding status
-    const updatedStoreManager = await StoreManager.findByIdAndUpdate(createdBy, { hasSelectedProducts: true }, { new: true });
-    console.log('StoreManager hasSelectedProducts updated:', updatedStoreManager?.hasSelectedProducts);
+    // Update StoreManager's onboarding status - mark ALL steps as complete
+    // Clear temporary selection arrays since data now exists in StoreCategory/Product records
+    const updatedStoreManager = await StoreManager.findByIdAndUpdate(
+      createdBy,
+      {
+        hasSelectedCategories: true,
+        hasSelectedSubcategories: true,
+        hasSelectedProducts: true,
+        hasAddedProductPricing: true,
+        additionalDetailsCompleted: true,  // Mark entire onboarding as complete
+        selectedCategoryIds: [],           // Clear temporary state
+        selectedSubcategoryIds: [],        // Clear temporary state
+        selectedProductIds: []             // Clear temporary state
+      },
+      { new: true }
+    );
+    console.log('StoreManager onboarding completed:', {
+      hasSelectedCategories: updatedStoreManager?.hasSelectedCategories,
+      hasSelectedSubcategories: updatedStoreManager?.hasSelectedSubcategories,
+      hasSelectedProducts: updatedStoreManager?.hasSelectedProducts,
+      hasAddedProductPricing: updatedStoreManager?.hasAddedProductPricing,
+      additionalDetailsCompleted: updatedStoreManager?.additionalDetailsCompleted,
+    });
 
     return reply.status(200).send({
       success: true,
@@ -187,9 +234,13 @@ export const updateSelectedCategories = async (req, reply) => {
       return reply.status(401).send({ message: 'Unauthorized: Only Store Managers can update category selection.' });
     }
 
+    // Update the flag AND the IDs to persist state
     const updateResult = await StoreManager.findByIdAndUpdate(
       createdBy,
-      { hasSelectedCategories: true, selectedCategoryIds: selectedCategoryIds },
+      {
+        hasSelectedCategories: true,
+        selectedCategoryIds: selectedCategoryIds
+      },
       { new: true } // Return the updated document
     );
     console.log('StoreManager update result:', updateResult);
@@ -201,6 +252,72 @@ export const updateSelectedCategories = async (req, reply) => {
     });
   } catch (error) {
     console.error('Error updating category selection status:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const updateSelectedSubcategories = async (req, reply) => {
+  console.log('updateSelectedSubcategories controller called.');
+  try {
+    const { subcategories: selectedSubcategoryIds } = req.body;
+    const createdBy = req.user?.id;
+    const createdByModel = req.user?.roles[0];
+
+    if (!createdBy || createdByModel !== 'StoreManager') {
+      return reply.status(401).send({ message: 'Unauthorized: Only Store Managers can update subcategory selection.' });
+    }
+
+    // Update the flag AND the IDs to persist state
+    // Note: You might need to add selectedSubcategoryIds to StoreManager schema if not already there
+    const updateResult = await StoreManager.findByIdAndUpdate(
+      createdBy,
+      {
+        hasSelectedSubcategories: true,
+        selectedSubcategoryIds: selectedSubcategoryIds
+      },
+      { new: true }
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Subcategory selection status updated successfully',
+      data: { storeManager: updateResult },
+    });
+  } catch (error) {
+    console.error('Error updating subcategory selection status:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const updateSelectedProducts = async (req, reply) => {
+  console.log('updateSelectedProducts controller called.');
+  try {
+    const { products: selectedProductIds } = req.body;
+    const createdBy = req.user?.id;
+    const createdByModel = req.user?.roles[0];
+
+    if (!createdBy || createdByModel !== 'StoreManager') {
+      return reply.status(401).send({ message: 'Unauthorized: Only Store Managers can update product selection.' });
+    }
+
+    // Update the IDs to persist state
+    // We do NOT set hasSelectedProducts to true here, because that implies they are done with the step
+    // and ready for pricing. We want them to go back to SelectProduct to confirm/continue.
+    const updateResult = await StoreManager.findByIdAndUpdate(
+      createdBy,
+      {
+        selectedProductIds: selectedProductIds
+      },
+      { new: true }
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Product selection saved successfully',
+      data: { storeManager: updateResult },
+    });
+  } catch (error) {
+    console.error('Error updating product selection status:', error);
     return reply.status(500).send({ message: 'Internal server error' });
   }
 };

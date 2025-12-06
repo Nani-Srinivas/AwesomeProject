@@ -2,6 +2,7 @@ import { AttendanceLog } from '../../models/AttendanceLog.js';
 import StoreProduct from '../../models/Product/StoreProduct.js';
 import { Customer } from '../../models/User/Customer.js'; // Import Customer model
 import mongoose from 'mongoose';
+import { getBusinessDate } from '../../utils/dateHelper.js';
 
 export const submitAttendance1 = async (request, reply) => {
   try {
@@ -58,7 +59,7 @@ export const submitAttendance1 = async (request, reply) => {
 
     const upsertOperations = attendance.map(async (customerAttendance) => {
       const { customerId, products } = customerAttendance;
-      
+
       const existingRecord = await AttendanceLog.findOne({ customerId, date: requestDate, areaId });
 
       if (existingRecord) {
@@ -74,6 +75,7 @@ export const submitAttendance1 = async (request, reply) => {
         await AttendanceLog.create({
           customerId,
           date: requestDate,
+          businessDate: getBusinessDate(),
           areaId,
           products,
         });
@@ -101,7 +103,7 @@ export const submitAttendance1 = async (request, reply) => {
     return reply.code(201).send({ message });
   } catch (error) {
     console.error('Error submitting attendance:', error);
-    return reply.code(500).send({ 
+    return reply.code(500).send({
       success: false,
       message: error.message || 'Failed to submit attendance due to an internal server error.',
       details: error.stack // Include stack trace for debugging in development
@@ -166,7 +168,7 @@ export const submitAttendance2 = async (request, reply) => {
         if (product.quantity < 0) {
           return reply.code(400).send({
             success: false,
-            message: `Product quantity for ${product.productId} cannot be negative.`, 
+            message: `Product quantity for ${product.productId} cannot be negative.`,
           });
         }
 
@@ -210,6 +212,19 @@ export const submitAttendance2 = async (request, reply) => {
 // ATTENDANCE CONTROLLER (OPTIMIZED)
 // ============================================
 
+import Store from '../../models/Store/Store.js';
+
+// ✅ Helper to get storeId
+const getStoreId = async (req) => {
+  if (req.user?.storeId) return req.user.storeId;
+
+  const ownerId = req.user?.id;
+  if (!ownerId) return null;
+
+  const store = await Store.findOne({ ownerId });
+  return store?._id;
+};
+
 // ✅ Helper function to get start and end of day (UTC)
 const getDateRange = (dateString) => {
   const date = new Date(dateString);
@@ -247,6 +262,15 @@ export const submitAttendance = async (request, reply) => {
 
     const { date, areaId, attendance } = request.body;
 
+    // ✅ Get Store ID
+    const storeId = await getStoreId(request);
+    if (!storeId) {
+      return reply.code(401).send({
+        success: false,
+        message: 'Authentication required or Store not found.'
+      });
+    }
+
     // 🧩 Validate basic input
     if (!date || !areaId || !attendance || !Array.isArray(attendance)) {
       return reply.code(400).send({
@@ -281,12 +305,13 @@ export const submitAttendance = async (request, reply) => {
       });
     }
 
-    // 🧠 Step 1: Check if attendance record already exists for this date & area
+    // 🧠 Step 1: Check if attendance record already exists for this date & area & store
     const { startOfDay } = getDateRange(date);
-    
+
     const existingAttendance = await AttendanceLog.findOne({
       date: { $gte: startOfDay, $lte: new Date(startOfDay.getTime() + 86400000) },
       areaId: new mongoose.Types.ObjectId(areaId),
+      storeId // Check storeId
     });
 
     if (existingAttendance) {
@@ -373,20 +398,14 @@ export const submitAttendance = async (request, reply) => {
             message: `Invalid status: ${product.status}. Must be one of: ${validStatuses.join(', ')}`,
           });
         }
-
-        // const existingProduct = await StoreProduct.findById(product.productId);
-        // if (!existingProduct) {
-        //   return reply.code(400).send({
-        //     success: false,
-        //     message: `StoreProduct with ID ${product.productId} not found.`,
-        //   });
-        // }
       }
     }
 
     // 🧱 Step 3: Create single attendance record for the day/area
     const newRecord = await AttendanceLog.create({
+      storeId, // Save storeId
       date: startOfDay,
+      businessDate: getBusinessDate(),
       areaId: new mongoose.Types.ObjectId(areaId),
       attendance: attendance.map(({ customerId, products }) => ({
         customerId: new mongoose.Types.ObjectId(customerId),
@@ -428,7 +447,14 @@ export const getAttendance = async (request, reply) => {
       return reply.code(400).send({ success: false, message: 'areaId and date are required query parameters.' });
     }
 
-    const attendanceRecords = await AttendanceLog.find({ areaId, date: new Date(date) })
+    // ✅ Get Store ID
+    const storeId = await getStoreId(request);
+    if (!storeId) {
+      return reply.code(401).send({ message: 'Authentication required' });
+    }
+
+    // Filter by storeId as well
+    const attendanceRecords = await AttendanceLog.find({ areaId, date: new Date(date), storeId })
       .populate('customerId', 'name') // Populate customer name
       .populate('products.productId', 'name'); // Populate product name
 
@@ -446,6 +472,12 @@ export const updateAttendance = async (request, reply) => {
 
     if (!attendanceId) {
       return reply.code(400).send({ success: false, message: 'Attendance ID is required.' });
+    }
+
+    // ✅ Get Store ID
+    const storeId = await getStoreId(request);
+    if (!storeId) {
+      return reply.code(401).send({ message: 'Authentication required' });
     }
 
     if (!date || !areaId || !attendance || !Array.isArray(attendance)) {
@@ -504,15 +536,17 @@ export const updateAttendance = async (request, reply) => {
       }
     }
 
+    // Ensure record belongs to store
+    const existingRecord = await AttendanceLog.findOne({ _id: attendanceId, storeId });
+    if (!existingRecord) {
+      return reply.code(404).send({ success: false, message: 'Attendance record not found or does not belong to your store.' });
+    }
+
     const updatedAttendance = await AttendanceLog.findByIdAndUpdate(
       attendanceId,
       { date: requestDate, areaId, attendance: attendance.map(({ customerId, products }) => ({ customerId, products })) },
       { new: true, runValidators: true }
     );
-
-    if (!updatedAttendance) {
-      return reply.code(404).send({ success: false, message: 'Attendance record not found.' });
-    }
 
     return reply.code(200).send({
       success: true,

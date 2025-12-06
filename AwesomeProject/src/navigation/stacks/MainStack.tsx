@@ -19,7 +19,9 @@ import { InvoiceScreen } from '../../screens/Bills/InvoiceScreen';
 import { OrderScreen } from '../../screens/Order/OrderScreen';
 import { StoreCreationScreen } from '../../screens/StoreManagement/StoreCreationScreen';
 import { SelectCategoryScreen } from '../../screens/StoreManagement/SelectCategoryScreen';
+import { SelectSubcategoryScreen } from '../../screens/StoreManagement/SelectSubcategoryScreen';
 import { SelectProductScreen } from '../../screens/StoreManagement/SelectProductScreen';
+import { PricingConfigScreen } from '../../screens/StoreManagement/PricingConfigScreen';
 import { CardsScreen } from '../../screens/Cards/CardsScreen';
 import { InvoiceHistoryScreen } from '../../screens/Bills/InvoiceHistoryScreen';
 import { PaymentStatusScreen } from '../../screens/Bills/PaymentStatusScreen';
@@ -33,12 +35,19 @@ import InventoryReceiptScreen from '../../screens/InventoryReceipt/InventoryRece
 import NotesScreen from '../../screens/Notes/NotesScreen';
 import VendorSelectionScreen from '../../screens/VendorSelection/VendorSelectionScreen';
 import { DispatchSummaryScreen } from '../../screens/Delivery/DispatchSummaryScreen';
+import { ManageProductsScreen } from '../../screens/Products/ManageProductsScreen';
+import { AddEditProductScreen } from '../../screens/Products/AddEditProductScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
+import { useUserStore } from '../../store/userStore';
+
 export const MainStack = () => {
+  const { user } = useUserStore();
+  const initialRoute = !user?.storeId ? 'StoreCreation' : 'Home';
+
   return (
-    <Stack.Navigator initialRouteName="Home">
+    <Stack.Navigator initialRouteName={initialRoute}>
       {/* ===== CORE SCREENS (KEEP) ===== */}
       <Stack.Screen name="Home" options={{ headerShown: false }}>
         {(props) => <HomeScreen setIsLoggedIn={function (isLoggedIn: boolean): void {
@@ -68,6 +77,17 @@ export const MainStack = () => {
       <Stack.Screen name="InventoryReceipt" component={InventoryReceiptScreen} options={{ title: 'Record Inventory Receipt' }} />
       <Stack.Screen name="VendorSelection" component={VendorSelectionScreen} options={{ title: 'Select Vendor' }} />
 
+      {/* ===== Store Onboarding Screens ===== */}
+      <Stack.Screen name="StoreCreation" component={StoreCreationScreen} options={{ title: 'Create Store' }} />
+      <Stack.Screen name="SelectCategory" component={SelectCategoryScreen} options={{ title: 'Select Category' }} />
+      <Stack.Screen name="SelectSubcategory" component={SelectSubcategoryScreen} options={{ title: 'Select Subcategory' }} />
+      <Stack.Screen name="SelectProduct" component={SelectProductScreen} options={{ title: 'Select Product' }} />
+      <Stack.Screen name="PricingConfig" component={PricingConfigScreen} options={{ title: 'Configure Pricing' }} />
+
+      {/* ===== Product Management Screens ===== */}
+      <Stack.Screen name="ManageProducts" component={ManageProductsScreen} options={{ title: 'Manage Products' }} />
+      <Stack.Screen name="AddEditProduct" component={AddEditProductScreen} options={{ title: 'Product Details' }} />
+
       {/* ===== DISCONNECTED SCREENS (COMMENTED OUT) ===== */}
       {/* <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} /> */}
       {/* <Stack.Screen name="Details" component={DetailsScreen} /> */}
@@ -75,9 +95,6 @@ export const MainStack = () => {
       {/* <Stack.Screen name="SideMenu" component={SideMenu} options={{ headerShown: false }} /> */}
       {/* <Stack.Screen name="PayableTemp" component={PayableTempScreen} options={{ title: 'Payable Temp' }} /> */}
       {/* <Stack.Screen name="Order" component={OrderScreen} options={{ title: 'Orders' }} /> */}
-      {/* <Stack.Screen name="StoreCreation" component={StoreCreationScreen} options={{ title: 'Create Store' }} /> */}
-      {/* <Stack.Screen name="SelectCategory" component={SelectCategoryScreen} options={{ title: 'Select Category' }} /> */}
-      {/* <Stack.Screen name="SelectProduct" component={SelectProductScreen} options={{ title: 'Select Product' }} /> */}
       {/* <Stack.Screen name="Cards" component={CardsScreen} options={{ title: 'Cards' }} /> */}
       {/* <Stack.Screen name="Notes" component={NotesScreen} options={{ title: 'Notes' }} /> */}
     </Stack.Navigator>

@@ -2,6 +2,12 @@
 import mongoose, { Schema, model } from 'mongoose';
 
 const VendorSchema = new Schema({
+  storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store',
+    required: true,
+    index: true  // Index for faster queries
+  },
   name: {
     type: String,
     required: true,
@@ -11,7 +17,6 @@ const VendorSchema = new Schema({
   phone: {
     type: String,
     required: true,
-    unique: true,
     trim: true
   },
   email: {

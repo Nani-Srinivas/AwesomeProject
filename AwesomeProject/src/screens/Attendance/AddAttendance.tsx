@@ -16,6 +16,7 @@ import { COLORS } from '../../constants/colors';
 import { CustomerAttendanceItem } from './components/CustomerAttendanceItem';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
+import { EmptyState } from '../../components/common/EmptyState';
 
 const agendaItems = {
   '2025-09-20': [{ time: '10:00 AM', title: 'Meeting with John' }],
@@ -401,6 +402,15 @@ export const AddAttendance = () => {
           )}
           keyExtractor={item => item._id}
           contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <EmptyState
+              icon="👥"
+              title="No Customers in This Area"
+              description="There are no customers subscribed in the selected area yet. Add customers with delivery subscriptions to start managing their daily attendance."
+              actionLabel="Go to Customers"
+              onAction={() => navigation.navigate('CustomerList')}
+            />
+          }
         />
       </CalendarProvider>
 

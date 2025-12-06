@@ -1,5 +1,6 @@
-import { View, StyleSheet, ViewStyle, SafeAreaView } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import React, { FC, ReactNode } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../utils/Constants';
 
 interface CustomSafeAreaViewProps {
@@ -23,3 +24,4 @@ const styles = StyleSheet.create({
 });
 
 export default CustomSafeAreaView;
+

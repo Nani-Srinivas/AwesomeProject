@@ -1,6 +1,12 @@
 import mongoose, { Schema, model } from 'mongoose';
 
 const AreaSchema = new Schema({
+  storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store',
+    required: true,
+    index: true
+  },
   name: { type: String, required: true },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -10,5 +16,5 @@ const AreaSchema = new Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-AreaSchema.index({ name: 1, createdBy: 1 }, { unique: true });
+AreaSchema.index({ name: 1, storeId: 1 }, { unique: true });
 export default model('Area', AreaSchema);

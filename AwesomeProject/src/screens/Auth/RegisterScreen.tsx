@@ -7,8 +7,12 @@ import {
   Keyboard,
   TouchableOpacity,
   Platform,
-  SafeAreaView,
   PermissionsAndroid,
+  Modal,
+  Linking,
+  AppState,
+  AppStateStatus,
+  ActivityIndicator,
 } from 'react-native';
 import {
   GestureHandlerRootView,
@@ -45,6 +49,8 @@ export const RegisterScreen = () => {
   const [storeName, setStoreName] = useState('');
   const [aadhar, setAadhar] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isLocationError, setIsLocationError] = useState(false);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
 
   // error states
   const [nameError, setNameError] = useState('');
@@ -57,8 +63,12 @@ export const RegisterScreen = () => {
 
   const animatedValue = useRef(new Animated.Value(0)).current;
   const keyboardOffsetHeight = useKeyboardOffsetHeight();
+  const appState = useRef(AppState.currentState);
 
   useEffect(() => {
+    if (Platform.OS === 'android') {
+      return;
+    }
     if (keyboardOffsetHeight === 0) {
       Animated.timing(animatedValue, {
         toValue: 0,
@@ -74,49 +84,94 @@ export const RegisterScreen = () => {
     }
   }, [keyboardOffsetHeight]);
 
-  useEffect(() => {
-    const requestLocationPermission = async () => {
-      const fetchLocation = () => {
-        Geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            setLocation({ latitude, longitude });
-          },
-          (error) => {
-            showToast(`Location Error: ${error.message}`, 'error');
-          },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-        );
-      };
-
-      if (Platform.OS === 'ios') {
-        Geolocation.requestAuthorization();
-        fetchLocation();
-      } else {
-        try {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-              title: 'Location Permission',
-              message: 'This app needs access to your location for registration.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            }
-          );
-          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-            fetchLocation();
+  const checkLocationPermission = async () => {
+    setIsCheckingLocation(true);
+    const fetchLocation = () => {
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocation({ latitude, longitude });
+          setIsLocationError(false);
+          setIsCheckingLocation(false);
+        },
+        (error) => {
+          // Error code 2 is POSITION_UNAVAILABLE, 3 is TIMEOUT
+          if (error.code === 2 || error.code === 3 || error.message.toLowerCase().includes('provider')) {
+            Geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude, longitude } = position.coords;
+                setLocation({ latitude, longitude });
+                setIsLocationError(false);
+                setIsCheckingLocation(false);
+              },
+              (secondError) => {
+                setIsLocationError(true);
+                setIsCheckingLocation(false);
+              },
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
+            );
           } else {
-            showToast('Location permission is required for registration.', 'error');
+            setIsCheckingLocation(false);
+            showToast(`Location Error: ${error.message}`, 'error');
           }
-        } catch (err) {
-          console.warn(err);
-        }
-      }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+      );
     };
 
-    requestLocationPermission();
+    if (Platform.OS === 'ios') {
+      Geolocation.requestAuthorization();
+      fetchLocation();
+    } else {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'This app needs access to your location for registration.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          fetchLocation();
+        } else {
+          setIsCheckingLocation(false);
+          showToast('Location permission is required for registration.', 'error');
+        }
+      } catch (err) {
+        console.warn(err);
+        setIsCheckingLocation(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    checkLocationPermission();
+
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        checkLocationPermission();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
+
+  const openSettings = () => {
+    if (Platform.OS === 'android') {
+      Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
+    } else {
+      Linking.openSettings();
+    }
+  };
 
   const handleRegister = async () => {
     setNameError('');
@@ -328,7 +383,7 @@ export const RegisterScreen = () => {
                 <CustomButton
                   onPress={() => handleRegister()}
                   loading={loading}
-                  disabled={loading}
+                  disabled={loading || !location}
                   title="Register"
                 />
 
@@ -343,17 +398,28 @@ export const RegisterScreen = () => {
                   </TouchableOpacity>
                 </View>
 
+                {!location && (
+                  <View style={styles.loginContainer}>
+                    <CustomText variant="h7" fontFamily={Fonts.Medium}>
+                      Location not detected?{' '}
+                    </CustomText>
+                    <TouchableOpacity onPress={checkLocationPermission}>
+                      <CustomText variant="h7" fontFamily={Fonts.Bold} style={styles.loginLink}>
+                        Fetch Location
+                      </CustomText>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
               </View>
             </Animated.ScrollView>
           </PanGestureHandler>
         </CustomSafeAreaView>
 
         <View style={styles.footer}>
-          <SafeAreaView />
           <CustomText fontSize={RFValue(6)}>
             By Continuing, you agree to our Terms of Service & Privacy Policy
           </CustomText>
-          <SafeAreaView />
         </View>
 
         <TouchableOpacity
@@ -388,6 +454,59 @@ export const RegisterScreen = () => {
         >
           <CustomText style={styles.emojiText}>🚴‍♂️</CustomText>
         </TouchableOpacity>
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isLocationError || isCheckingLocation}
+          onRequestClose={() => setIsLocationError(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              {!isCheckingLocation && (
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setIsLocationError(false)}
+                >
+                  <Icon name="close" size={24} color={Colors.text} />
+                </TouchableOpacity>
+              )}
+
+              {isCheckingLocation ? (
+                <>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                  <CustomText variant="h6" fontFamily={Fonts.Medium} style={styles.modalText}>
+                    Verifying location...
+                  </CustomText>
+                </>
+              ) : (
+                <>
+                  <Icon name="map-marker-off" size={50} color={Colors.primary} />
+                  <CustomText variant="h4" fontFamily={Fonts.Bold} style={styles.modalTitle}>
+                    Location Required
+                  </CustomText>
+                  <CustomText variant="h6" fontFamily={Fonts.Medium} style={styles.modalText}>
+                    We need your location to register you. Please enable GPS/Location Services.
+                  </CustomText>
+                  <CustomButton
+                    title="Enable Location"
+                    onPress={openSettings}
+                    loading={false}
+                    disabled={false}
+                  />
+                  <View style={{ marginTop: 10, width: '100%' }}>
+                    <CustomButton
+                      title="Retry"
+                      onPress={checkLocationPermission}
+                      loading={false}
+                      disabled={false}
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
     </GestureHandlerRootView>
   );
@@ -498,5 +617,34 @@ const styles = StyleSheet.create({
   },
   locationText: {
     color: '#666',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    elevation: 5,
+  },
+  modalTitle: {
+    marginVertical: 10,
+    color: Colors.text,
+  },
+  modalText: {
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1,
   },
 });

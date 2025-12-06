@@ -13,7 +13,7 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { MainStackParamList } from '../../navigation/types';
 import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
-import { Button } from '../../components/common/Button';
+import CustomButton from '../../components/ui/CustomButton';
 import { useUserStore } from '../../store/userStore';
 
 type SelectCategoryScreenProps = StackScreenProps<MainStackParamList, 'SelectCategory'>;
@@ -30,9 +30,15 @@ export const SelectCategoryScreen = ({ navigation }: SelectCategoryScreenProps) 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const { user, setUser } = useUserStore();
+
   useEffect(() => {
     fetchCategories();
-  }, []);
+    // Pre-select categories if available in user profile
+    // if (user?.selectedCategoryIds && user.selectedCategoryIds.length > 0) {
+    //   setSelectedCategories(user.selectedCategoryIds);
+    // }
+  }, [user]);
 
   const fetchCategories = async () => {
     try {
@@ -47,7 +53,7 @@ export const SelectCategoryScreen = ({ navigation }: SelectCategoryScreenProps) 
         setCategories(categoryData);
         console.log('Categories set in state:', categoryData.length);
       } else {
-        Alert.alert('Error', response.message || 'Failed to fetch categories.');
+        Alert.alert('Error', 'Failed to fetch categories.');
       }
     } catch (error: any) {
       console.error('Fetch categories error:', error);
@@ -68,11 +74,11 @@ export const SelectCategoryScreen = ({ navigation }: SelectCategoryScreenProps) 
     );
   };
 
-  const { user, setUser } = useUserStore();
+
 
   const handleNext = async () => {
     if (selectedCategories.length === 0) {
-      Alert.alert('Selection Required', 'Please select at least one category.');
+      Alert.alert('Error', 'Please select at least one category');
       return;
     }
 
@@ -81,22 +87,22 @@ export const SelectCategoryScreen = ({ navigation }: SelectCategoryScreenProps) 
       const response = await apiService.post('/store/onboarding/update-categories-selection', {
         categories: selectedCategories,
       });
-      console.log('API response for update-categories-selection:', JSON.stringify(response, null, 2));
 
       if (response.data.success) {
-        if (user && response.data?.storeManager) {
-          setUser({ ...user, hasSelectedCategories: true, selectedCategoryIds: response.data.storeManager.selectedCategoryIds });
+        // Update user store with new data
+        if (response.data.data?.storeManager) {
+          setUser(response.data.data.storeManager);
         }
-        navigation.navigate('SelectProduct', { selectedCategories });
+        // Navigate to subcategory selection
+        navigation.navigate('SelectSubcategory', { selectedCategories });
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to update category selection.');
+        Alert.alert('Error', response.data?.message || 'Failed to save categories');
       }
     } catch (error: any) {
-      console.error('Update category selection error:', error);
-      console.error('Full error object:', JSON.stringify(error, null, 2));
+      console.error('Save categories error:', error);
       Alert.alert(
         'Error',
-        error.response?.data?.message || 'An error occurred while updating category selection.'
+        error.response?.data?.message || 'Failed to save selected categories'
       );
     } finally {
       setSubmitting(false);
@@ -145,10 +151,11 @@ export const SelectCategoryScreen = ({ navigation }: SelectCategoryScreenProps) 
           </TouchableOpacity>
         )}
       />
-      <Button
-        title="Next: Select Products"
+      <CustomButton
+        title="Next: Select Subcategories"
         onPress={handleNext}
         disabled={submitting || selectedCategories.length === 0}
+        loading={submitting}
       />
     </View>
   );

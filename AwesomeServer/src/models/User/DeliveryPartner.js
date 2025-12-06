@@ -1,8 +1,9 @@
 // models/DeliveryPartner.js
 import mongoose from 'mongoose';
-import { User } from '../User/User.js'; // Import the base User model
+import { baseUserSchemaDefinition, baseUserSchemaOptions } from './User.js';
 
 const deliveryPartnerSchema = new mongoose.Schema({
+  ...baseUserSchemaDefinition,
   aadhar: {
     type: Number,
     unique: true,
@@ -20,6 +21,6 @@ const deliveryPartnerSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Area',
   },
-});
+}, baseUserSchemaOptions);
 
-export const DeliveryPartner = User.discriminator('DeliveryPartner', deliveryPartnerSchema);
+export const DeliveryPartner = mongoose.model('DeliveryPartner', deliveryPartnerSchema);

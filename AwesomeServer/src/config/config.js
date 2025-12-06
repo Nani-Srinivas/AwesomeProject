@@ -3,7 +3,7 @@ import "dotenv/config";
 import fastifySession from "@fastify/session";
 import ConnectMongoDBSession from "connect-mongodb-session";
 import { Admin } from "../models/User/Admin.js";
-import { User } from "../models/User/User.js";
+
 
 
 export const PORT = process.env.PORT || 3000;
@@ -12,41 +12,50 @@ export const COOKIE_PASSWORD = process.env.COOKIE_PASSWORD;
 const MongoDBStore = ConnectMongoDBSession(fastifySession)
 
 export const sessionStore = new MongoDBStore({
-    uri:process.env.MONGO_URI,
-    collection:"sessions"
+    uri: process.env.MONGO_URI,
+    collection: "sessions"
 })
 
-sessionStore.on('error',(error)=>{
-    console.log("Session store error",error)
+sessionStore.on('error', (error) => {
+    console.log("Session store error", error)
 })
 
-export const authenticate =async(email,password)=>{
+export const authenticate = async (email, password) => {
+    console.log("Authenticate function called with:", email, password);
 
-     // UNCOMMENT THIS WHEN CREATING ADMIN  FIRST TIME
-
-    if(email && password){
-        if(email=='nanisrinivas@gmail.com' && password==="test@123"){
-            return Promise.resolve({ email: email, password: password }); 
-        }else{
-            return null
-        }
-    }
-
+    // UNCOMMENT THIS WHEN CREATING ADMIN FIRST TIME
+    // if (email && password) {
+    //     if (email == 'nanisrinivas@gmail.com' && password === "test@123") {
+    //         console.log("Hardcoded admin credentials matched.");
+    //         return Promise.resolve({ email: email, password: password, role: 'Admin' });
+    //     } else {
+    //         console.log("Hardcoded credentials did not match.");
+    //     }
+    // }
 
     // UNCOMMENT THIS WHEN ALREADY CREATED ADMIN ON DATABASE
 
-  //   if (email && password) {
-  //   const user = await Admin.findOne({ email }).select('+password'); // Explicitly select password
-  //   if (!user) return null;
+    if (email && password) {
+        console.log("Checking database for admin...");
+        const user = await Admin.findOne({ email }).select('+password'); // Explicitly select password
+        if (!user) {
+            console.log("Admin not found in database.");
+            return null;
+        }
 
-  //   if (user.password === password) {
-  //     const { password: _, ...userWithoutPassword } = user.toObject();
-  //     return userWithoutPassword; // Returns user without password
-  //   }
-  // }
+        if (user.password === password) { // Note: You should use bcrypt.compare here in production!
+            console.log("Admin password matched.");
+            const { password: _, ...userWithoutPassword } = user.toObject();
+            return userWithoutPassword; // Returns user without password
+        } else {
+            console.log("Admin password did not match.");
+        }
+    }
+    /*
+    */
 
-
-  return null;
+    console.log("Authentication failed.");
+    return null;
 }
 
 

@@ -1,7 +1,7 @@
 // models/User/User.js
 import mongoose from 'mongoose';
 
-export const userSchema = new mongoose.Schema({
+export const baseUserSchemaDefinition = {
   email: {
     type: String,
     unique: true,
@@ -24,7 +24,7 @@ export const userSchema = new mongoose.Schema({
   },
   isActivated: { type: Boolean, default: false },
   isVerified: { type: Boolean, default: false },
-}, { timestamps: true });
+  refreshToken: String,
+};
 
-// Base model
-export const User = mongoose.model('User', userSchema);
+export const baseUserSchemaOptions = { timestamps: true };

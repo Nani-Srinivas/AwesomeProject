@@ -21,8 +21,11 @@ export interface Product {
   _id: string;
   name: string;
   description: string;
-  price: number;
+  price: number; // Deprecated, kept for backwards compatibility
+  costPrice: number;
+  sellingPrice: number;
   stock: number;
+  status: 'active' | 'inactive' | 'out_of_stock';
   storeCategoryId: StoreCategoryPopulated; // Updated to be populated object
   storeSubcategoryId?: string;
   images: string[];
@@ -36,5 +39,5 @@ export interface Product {
   weight: string;
   time: string;
   discount: string;
-  mrp: number;
+  mrp: number; // Deprecated, kept for backwards compatibility
 }

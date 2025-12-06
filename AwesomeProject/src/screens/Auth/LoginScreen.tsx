@@ -7,7 +7,6 @@ import {
   Keyboard,
   TouchableOpacity,
   Platform,
-  SafeAreaView,
 } from 'react-native';
 import {
   GestureHandlerRootView,
@@ -37,6 +36,7 @@ export const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [password, setPassword] = useState('123456');
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<'Customer' | 'DeliveryPartner' | 'StoreManager' | 'Admin'>('StoreManager');
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email'); // For StoreManager login
   const [gestureSequence, setGestureSequence] = useState<string[]>([]);
 
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -46,6 +46,9 @@ export const LoginScreen = ({ navigation }: { navigation: any }) => {
   const { showToast } = useToast();
 
   useEffect(() => {
+    if (Platform.OS === 'android') {
+      return;
+    }
     if (keyboardOffsetHeight === 0) {
       Animated.timing(animatedValue, {
         toValue: 0,
@@ -86,9 +89,14 @@ export const LoginScreen = ({ navigation }: { navigation: any }) => {
     Keyboard.dismiss();
     setLoading(true);
     try {
-      const credentials = (role === 'Customer')
-        ? { phone: phoneNumber }
-        : { email, password };
+      let credentials;
+      if (role === 'Customer') {
+        credentials = { phone: phoneNumber };
+      } else if (role === 'StoreManager' && loginMethod === 'phone') {
+        credentials = { phone: phoneNumber, password };
+      } else {
+        credentials = { email, password };
+      }
 
       const response = await authService.login(role, credentials);
       const { accessToken, refreshToken, user } = response.data as LoginResponse;
@@ -131,6 +139,83 @@ export const LoginScreen = ({ navigation }: { navigation: any }) => {
             </CustomText>
           }
         />
+      );
+    } else if (role === 'StoreManager') {
+      return (
+        <>
+          {/* Login Method Toggle for StoreManager */}
+          <View style={styles.loginMethodToggle}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                loginMethod === 'email' && styles.toggleButtonActive
+              ]}
+              onPress={() => setLoginMethod('email')}>
+              <CustomText
+                variant="h7"
+                fontFamily={Fonts.SemiBold}
+                style={{
+                  ...styles.toggleText,
+                  ...(loginMethod === 'email' && styles.toggleTextActive)
+                }}>
+                Email
+              </CustomText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                loginMethod === 'phone' && styles.toggleButtonActive
+              ]}
+              onPress={() => setLoginMethod('phone')}>
+              <CustomText
+                variant="h7"
+                fontFamily={Fonts.SemiBold}
+                style={{
+                  ...styles.toggleText,
+                  ...(loginMethod === 'phone' && styles.toggleTextActive)
+                }}>
+                Phone
+              </CustomText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Input Fields */}
+          {loginMethod === 'email' ? (
+            <CustomInput
+              onChangeText={setEmail}
+              onClear={() => setEmail('')}
+              value={email}
+              placeholder="Email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              right={false}
+            />
+          ) : (
+            <CustomInput
+              onChangeText={text => setPhoneNumber(text.slice(0, 10))}
+              onClear={() => setPhoneNumber('')}
+              value={phoneNumber}
+              placeholder="Enter mobile number"
+              inputMode="numeric"
+              left={
+                <CustomText
+                  style={styles.phoneText}
+                  variant="h6"
+                  fontFamily={Fonts.SemiBold}>
+                  + 91
+                </CustomText>
+              }
+            />
+          )}
+          <CustomInput
+            onChangeText={setPassword}
+            onClear={() => setPassword('')}
+            value={password}
+            placeholder="Password"
+            secureTextEntry
+            right={false}
+          />
+        </>
       );
     } else {
       return (
@@ -193,7 +278,13 @@ export const LoginScreen = ({ navigation }: { navigation: any }) => {
                 {renderInputs()}
 
                 <CustomButton
-                  disabled={role === 'Customer' ? phoneNumber?.length !== 10 : (!email || !password)}
+                  disabled={
+                    role === 'Customer'
+                      ? phoneNumber?.length !== 10
+                      : role === 'StoreManager' && loginMethod === 'phone'
+                        ? phoneNumber?.length !== 10 || !password
+                        : (!email || !password)
+                  }
                   onPress={() => handleLogin()}
                   loading={loading}
                   title="Login"
@@ -221,11 +312,9 @@ export const LoginScreen = ({ navigation }: { navigation: any }) => {
         </CustomSafeAreaView>
 
         <View style={styles.footer}>
-          <SafeAreaView />
           <CustomText fontSize={RFValue(6)}>
             By Continuing, you agree to our Terms of Service & Privacy Policy
           </CustomText>
-          <SafeAreaView />
         </View>
 
         <TouchableOpacity
@@ -357,5 +446,29 @@ const styles = StyleSheet.create({
   },
   signUpLink: {
     color: Colors.primary,
+  },
+  loginMethodToggle: {
+    flexDirection: 'row',
+    marginBottom: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+  },
+  toggleButtonActive: {
+    backgroundColor: Colors.primary,
+  },
+  toggleText: {
+    color: Colors.text,
+  },
+  toggleTextActive: {
+    color: '#FFFFFF',
   },
 });

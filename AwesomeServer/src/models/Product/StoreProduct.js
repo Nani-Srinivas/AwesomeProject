@@ -17,10 +17,21 @@ const StoreProductSchema = new Schema({
     required: true,
   },
   description: String,
-  price: {
+  description: String,
+  costPrice: {
     type: Number,
     min: 0,
     required: true,
+  },
+  sellingPrice: {
+    type: Number,
+    min: 0,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'out_of_stock'],
+    default: 'active',
   },
   stock: {
     type: Number,

@@ -1,9 +1,15 @@
 import mongoose, { Schema, model } from 'mongoose';
 
 const DeliveryBoySchema = new Schema({
-  areaId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Area', 
+  areaId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Area',
+    required: true,
+    index: true
+  },
+  storeId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Store',
     required: true,
     index: true
   },
@@ -18,5 +24,5 @@ const DeliveryBoySchema = new Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-DeliveryBoySchema.index({ phone: 1, createdBy: 1 }, { unique: true });
+DeliveryBoySchema.index({ phone: 1, storeId: 1 }, { unique: true });
 export default model('DeliveryBoy', DeliveryBoySchema);

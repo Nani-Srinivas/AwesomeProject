@@ -35,6 +35,36 @@ export const getStoreCategories = async (req, reply) => {
   }
 };
 
+export const getStoreSubcategories = async (req, reply) => {
+  console.log('getStoreSubcategories controller called.');
+  console.log('req.user:', req.user);
+  try {
+    const createdBy = req.user?.id;
+    if (!createdBy) {
+      return reply.status(401).send({ message: 'Unauthorized: User ID not found.' });
+    }
+
+    const store = await Store.findOne({ ownerId: createdBy });
+    if (!store) {
+      return reply.status(404).send({ message: 'Store not found for this manager.' });
+    }
+
+    const storeId = store._id;
+
+    const storeSubcategories = await StoreSubcategory.find({ storeId })
+      .populate('masterSubcategoryId');
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Store subcategories fetched successfully',
+      data: storeSubcategories,
+    });
+  } catch (error) {
+    console.error('Error fetching store subcategories:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
 export const createStoreCategory = async (req, reply) => {
   try {
     const { name, description, imageUrl, masterCategoryId } = req.body;
@@ -140,6 +170,61 @@ export const updateStoreCategory = async (req, reply) => {
   }
 };
 
+export const createStoreSubcategory = async (req, reply) => {
+  try {
+    const { name, storeCategoryId } = req.body;
+    const createdBy = req.user?.id;
+    const createdByModel = req.user?.role;
+
+    if (!createdBy || createdByModel !== 'StoreManager') {
+      return reply.status(401).send({ message: 'Unauthorized: Only Store Managers can create subcategories.' });
+    }
+
+    const store = await Store.findOne({ ownerId: createdBy });
+    if (!store) {
+      return reply.status(404).send({ message: 'Store not found for this manager.' });
+    }
+
+    const storeId = store._id;
+
+    if (!storeCategoryId) {
+      return reply.status(400).send({ message: 'storeCategoryId is required.' });
+    }
+
+    // Verify category belongs to this store
+    const categoryExists = await StoreCategory.findOne({ _id: storeCategoryId, storeId });
+    if (!categoryExists) {
+      return reply.status(400).send({ message: 'Invalid storeCategoryId or category does not belong to your store.' });
+    }
+
+    // Check for duplicate subcategory name in this category
+    const existingSubcategory = await StoreSubcategory.findOne({ storeId, storeCategoryId, name });
+    if (existingSubcategory) {
+      return reply.status(409).send({ message: 'A subcategory with this name already exists in this category.' });
+    }
+
+    const newSubcategory = new StoreSubcategory({
+      storeId,
+      storeCategoryId,
+      name,
+      createdBy,
+      createdByModel,
+    });
+
+    await newSubcategory.save();
+
+    return reply.status(201).send({
+      success: true,
+      message: 'Store subcategory created successfully',
+      data: newSubcategory,
+    });
+  } catch (error) {
+    console.error('Error creating store subcategory:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+
 export const getStoreProducts = async (req, reply) => {
   console.log('getStoreProducts controller called.');
   console.log('req.user:', req.user);
@@ -186,7 +271,7 @@ export const getStoreProducts = async (req, reply) => {
 
 export const createStoreProduct = async (req, reply) => {
   try {
-    const { name, description, price, stock, storeCategoryId, storeSubcategoryId, images, masterProductId } = req.body;
+    const { name, description, costPrice, sellingPrice, stock, status, isAvailable, storeCategoryId, storeSubcategoryId, images, masterProductId } = req.body;
     const createdBy = req.user?.id;
     const createdByModel = req.user?.role;
 
@@ -241,8 +326,11 @@ export const createStoreProduct = async (req, reply) => {
       masterProductId: masterProductId || null,
       name,
       description,
-      price,
-      stock,
+      costPrice,
+      sellingPrice,
+      stock: stock || 0,
+      status: status || 'active',
+      isAvailable: isAvailable !== undefined ? isAvailable : true,
       storeCategoryId,
       storeSubcategoryId: storeSubcategoryId || null,
       images: images || [],
@@ -266,7 +354,7 @@ export const createStoreProduct = async (req, reply) => {
 export const updateStoreProduct = async (req, reply) => {
   try {
     const { id } = req.params;
-    const { name, description, price, stock, storeCategoryId, storeSubcategoryId, images, isAvailable } = req.body;
+    const { name, description, costPrice, sellingPrice, stock, status, storeCategoryId, storeSubcategoryId, images, isAvailable } = req.body;
     const createdBy = req.user?.id;
 
     if (!createdBy || req.user?.role !== 'StoreManager') {
@@ -298,7 +386,7 @@ export const updateStoreProduct = async (req, reply) => {
 
     const updatedProduct = await StoreProduct.findOneAndUpdate(
       { _id: id, storeId },
-      { name, description, price, stock, storeCategoryId, storeSubcategoryId, images, isAvailable },
+      { name, description, costPrice, sellingPrice, stock, status, storeCategoryId, storeSubcategoryId, images, isAvailable },
       { new: true, runValidators: true }
     );
 
@@ -346,6 +434,74 @@ export const deleteStoreProduct = async (req, reply) => {
     });
   } catch (error) {
     console.error('Error deleting store product:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const deleteStoreCategory = async (req, reply) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!userId || userRole !== 'StoreManager') {
+      return reply.status(401).send({ message: 'Unauthorized: Only Store Managers can delete categories.' });
+    }
+
+    const store = await Store.findOne({ ownerId: userId });
+    if (!store) {
+      return reply.status(404).send({ message: 'Store not found for this manager.' });
+    }
+
+    const deletedCategory = await StoreCategory.findOneAndDelete({
+      _id: id,
+      storeId: store._id
+    });
+
+    if (!deletedCategory) {
+      return reply.status(404).send({ message: 'Category not found or does not belong to your store.' });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Category deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting store category:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const deleteStoreSubcategory = async (req, reply) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!userId || userRole !== 'StoreManager') {
+      return reply.status(401).send({ message: 'Unauthorized: Only Store Managers can delete subcategories.' });
+    }
+
+    const store = await Store.findOne({ ownerId: userId });
+    if (!store) {
+      return reply.status(404).send({ message: 'Store not found for this manager.' });
+    }
+
+    const deletedSubcategory = await StoreSubcategory.findOneAndDelete({
+      _id: id,
+      storeId: store._id
+    });
+
+    if (!deletedSubcategory) {
+      return reply.status(404).send({ message: 'Subcategory not found or does not belong to your store.' });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Subcategory deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting store subcategory:', error);
     return reply.status(500).send({ message: 'Internal server error' });
   }
 };

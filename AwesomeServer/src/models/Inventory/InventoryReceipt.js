@@ -25,7 +25,7 @@ const InventoryReceiptSchema = new mongoose.Schema({
   },
   receivedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // or StoreManager depending on your user model
+    ref: 'StoreManager',
     required: true
   },
   items: [{
@@ -75,14 +75,20 @@ const InventoryReceiptSchema = new mongoose.Schema({
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User' // Reference to the approving user
+    ref: 'StoreManager' // Reference to the approving user
+  },
+  businessDate: {
+    type: String,
+    required: true,
+    index: true,
+    match: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD format
   }
 }, {
   timestamps: true
 });
 
 // Indexes for efficient queries
-InventoryReceiptSchema.index({ vendorId: 1, receivedDate: 1 });
-InventoryReceiptSchema.index({ receivedDate: 1 });
+InventoryReceiptSchema.index({ vendorId: 1, businessDate: 1 });
+InventoryReceiptSchema.index({ businessDate: 1 });
 
 export default mongoose.model('InventoryReceipt', InventoryReceiptSchema);

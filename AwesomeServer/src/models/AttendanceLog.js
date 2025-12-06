@@ -47,9 +47,21 @@ import mongoose from 'mongoose';
 
 const AttendanceLogSchema = new mongoose.Schema(
   {
+    storeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Store',
+      required: true,
+      index: true
+    },
     date: {
       type: Date,
       required: true,
+    },
+    businessDate: {
+      type: String,
+      required: true,
+      index: true,
+      match: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD format
     },
     areaId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -90,9 +102,9 @@ const AttendanceLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Unique index: one record per day per area
+// ✅ Unique index: one record per business day per area per store
 AttendanceLogSchema.index(
-  { date: 1, areaId: 1 },
+  { businessDate: 1, areaId: 1, storeId: 1 },
   { unique: true, sparse: true }
 );
 

@@ -48,6 +48,9 @@ async function seedDatabase() {
       return map;
     }, {});
 
+    // Map seedData subcategory ID → MongoDB ID
+    const subcategoryMap = {};
+
     // Insert Subcategories
     let subcategoryDocs = [];
     console.log('Inserting subcategories...');
@@ -62,15 +65,18 @@ async function seedDatabase() {
         }));
         const insertedSubs = await Subcategory.insertMany(subs);
         subcategoryDocs = [...subcategoryDocs, ...insertedSubs];
+
+        // Map seedData ID to inserted ObjectId
+        insertedSubs.forEach((insertedSub, index) => {
+          const seedSub = cat.subcategories[index];
+          if (seedSub.id) {
+            subcategoryMap[seedSub.id] = insertedSub._id;
+          }
+        });
       }
     }
     console.log(`Inserted ${subcategoryDocs.length} subcategories.`);
-
-    // Map subcategory name → ID
-    const subcategoryMap = subcategoryDocs.reduce((map, sub) => {
-      map[sub.name] = sub._id;
-      return map;
-    }, {});
+    console.log('Subcategory Map:', Object.keys(subcategoryMap));
 
     // Insert Master Products
     console.log('Inserting master products...');

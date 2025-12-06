@@ -1,14 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
-  Button,
   StyleSheet,
   Alert,
   ScrollView,
   PermissionsAndroid,
   Platform,
+  Modal,
+  Linking,
+  AppState,
+  AppStateStatus,
+  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import { Picker } from '@react-native-picker/picker';
@@ -17,6 +22,8 @@ import { MainStackParamList } from '../../navigation/types';
 import { apiService } from '../../services/apiService';
 import { useUserStore } from '../../store/userStore';
 import { reset } from '../../navigation/NavigationRef';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import CustomButton from '../../components/ui/CustomButton';
 
 type StoreCreationScreenProps = StackScreenProps<
   MainStackParamList,
@@ -32,27 +39,47 @@ export const StoreCreationScreen = ({
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
   const [country, setCountry] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [status, setStatus] = useState('active');
   const [loading, setLoading] = useState(false);
+  const [isLocationError, setIsLocationError] = useState(false);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
 
   const { user, setUser } = useUserStore();
+  const appState = useRef(AppState.currentState);
 
-  const requestLocationPermission = async () => {
+  const checkLocationPermission = async () => {
+    setIsCheckingLocation(true);
     const fetchLocation = () => {
       Geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
           setLocation({ latitude, longitude });
-          setLatitude(latitude.toString());
-          setLongitude(longitude.toString());
+          setIsLocationError(false);
+          setIsCheckingLocation(false);
         },
         (error) => {
-          Alert.alert('Location Error', error.message);
+          // Error code 2 is POSITION_UNAVAILABLE, 3 is TIMEOUT
+          if (error.code === 2 || error.code === 3 || error.message.toLowerCase().includes('provider')) {
+            Geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude, longitude } = position.coords;
+                setLocation({ latitude, longitude });
+                setIsLocationError(false);
+                setIsCheckingLocation(false);
+              },
+              (secondError) => {
+                setIsLocationError(true);
+                setIsCheckingLocation(false);
+              },
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
+            );
+          } else {
+            setIsCheckingLocation(false);
+            setIsLocationError(true);
+          }
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
       );
     };
 
@@ -74,64 +101,87 @@ export const StoreCreationScreen = ({
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           fetchLocation();
         } else {
-          Alert.alert('Permission Denied', 'Location permission is required for store creation.');
+          setIsCheckingLocation(false);
+          setIsLocationError(true);
         }
       } catch (err) {
         console.warn(err);
+        setIsCheckingLocation(false);
+        setIsLocationError(true);
       }
     }
   };
 
-  // Initial location request on component mount
   useEffect(() => {
-    requestLocationPermission();
+    checkLocationPermission();
+
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        checkLocationPermission();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
+  const openSettings = () => {
+    if (Platform.OS === 'android') {
+      Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
+    } else {
+      Linking.openSettings();
+    }
+  };
+
   const handleCreateStore = async () => {
-        if (
-          !name ||
-          !street ||
-          !city ||
-          !state ||
-          !zip ||
-          !country ||
-          !location // Validate that location is available
-        ) {
-          Alert.alert('Error', 'Please fill in all required fields and get your location.');
-          return;
+    if (
+      !name ||
+      !street ||
+      !city ||
+      !state ||
+      !zip ||
+      !country ||
+      !location
+    ) {
+      Alert.alert('Error', 'Please fill in all required fields and ensure location is detected.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiService.post('/store/create', {
+        name,
+        address: { street, city, state, zip, country },
+        location: {
+          type: 'Point',
+          coordinates: [location.longitude, location.latitude],
+        },
+        status,
+      });
+      console.log('Create store response:', response.data);
+
+      if (response.data && response.data.store) {
+        Alert.alert('Success', response.data.message || 'Store created successfully!');
+        if (user) {
+          setUser({ ...user, storeId: response.data.store._id });
         }
-    
-        setLoading(true);
-        try {
-          const response = await apiService.post('/store/create', {
-            name,
-            address: { street, city, state, zip, country },
-            location: {
-              type: 'Point',
-              coordinates: [location.longitude, location.latitude], // Use fetched location
-            },
-            status,
-          });
-  console.log('Create store response:', response.data);
-
-if (response.data && response.data.store) {
-  Alert.alert('Success', response.data.message || 'Store created successfully!');
-  if (user) {
-    setUser({ ...user, storeId: response.data.store._id });
-  }
-        reset('SelectCategory'); // Navigate to SelectCategory and reset stack
+        reset('SelectCategory');
       } else {
-  Alert.alert('Error', response.data?.message || 'Failed to create store.');
-}
-
-} catch (error: any) {
-  console.error('Store creation error (catch):', error);
-  const errorMessage =
-    error.response?.data?.message ||
-    error.message ||
-    'An error occurred during store creation.';
-  Alert.alert('Error', errorMessage);
-} finally {
+        Alert.alert('Error', response.data?.message || 'Failed to create store.');
+      }
+    } catch (error: any) {
+      console.error('Store creation error (catch):', error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'An error occurred during store creation.';
+      Alert.alert('Error', errorMessage);
+    } finally {
       setLoading(false);
     }
   };
@@ -181,11 +231,26 @@ if (response.data && response.data.store) {
       />
 
       <Text style={styles.sectionTitle}>Location (Coordinates)</Text>
-      {/* <Button title="Get Current Location" onPress={requestLocationPermission} /> */}
-      <View style={styles.locationDisplayContainer}>
-        <Text style={styles.locationText}>Latitude: {latitude || 'N/A'}</Text>
-        <Text style={styles.locationText}>Longitude: {longitude || 'N/A'}</Text>
-      </View>
+      {location && (
+        <View style={styles.locationDisplayContainer}>
+          <Text style={styles.locationText}>
+            Lat: {location.latitude.toFixed(4)}, Long: {location.longitude.toFixed(4)}
+          </Text>
+        </View>
+      )}
+
+      {!location && (
+        <View style={styles.locationContainer}>
+          <Text style={styles.locationErrorText}>
+            Location not detected?{' '}
+          </Text>
+          <TouchableOpacity onPress={checkLocationPermission}>
+            <Text style={styles.retryText}>
+              Fetch Location
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Text style={styles.sectionTitle}>Status</Text>
       <Picker
@@ -198,11 +263,65 @@ if (response.data && response.data.store) {
         <Picker.Item label="Closed" value="closed" />
       </Picker>
 
-      <Button
-        title={loading ? 'Creating...' : 'Create Store'}
+      <CustomButton
+        title="Create Store"
         onPress={handleCreateStore}
-        disabled={loading}
+        disabled={loading || !location}
+        loading={loading}
       />
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isLocationError || isCheckingLocation}
+        onRequestClose={() => setIsLocationError(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            {!isCheckingLocation && (
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setIsLocationError(false)}
+              >
+                <Icon name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            )}
+
+            {isCheckingLocation ? (
+              <>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={styles.modalText}>
+                  Verifying location...
+                </Text>
+              </>
+            ) : (
+              <>
+                <Icon name="map-marker-off" size={50} color="#007AFF" />
+                <Text style={styles.modalTitle}>
+                  Location Required
+                </Text>
+                <Text style={styles.modalText}>
+                  We need your location to create the store. Please enable GPS/Location Services.
+                </Text>
+                <CustomButton
+                  title="Enable Location"
+                  onPress={openSettings}
+                  loading={false}
+                  disabled={false}
+                />
+                <View style={{ marginTop: 10, width: '100%' }}>
+                  <CustomButton
+                    title="Retry"
+                    onPress={checkLocationPermission}
+                    loading={false}
+                    disabled={false}
+                  />
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -246,17 +365,62 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   locationDisplayContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
     width: '100%',
     marginBottom: 10,
     paddingVertical: 10,
-    backgroundColor: '#e0e0e0',
+    paddingHorizontal: 15,
+    backgroundColor: '#e8f5e9',
     borderRadius: 8,
   },
   locationText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 14,
+    color: '#2e7d32',
     fontWeight: '500',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  locationErrorText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  retryText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginVertical: 10,
+    color: '#333',
+  },
+  modalText: {
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+    fontSize: 16,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1,
   },
 });

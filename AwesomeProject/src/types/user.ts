@@ -1,29 +1,37 @@
 export interface User {
-    _id: string;
-    name?: string;
-    email?: string;
-    phone?: string;
-    password?: string;
-    roles: ('Customer' | 'DeliveryPartner' | 'StoreManager' | 'Admin')[];
-    isActivated?: boolean;
-    isVerified?: boolean;
-    refreshToken?: string;
-    liveLocation?: {
-        latitude?: number;
-        longitude?: number;
-    };
-    address?: string;
-    // Role-specific fields directly on User interface for convenience
-    branch?: string; // For DeliveryPartner/StoreManager
-    storeId?: string; // For StoreManager
-    aadhar?: number; // For DeliveryPartner
+  _id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  roles: ('Customer' | 'DeliveryPartner' | 'StoreManager' | 'Admin')[];
+  isActivated?: boolean;
+  isVerified?: boolean;
+  refreshToken?: string;
+  liveLocation?: {
+    latitude?: number;
+    longitude?: number;
+  };
+  address?: string;
+  // Role-specific fields directly on User interface for convenience
+  branch?: string; // For DeliveryPartner/StoreManager
+  storeId?: string; // For StoreManager
+  aadhar?: number; // For DeliveryPartner
+  hasSelectedCategories?: boolean; // For StoreManager
+  selectedCategoryIds?: string[]; // For StoreManager
+  hasSelectedSubcategories?: boolean; // For StoreManager
+  selectedSubcategoryIds?: string[]; // For StoreManager
+  hasSelectedProducts?: boolean; // For StoreManager
+  selectedProductIds?: string[]; // For StoreManager
+  hasAddedProductPricing?: boolean; // For StoreManager
+  additionalDetailsCompleted?: boolean; // For StoreManager
 }
 
 export interface LoginResponse {
-    message: string;
-    accessToken: string;
-    refreshToken: string;
-    user: User;
+  message: string;
+  accessToken: string;
+  refreshToken: string;
+  user: User;
 }
 
 export interface UserRegistration {
@@ -38,6 +46,6 @@ export interface UserRegistration {
   storeName?: string; // For StoreManager
 }
 
-export type LoginCredentials = 
+export type LoginCredentials =
   | { email: string; password: string }
   | { phone: string };

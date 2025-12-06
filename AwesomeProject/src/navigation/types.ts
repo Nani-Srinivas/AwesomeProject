@@ -35,6 +35,36 @@ export type MainStackParamList = {
   InventoryReceipt: { vendorId: string };
   VendorSelection: undefined;
 
+  // Store Onboarding Screens
+  StoreCreation: undefined;
+  SelectCategory: undefined;
+  SelectSubcategory: { selectedCategories: string[] };
+  SelectProduct: { selectedCategories: string[]; selectedSubcategories?: string[]; selectedProducts?: string[] };
+  PricingConfig: {
+    selectedCategories: string[];
+    selectedProducts: {
+      productId: string;
+      categoryId: string;
+      name: string;
+      price: number;
+    }[]
+  };
+
+  // Product Management Screens
+  ManageProducts: undefined;
+  AddEditProduct: {
+    product?: {
+      _id: string;
+      name: string;
+      description?: string;
+      price: number;
+      stock: number;
+      storeCategoryId?: string | { _id: string; name: string };
+      storeSubcategoryId?: string | { _id: string; name: string };
+      images?: string[];
+    };
+  };
+
   // Disconnected Screens (Commented out in MainStack)
   // Dashboard: undefined;
   // Details: { customer: any };
@@ -42,9 +72,6 @@ export type MainStackParamList = {
   // SideMenu: undefined;
   // PayableTemp: undefined;
   // Order: undefined;
-  // StoreCreation: undefined;
-  // SelectCategory: undefined;
-  // SelectProduct: { selectedCategories: string[] };
   // Cards: undefined;
   // PaymentHistory: { customerId: string };
 };
@@ -52,6 +79,8 @@ export type MainStackParamList = {
 // Define the Root Stack which can navigate between Auth and Main stacks
 export type RootStackParamList = {
   AuthStack: NavigatorScreenParams<AuthStackParamList>;
+  SetupWizard: undefined;
+  Main: undefined;
   MainStack: NavigatorScreenParams<MainStackParamList>;
 };
 
@@ -72,6 +101,8 @@ export type ProductsScreenProps = NativeStackScreenProps<MainStackParamList, 'Pr
 export type AddStockScreenProps = NativeStackScreenProps<MainStackParamList, 'AddStock'>;
 export type AddAttendanceProps = NativeStackScreenProps<MainStackParamList, 'AddAttendance'>;
 
+// Setup Wizard Screen Props
+export type SetupWizardProps = NativeStackScreenProps<RootStackParamList, 'SetupWizard'>;
 
 export interface MainStackScreenProps {
   setIsLoggedIn: (isLoggedIn: boolean) => void;

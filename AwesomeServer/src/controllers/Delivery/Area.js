@@ -1,6 +1,18 @@
 // controllers/areaController.js
 import Area from '../../models/Delivery/Area.js';
 import { StoreManager } from '../../models/User/StoreManager.js';
+import Store from '../../models/Store/Store.js';
+
+// Helper to get storeId
+const getStoreId = async (req) => {
+  if (req.user?.storeId) return req.user.storeId;
+
+  const ownerId = req.user?.id;
+  if (!ownerId) return null;
+
+  const store = await Store.findOne({ ownerId });
+  return store?._id;
+};
 
 export const createArea = async (req, reply) => {
   console.log("Create Area is Called");
@@ -15,45 +27,38 @@ export const createArea = async (req, reply) => {
       });
     }
 
-    // ✅ 2. Get StoreManager ID from JWT
+    // ✅ 2. Get Store ID
+    const storeId = await getStoreId(req);
     const createdBy = req.user?.id;
-    if (!createdBy) {
+
+    if (!storeId || !createdBy) {
       return reply.status(401).send({
         success: false,
-        message: 'Authentication required.'
+        message: 'Authentication required or Store not found.'
       });
     }
 
-    // ✅ 3. Check if StoreManager exists
-    const storeManager = await StoreManager.findById(createdBy);
-    console.log(storeManager);
-    if (!storeManager) {
-      return reply.status(404).send({
-        success: false,
-        message: 'StoreManager not found.'
-      });
-    }
-
-    // ✅ 4. Check for duplicate area name for this StoreManager
-    const existingArea = await Area.findOne({ name, createdBy: storeManager._id });
+    // ✅ 3. Check for duplicate area name for this Store
+    const existingArea = await Area.findOne({ name, storeId });
     if (existingArea) {
       return reply.status(409).send({
         success: false,
-        message: `Area "${name}" already exists for this StoreManager.`
+        message: `Area "${name}" already exists for this Store.`
       });
     }
 
-    // ✅ 5. Create area
+    // ✅ 4. Create area
     const area = new Area({
       name,
       createdBy,
+      storeId,
       totalSubscribedItems: totalSubscribedItems,
       isActive
     });
 
     await area.save();
 
-    // ✅ 6. Send success response
+    // ✅ 5. Send success response
     return reply.status(201).send({
       success: true,
       message: `Area "${name}" created successfully.`,
@@ -61,7 +66,8 @@ export const createArea = async (req, reply) => {
         id: area._id,
         name: area.name,
         totalSubscribedItems: area.totalSubscribedItems,
-        isActive: area.isActive
+        isActive: area.isActive,
+        storeId: area.storeId
       }
     });
 
@@ -85,7 +91,13 @@ export const createArea = async (req, reply) => {
 export const getAllArea = async (req, reply) => {
   console.log("Get All Area is Called");
   try {
-    const areas = await Area.find();
+    // ✅ Filter by Store ID
+    const storeId = await getStoreId(req);
+    if (!storeId) {
+      return reply.status(401).send({ message: 'Authentication required' });
+    }
+
+    const areas = await Area.find({ storeId });
     return reply.status(200).send({
       success: true,
       data: areas
@@ -100,16 +112,15 @@ export const getAllArea = async (req, reply) => {
 export const getAreaByUser = async (req, reply) => {
   console.log("Get Area By User is Called");
   try {
-    const ownerId = req.user?.id;
-    console.log(ownerId);
-    if (!ownerId) {
+    const storeId = await getStoreId(req);
+    if (!storeId) {
       return reply.status(401).send({ message: 'Authentication required' });
     }
 
-    const area = await Area.find({ createdBy: ownerId });
-    console.log(area);
-    if (!area) {
-      return reply.status(404).send({ message: 'No Areas found for this StoreManager' });
+    const area = await Area.find({ storeId });
+
+    if (!area || area.length === 0) {
+      return reply.status(404).send({ message: 'No Areas found for this Store' });
     }
     return reply.status(200).send({
       success: true,
@@ -127,7 +138,6 @@ export const updateArea = async (req, reply) => {
   console.log(req.body)
   try {
     const areaId = req.params.id;
-    console.log(areaId);
     const { name, totalSubscribedItems, isActive } = req.body;
 
     // ✅ 1. Validate input 
@@ -138,47 +148,39 @@ export const updateArea = async (req, reply) => {
       });
     }
 
-    // ✅ 2. Get StoreManager ID from JWT
-    const ownerId = req.user?.id;
-    if (!ownerId) {
-      return reply.status(401).send({ 
+    // ✅ 2. Get Store ID
+    const storeId = await getStoreId(req);
+    if (!storeId) {
+      return reply.status(401).send({
         success: false,
-        message: 'Authentication required.' 
+        message: 'Authentication required.'
       });
     }
 
-    // ✅ 3. Check if area exists
-    const area = await Area.findById(areaId);
+    // ✅ 3. Check if area exists and belongs to store
+    const area = await Area.findOne({ _id: areaId, storeId });
     if (!area) {
       return reply.status(404).send({
         success: false,
-        message: 'Area not found.'
+        message: 'Area not found or does not belong to your store.'
       });
     }
 
-    // ✅ 4. Ensure area belongs to this StoreManager
-    if (area.createdBy.toString() !== ownerId) {
-      return reply.status(403).send({
-        success: false,
-        message: 'You do not have permission to update this area.'
-      });
-    }
-
-    // ✅ 5. Check for duplicate name under this StoreManager
-    const duplicateArea = await Area.findOne({ 
-      name, 
-      createdBy: ownerId,
+    // ✅ 4. Check for duplicate name under this Store
+    const duplicateArea = await Area.findOne({
+      name,
+      storeId,
       _id: { $ne: areaId } // exclude the current area itself
     });
 
     if (duplicateArea) {
       return reply.status(409).send({
         success: false,
-        message: `Another area with the name "${name}" already exists under your account.`
+        message: `Another area with the name "${name}" already exists in your store.`
       });
     }
 
-    // ✅ 6. Update and save
+    // ✅ 5. Update and save
     area.name = name;
     area.totalSubscribedItems = totalSubscribedItems;
     if (isActive !== undefined) {
@@ -214,26 +216,18 @@ export const deleteArea = async (req, reply) => {
     // ✅ Get area ID from URL params
     const areaId = req.params.id;
 
-    // ✅ Get StoreManager ID from JWT
-    const ownerId = req.user?.id;
-    if (!ownerId) {
+    // ✅ Get Store ID
+    const storeId = await getStoreId(req);
+    if (!storeId) {
       return reply.status(401).send({ message: 'Authentication required.' });
     }
 
-    // ✅ Check if area exists
-    const area = await Area.findById(areaId);
+    // ✅ Check if area exists and belongs to store
+    const area = await Area.findOne({ _id: areaId, storeId });
     if (!area) {
       return reply.status(404).send({
         success: false,
-        message: 'Area not found.'
-      });
-    }
-
-    // ✅ Ensure the area belongs to this StoreManager
-    if (area.createdBy.toString() !== ownerId) {
-      return reply.status(403).send({
-        success: false,
-        message: 'You do not have permission to delete this area.'
+        message: 'Area not found or does not belong to your store.'
       });
     }
 
@@ -248,7 +242,7 @@ export const deleteArea = async (req, reply) => {
 
   } catch (error) {
     console.error('Error deleting area:', error.message);
-    return reply.status(500).send({ 
+    return reply.status(500).send({
       success: false,
       message: 'Internal server error'
     });

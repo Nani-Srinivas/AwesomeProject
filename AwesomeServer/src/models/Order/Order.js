@@ -1,24 +1,24 @@
 import mongoose, { Schema, model } from 'mongoose';
 
 const OrderSchema = new Schema({
-  orderId: { 
-    type: String, 
-    unique: true, 
-    index: true 
+  orderId: {
+    type: String,
+    unique: true,
+    index: true
   },
-  customerId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Customer', 
-    required: true 
+  customerId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Customer',
+    required: true
   },
-  storeId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Store', 
-    required: true 
+  storeId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Store',
+    required: true
   },
-  items: [{ 
-    type: Schema.Types.ObjectId, 
-    ref: 'OrderItem' 
+  items: [{
+    type: Schema.Types.ObjectId,
+    ref: 'OrderItem'
   }],
   totalAmount: { type: Number, min: 0 },
   deliveryAddress: {
@@ -28,9 +28,9 @@ const OrderSchema = new Schema({
     zip: String,
     country: String
   },
-  deliveryZoneId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'DeliveryZone' 
+  deliveryZoneId: {
+    type: Schema.Types.ObjectId,
+    ref: 'DeliveryZone'
   },
   status: {
     type: String,
@@ -41,6 +41,12 @@ const OrderSchema = new Schema({
     type: String,
     enum: ['unpaid', 'paid', 'refunded'],
     default: 'unpaid'
+  },
+  businessDate: {
+    type: String,
+    required: true,
+    index: true,
+    match: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD format
   }
 }, { timestamps: true });
 

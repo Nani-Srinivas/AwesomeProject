@@ -1,12 +1,23 @@
 // controllers/Inventory/VendorController.js
 import Vendor from '../../models/Vendor.js';
 import StoreCategory from '../../models/Product/StoreCategory.js';
+import Store from '../../models/Store/Store.js';
 
 // Create a new vendor
 export const createVendor = async (req, reply) => {
   console.log('Create Vendor API called', req.body)
   try {
     const vendorData = req.body;
+    const createdBy = req.user?.id;
+
+    // Get store for this manager
+    const store = await Store.findOne({ ownerId: createdBy });
+    if (!store) {
+      return reply.code(404).send({
+        success: false,
+        message: 'Store not found for this manager'
+      });
+    }
 
     // Check if required categories are provided
     if (!vendorData.assignedCategories || vendorData.assignedCategories.length === 0) {
@@ -31,19 +42,24 @@ export const createVendor = async (req, reply) => {
       });
     }
 
-    // Additional validation - make sure the categories exist
+    // Additional validation - make sure the categories exist and belong to this store
     const validCategories = await StoreCategory.find({
-      _id: { $in: vendorData.assignedCategories }
+      _id: { $in: vendorData.assignedCategories },
+      storeId: store._id  // Ensure categories belong to this store
     });
-    
+
     if (validCategories.length !== vendorData.assignedCategories.length) {
       return reply.code(400).send({
         success: false,
-        message: 'One or more assigned categories do not exist'
+        message: 'One or more assigned categories do not exist or do not belong to your store'
       });
     }
 
-    const vendor = new Vendor(vendorData);
+    // Create vendor with storeId
+    const vendor = new Vendor({
+      ...vendorData,
+      storeId: store._id  // Add storeId
+    });
     await vendor.save();
 
     // Update the store categories to reference this vendor
@@ -75,11 +91,21 @@ export const createVendor = async (req, reply) => {
 
 // Get all vendors
 export const getVendors = async (req, reply) => {
-  console.log("Get vender API is called")
+  console.log("Get vendor API is called");
   try {
     const { page = 1, limit = 10, status } = req.query;
+    const createdBy = req.user?.id;
 
-    const filter = {};
+    // Get store for this manager
+    const store = await Store.findOne({ ownerId: createdBy });
+    if (!store) {
+      return reply.code(404).send({
+        success: false,
+        message: 'Store not found for this manager'
+      });
+    }
+
+    const filter = { storeId: store._id };  // Filter by storeId
     if (status) filter.status = status;
 
     const vendors = await Vendor.find(filter)
@@ -119,7 +145,7 @@ export const updateVendor = async (req, reply) => {
     // If assigned categories are being updated, check if any of the selected categories are already assigned to other vendors
     if (updates.assignedCategories && Array.isArray(updates.assignedCategories)) {
       const { default: StoreCategory } = await import('../../models/Product/StoreCategory.js');
-      
+
       // Find categories that are already assigned to other vendors
       const existingCategories = await StoreCategory.find({
         _id: { $in: updates.assignedCategories },
@@ -310,7 +336,7 @@ export const recordPaymentToVendor = async (req, reply) => {
     // This requires accessing the InventoryReceipt model
     const InventoryReceipt = (await import('../../models/Inventory/InventoryReceipt.js')).default;
     const VendorPayment = (await import('../../models/Finance/VendorPayment.js')).default;
-    
+
     // Get all pending and partial receipts for this vendor, sorted by date
     const receipts = await InventoryReceipt.find({
       vendorId: id,
@@ -319,30 +345,30 @@ export const recordPaymentToVendor = async (req, reply) => {
 
     let remainingPayment = amount;
     const appliedToReceipts = []; // Track which receipts this payment applies to
-    
+
     for (const receipt of receipts) {
       if (remainingPayment <= 0) break;
-      
+
       const dueForReceipt = receipt.totalAmount - receipt.amountPaid;
       const paymentForReceipt = Math.min(dueForReceipt, remainingPayment);
-      
+
       // Update the receipt's payment information
       receipt.amountPaid += paymentForReceipt;
-      
+
       if (receipt.amountPaid >= receipt.totalAmount) {
         receipt.paymentStatus = 'paid';
       } else if (receipt.amountPaid > 0) {
         receipt.paymentStatus = 'partial';
       }
-      
+
       await receipt.save();
-      
+
       // Track which receipts were paid and how much
       appliedToReceipts.push({
         receiptId: receipt._id,
         amountApplied: paymentForReceipt
       });
-      
+
       // Reduce remaining payment
       remainingPayment -= paymentForReceipt;
     }
@@ -489,9 +515,9 @@ export const getVendorPaymentById = async (req, reply) => {
     const VendorPayment = (await import('../../models/Finance/VendorPayment.js')).default;
 
     // Find payment for this vendor
-    const payment = await VendorPayment.findOne({ 
-      _id: paymentId, 
-      vendorId: vendorId 
+    const payment = await VendorPayment.findOne({
+      _id: paymentId,
+      vendorId: vendorId
     })
       .populate('createdBy', 'name phone')
       .populate('appliedToReceipts.receiptId', 'receiptNumber receivedDate totalAmount amountPaid paymentStatus');

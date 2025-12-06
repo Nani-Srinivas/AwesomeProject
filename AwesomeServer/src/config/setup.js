@@ -3,7 +3,7 @@ import AdminJS from "adminjs";
 import AdminJSFastify from "@adminjs/fastify";
 import * as AdminJSMongoose from "@adminjs/mongoose";
 import * as Models from "../models/User/index.js";
-import { User, Customer, StoreManager, DeliveryPartner, Admin } from "../models/User/index.js";
+import { Customer, StoreManager, DeliveryPartner, Admin } from "../models/User/index.js";
 import Area from "../models/Delivery/Area.js";
 import Category from "../models/Product/Category.js";
 import Subcategory from "../models/Product/Subcategory.js";
@@ -112,8 +112,8 @@ export const admin = new AdminJS({
     {
       resource: Area,
       options: {
-        listProperties: ["name", "createdBy", "stockCount", "createdAt"],
-        filterProperties: ["name", "stockCount", "createdBy"],
+        listProperties: ["name", "createdBy", "createdAt"],
+        filterProperties: ["name", "createdBy"],
       },
     },
     // Product Models
@@ -156,7 +156,7 @@ export const admin = new AdminJS({
             isVisible: false
           }
         },
-                actions: {
+        actions: {
           new: {
             before: async (request, context) => {
               console.log('Current Admin:', context.currentAdmin); // Debug
@@ -172,9 +172,9 @@ export const admin = new AdminJS({
     {
       resource: MasterProduct,
       options: {
-        listProperties: ["name", "description", "categoryId", "subcategoryId", "createdByModel", "createdAt"],
-        filterProperties: ["name", "categoryId"],
-                properties: {
+        listProperties: ["name", "description", "category", "subcategory", "createdByModel", "createdAt"],
+        filterProperties: ["name", "category"],
+        properties: {
           createdBy: {
             isVisible: false
           },
@@ -182,7 +182,7 @@ export const admin = new AdminJS({
             isVisible: false
           }
         },
-                actions: {
+        actions: {
           new: {
             before: async (request, context) => {
               console.log('Current Admin:', context.currentAdmin); // Debug
@@ -200,7 +200,7 @@ export const admin = new AdminJS({
       options: {
         listProperties: ["storeId", "masterProductId", "costPrice", "sellingPrice", "status", "createdAt"],
         filterProperties: ["storeId", "masterProductId", "status"],
-                properties: {
+        properties: {
           createdBy: {
             isVisible: false
           },
@@ -208,7 +208,7 @@ export const admin = new AdminJS({
             isVisible: false
           }
         },
-                actions: {
+        actions: {
           new: {
             before: async (request, context) => {
               console.log('Current Admin:', context.currentAdmin); // Debug
@@ -230,7 +230,7 @@ export const admin = new AdminJS({
     // },
 
 
-    
+
     // Store Models
     {
       resource: Store,
@@ -242,8 +242,8 @@ export const admin = new AdminJS({
     {
       resource: Stock,
       options: {
-        listProperties: ["storeProductId", "quantity", "createdAt"],
-        filterProperties: ["storeProductId", "quantity"],
+        listProperties: ["storeProductId", "createdAt"],
+        filterProperties: ["storeProductId"],
       },
     },
     // Order Models

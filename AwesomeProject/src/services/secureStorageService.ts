@@ -2,6 +2,7 @@ import * as Keychain from 'react-native-keychain';
 
 const AUTH_TOKEN_KEY = 'authToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
+const SETUP_COMPLETE_KEY = 'setupComplete';
 
 export const secureStorageService = {
   saveAuthToken: async (token: string): Promise<void> => {
@@ -28,5 +29,14 @@ export const secureStorageService = {
 
   clearRefreshToken: async (): Promise<void> => {
     await Keychain.resetGenericPassword({ service: REFRESH_TOKEN_KEY });
+  },
+
+  saveSetupComplete: async (complete: boolean): Promise<void> => {
+    await Keychain.setGenericPassword(SETUP_COMPLETE_KEY, String(complete), { service: SETUP_COMPLETE_KEY });
+  },
+
+  getSetupComplete: async (): Promise<boolean> => {
+    const credentials = await Keychain.getGenericPassword({ service: SETUP_COMPLETE_KEY });
+    return credentials ? credentials.password === 'true' : false;
   },
 };

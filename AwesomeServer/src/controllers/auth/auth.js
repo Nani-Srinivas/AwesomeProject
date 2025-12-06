@@ -1,4 +1,4 @@
-import { User, Admin, StoreManager, Customer, DeliveryPartner } from "../../models/User/index.js";
+import { Admin, StoreManager, Customer, DeliveryPartner } from "../../models/User/index.js";
 import Store from "../../models/Store/Store.js"; // Import Store model
 import nodemailer from 'nodemailer';
 import bcrypt from 'bcryptjs';
@@ -34,13 +34,22 @@ export const verifyEmail = async (req, reply) => {
     const { token } = req.query;
 
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    const { id, purpose } = decoded;
+    const { id, purpose, role } = decoded;
 
     if (purpose !== 'email_verification') {
       return reply.status(400).send({ message: 'Invalid verification link' });
     }
 
-    let user = await User.findById(id);
+    let Model;
+    switch (role) {
+      case 'Customer': Model = Customer; break;
+      case 'StoreManager': Model = StoreManager; break;
+      case 'DeliveryPartner': Model = DeliveryPartner; break;
+      case 'Admin': Model = Admin; break;
+      default: return reply.status(400).send({ message: 'Invalid role in token' });
+    }
+
+    let user = await Model.findById(id);
 
     if (!user) return reply.status(400).send({ message: 'Invalid verification link' });
 
@@ -49,10 +58,7 @@ export const verifyEmail = async (req, reply) => {
     }
 
     user.isVerified = true;
-
-    // SECURITY ENHANCEMENT: Mark token as used
     user.emailVerifiedAt = new Date();
-    // You could also store used tokens in a blacklist
 
     await user.save();
 
@@ -75,9 +81,20 @@ export const register = async (req, reply) => {
   const { role, name, email, password, phone, storeName, longitude, latitude } = req.body;
 
   let user;
+  let Model;
+
   try {
-    // 1. Check if user exists
-    let existingUser = await User.findOne({
+    // Determine model based on role
+    switch (role) {
+      case 'Customer': Model = Customer; break;
+      case 'StoreManager': Model = StoreManager; break;
+      case 'DeliveryPartner': Model = DeliveryPartner; break;
+      case 'Admin': Model = Admin; break;
+      default: return reply.status(400).send({ message: 'Invalid role specified' });
+    }
+
+    // 1. Check if user exists (specific to collection)
+    let existingUser = await Model.findOne({
       $or: [{ email }, { phone }],
     });
     if (existingUser) {
@@ -87,7 +104,7 @@ export const register = async (req, reply) => {
     // 2. Hash password if provided
     let hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 
-    // 3. Create using the correct discriminator
+    // 3. Create using the correct model
     switch (role) {
       case 'Customer':
         user = await Customer.create({
@@ -133,9 +150,6 @@ export const register = async (req, reply) => {
           roles: [role],
         });
         break;
-
-      default:
-        return reply.status(400).send({ message: 'Invalid role specified' });
     }
 
     console.log(`New ${role} created with _id:`, user._id);
@@ -172,9 +186,9 @@ export const register = async (req, reply) => {
     console.error('Registration error:', err);
 
     // ROLLBACK: Delete user if created but error occurred (e.g. email failed)
-    if (user && user._id) {
+    if (user && user._id && Model) {
       console.log(`Rolling back creation of user ${user._id} due to error`);
-      await User.findByIdAndDelete(user._id);
+      await Model.findByIdAndDelete(user._id);
     }
 
     if (err.code === 11000) {
@@ -220,33 +234,41 @@ export const loginStoreManager = async (req, reply) => {
   console.log("StoreManager Login API is called");
   console.log(req.body);
 
-  const { email, password } = req.body;
+  const { email, phone, password } = req.body;
 
   try {
-    // 1. Validate input
-    if (!email || !password) {
+    // 1. Validate input - require either email OR phone, plus password
+    if ((!email && !phone) || !password) {
       return reply.status(400).send({
         success: false,
-        message: "Email and password are required",
+        message: "Email or phone number, and password are required",
       });
     }
 
-    // 2. Find user and ensure it's a StoreManager
-    const user = await User.findOne({ email }).select("+password");
+    // 2. Build query to find user by email OR phone
+    const query = {};
+    if (email) {
+      query.email = email;
+    } else if (phone) {
+      query.phone = phone;
+    }
+
+    // 3. Find user and ensure it's a StoreManager
+    const user = await StoreManager.findOne(query).select("+password");
     if (!user || !user.roles.includes("StoreManager")) {
       return reply
         .status(404)
         .send({ success: false, message: "Store manager not found" });
     }
 
-    // 3. Ensure email is verified
+    // 4. Ensure email is verified
     if (!user.isVerified) {
       return reply
         .status(403)
         .send({ success: false, message: "Please verify your email before logging in" });
     }
 
-    // 4. Validate password
+    // 5. Validate password
     const isMatch = await bcrypt.compare(password, user.password || "");
     if (!isMatch) {
       return reply
@@ -254,33 +276,48 @@ export const loginStoreManager = async (req, reply) => {
         .send({ success: false, message: "Invalid credentials" });
     }
 
-    // 5. Get store manager details
+    // 6. Get store manager details
     const storeManagerDoc = await StoreManager.findById(user._id);
 
-    // 6. Generate tokens
+    // 7. Generate tokens
     const { accessToken, refreshToken } = await generateTokens(user, storeManagerDoc?.storeId);
 
-    // 7. Hash refresh token and save
+    // 8. Hash refresh token and save
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
     user.refreshToken = hashedRefreshToken;
     await user.save();
 
-    // 8. Return success response
+    // 9. Return success response
+    // Build user object - only include onboarding arrays if onboarding is incomplete
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      roles: user.roles,
+      storeId: storeManagerDoc?.storeId,
+      hasSelectedCategories: storeManagerDoc?.hasSelectedCategories,
+      hasSelectedSubcategories: storeManagerDoc?.hasSelectedSubcategories,
+      hasSelectedProducts: storeManagerDoc?.hasSelectedProducts,
+      hasAddedProductPricing: storeManagerDoc?.hasAddedProductPricing,
+      additionalDetailsCompleted: storeManagerDoc?.additionalDetailsCompleted,
+    };
+
+    // Only include temporary onboarding arrays if onboarding is not complete
+    if (!storeManagerDoc?.additionalDetailsCompleted) {
+      userResponse.selectedCategoryIds = storeManagerDoc?.selectedCategoryIds;
+      userResponse.selectedSubcategoryIds = storeManagerDoc?.selectedSubcategoryIds;
+      userResponse.selectedProductIds = storeManagerDoc?.selectedProductIds;
+    }
+
     return reply.send({
       success: true,
       message: "Login successful",
       accessToken,
       refreshToken,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        roles: user.roles,
-        storeId: storeManagerDoc?.storeId,
-        hasSelectedCategories: storeManagerDoc?.hasSelectedCategories,
-        hasSelectedProducts: storeManagerDoc?.hasSelectedProducts,
-      },
-    });
+      user: userResponse,
+    },
+    );
   } catch (err) {
     console.error("Login error:", err);
     return reply
@@ -304,7 +341,7 @@ export const loginCustomer = async (req, reply) => {
     }
 
     // 2. Find user and check role
-    const user = await User.findOne({ phone });
+    const user = await Customer.findOne({ phone });
     if (!user || !user.roles.includes('Customer')) {
       return reply.status(404).send({ message: 'Customer not found or invalid credentials' });
     }
@@ -353,7 +390,7 @@ export const loginDeliveryPartner = async (req, reply) => {
     }
 
     // 2. Find user and check role
-    const user = await User.findOne({ email }).select('+password');
+    const user = await DeliveryPartner.findOne({ email }).select('+password');
 
     if (!user || !user.roles.includes('DeliveryPartner')) {
       return reply.status(404).send({ message: 'Delivery partner not found or invalid credentials' });
@@ -409,7 +446,18 @@ export const refreshToken = async (req, reply) => {
 
   try {
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    let user = await User.findById(decoded.id);
+    const role = decoded.roles && decoded.roles[0];
+
+    let Model;
+    switch (role) {
+      case 'Customer': Model = Customer; break;
+      case 'StoreManager': Model = StoreManager; break;
+      case 'DeliveryPartner': Model = DeliveryPartner; break;
+      case 'Admin': Model = Admin; break;
+      default: return reply.status(403).send({ message: 'Invalid role in token' });
+    }
+
+    let user = await Model.findById(decoded.id);
 
     if (!user) {
       return reply.status(403).send({ message: 'Invalid refresh token' });
@@ -422,7 +470,7 @@ export const refreshToken = async (req, reply) => {
     }
 
     // Check if the decoded roles match any of the user's roles
-    if (!user.roles.some(role => decoded.roles.includes(role))) {
+    if (!user.roles.some(r => decoded.roles.includes(r))) {
       return reply.status(403).send({ message: 'Invalid refresh token' });
     }
 

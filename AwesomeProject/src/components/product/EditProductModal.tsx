@@ -14,15 +14,15 @@ const { height } = Dimensions.get('window');
 
 export const EditProductModal = ({ isVisible, onClose, product, onSave }: EditProductModalProps) => {
   const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
-  const [mrp, setMrp] = useState('');
+  const [costPrice, setCostPrice] = useState('');
+  const [sellingPrice, setSellingPrice] = useState('');
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
     if (isVisible && product) {
       setName(product.name);
-      setPrice(product.price.toString());
-      setMrp(product.mrp.toString());
+      setCostPrice(product.costPrice?.toString() || '');
+      setSellingPrice(product.sellingPrice?.toString() || '');
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
@@ -36,19 +36,27 @@ export const EditProductModal = ({ isVisible, onClose, product, onSave }: EditPr
       }).start(() => {
         // Reset fields after animation
         setName('');
-        setPrice('');
-        setMrp('');
+        setCostPrice('');
+        setSellingPrice('');
       });
     }
   }, [isVisible, product, slideAnim]);
 
   const handleSave = () => {
-    if (name && price && mrp) {
+    if (name && costPrice && sellingPrice) {
+      const costPriceNum = parseFloat(costPrice);
+      const sellingPriceNum = parseFloat(sellingPrice);
+
+      if (sellingPriceNum < costPriceNum) {
+        Alert.alert('Validation Error', 'Selling price should be greater than or equal to cost price');
+        return;
+      }
+
       onSave({
         ...product,
         name,
-        price: parseFloat(price),
-        mrp: parseFloat(mrp),
+        costPrice: costPriceNum,
+        sellingPrice: sellingPriceNum,
       });
     }
   };
@@ -75,17 +83,17 @@ export const EditProductModal = ({ isVisible, onClose, product, onSave }: EditPr
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Price"
-                  value={price}
-                  onChangeText={setPrice}
+                  placeholder="Cost Price (₹)"
+                  value={costPrice}
+                  onChangeText={setCostPrice}
                   keyboardType="numeric"
                   placeholderTextColor={COLORS.text}
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="MRP"
-                  value={mrp}
-                  onChangeText={setMrp}
+                  placeholder="Selling Price (₹)"
+                  value={sellingPrice}
+                  onChangeText={setSellingPrice}
                   keyboardType="numeric"
                   placeholderTextColor={COLORS.text}
                 />

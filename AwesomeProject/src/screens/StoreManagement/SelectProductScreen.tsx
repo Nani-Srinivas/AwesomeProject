@@ -4,7 +4,7 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { MainStackParamList } from '../../navigation/types';
 import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
-import { Button } from '../../components/common/Button';
+import CustomButton from '../../components/ui/CustomButton';
 import { useUserStore } from '../../store/userStore';
 import { reset } from '../../navigation/NavigationRef';
 
@@ -22,23 +22,57 @@ interface Product {
 interface SelectedProduct {
   productId: string;
   categoryId: string;
+  name: string;
+  price: number;
 }
 
-export const SelectProductScreen = ({ route }: SelectProductScreenProps) => {
+
+
+export const SelectProductScreen = ({ route, navigation }: SelectProductScreenProps) => {
   console.log('SelectProductScreen: route object:', JSON.stringify(route, null, 2));
   console.log('SelectProductScreen: route.params:', JSON.stringify(route.params, null, 2));
 
   const { user } = useUserStore();
-  const selectedCategories = route.params?.selectedCategories || user.selectedCategoryIds || [];
+  const selectedCategories = route.params?.selectedCategories || user?.selectedCategoryIds || [];
+  const selectedSubcategories = route.params?.selectedSubcategories || [];
 
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  // Pre-selection logic
+  useEffect(() => {
+    if (products.length > 0 && route.params?.selectedProducts && Array.isArray(route.params.selectedProducts)) {
+      // Check if params are IDs (strings) or objects
+      const paramProducts = route.params.selectedProducts;
+      if (paramProducts.length > 0 && typeof paramProducts[0] === 'string') {
+        // IDs passed from AppNavigator/Backend
+        const preSelectedIds = paramProducts as unknown as string[];
+        const preSelectedObjects: SelectedProduct[] = [];
+
+        products.forEach(p => {
+          if (preSelectedIds.includes(p._id)) {
+            preSelectedObjects.push({
+              productId: p._id,
+              categoryId: p.categoryId,
+              name: p.name,
+              price: p.price
+            });
+          }
+        });
+
+        // Only set if we found matches and haven't manually selected yet (optional check)
+        if (preSelectedObjects.length > 0) {
+          setSelectedProducts(prev => prev.length === 0 ? preSelectedObjects : prev);
+        }
+      }
+    }
+  }, [products, route.params?.selectedProducts]);
+
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategories]);
+  }, [selectedCategories, selectedSubcategories]);
 
   const fetchProducts = async () => {
     try {
@@ -52,14 +86,26 @@ export const SelectProductScreen = ({ route }: SelectProductScreenProps) => {
       if (response.data && response.data.success && Array.isArray(response.data.data)) {
         // Flatten all products across categories
         const allProducts = response.data.data.flatMap((cat: any) => {
-          console.log('Processing category object:', JSON.stringify(cat, null, 2));
-          console.log('cat.products:', JSON.stringify(cat.products, null, 2));
-          // Ensure cat.products is an array before mapping
           if (!cat.products || !Array.isArray(cat.products)) {
-            console.warn('Category object missing or invalid products array:', cat);
-            return []; // Skip this category if products is missing or invalid
+            return [];
           }
-          return cat.products.map((p: any) => ({
+
+          // Find selected subcategories belonging to THIS category
+          const categorySubIds = cat.subcategories ? cat.subcategories.map((s: any) => s._id) : [];
+          const selectedInThisCategory = selectedSubcategories.filter((id: string) => categorySubIds.includes(id));
+
+          // Filter products by subcategory ONLY if subcategories are selected for THIS category
+          const filteredProducts = selectedInThisCategory.length > 0
+            ? cat.products.filter((p: any) => {
+              const hasSubcategory = !!p.subcategory;
+              const subId = p.subcategory?._id || p.subcategory;
+              const isMatch = hasSubcategory && selectedInThisCategory.includes(subId);
+
+              return isMatch;
+            })
+            : cat.products;
+
+          return filteredProducts.map((p: any) => ({
             _id: p._id,
             name: p.name,
             price: p.basePrice,
@@ -80,7 +126,7 @@ export const SelectProductScreen = ({ route }: SelectProductScreenProps) => {
     }
   };
 
-  const toggleProductSelection = (productId: string, categoryId: string) => {
+  const toggleProductSelection = (productId: string, categoryId: string, name: string, price: number) => {
     setSelectedProducts((prevSelected) => {
       const isSelected = prevSelected.some(
         (p) => p.productId === productId && p.categoryId === categoryId
@@ -90,44 +136,34 @@ export const SelectProductScreen = ({ route }: SelectProductScreenProps) => {
           (p) => !(p.productId === productId && p.categoryId === categoryId)
         );
       } else {
-        return [...prevSelected, { productId, categoryId }];
+        return [...prevSelected, { productId, categoryId, name, price }];
       }
     });
   };
 
-  const handleImportCatalog = async () => {
+  const handleNext = async () => {
     if (selectedProducts.length === 0) {
       Alert.alert('Selection Required', 'Please select at least one product.');
       return;
     }
 
-    setSubmitting(true);
     try {
-      // Transform the selectedProducts state into an array of product IDs
-      const selectedMasterProductIds = selectedProducts.map(p => p.productId);
-
-      // Get the category IDs from the route params
-      const selectedMasterCategoryIds = selectedCategories;
-
-      console.log('Submitting to /import-catalog with payload:', {
-        selectedMasterCategoryIds,
-        selectedMasterProductIds,
+      setSubmitting(true);
+      // Save selected product IDs to backend
+      const selectedIds = selectedProducts.map(p => p.productId);
+      await apiService.post('/store/onboarding/update-selected-products', {
+        products: selectedIds
       });
 
-      const response = await apiService.post('/store/onboarding/import-catalog', {
-        selectedMasterCategoryIds,
-        selectedMasterProductIds,
+      navigation.navigate('PricingConfig', {
+        selectedCategories,
+        selectedProducts
       });
-
-      if (response.data && response.data.success) {
-        Alert.alert('Success', response.data.message);
-        reset('Home');
-      } else {
-        Alert.alert('Error', response.data?.message || 'Failed to import catalog.');
-      }
-    } catch (error: any) {
-      console.error('Import catalog error:', error.response?.data || error.message);
-      Alert.alert('Error', error.response?.data?.message || 'An error occurred during catalog import.');
+    } catch (error) {
+      console.error('Error saving products:', error);
+      // Optional: Allow proceeding even if save fails? Or block?
+      // For now, alert but allow proceeding if they want (or maybe better to block to ensure consistency)
+      Alert.alert('Error', 'Failed to save selection. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -154,7 +190,7 @@ export const SelectProductScreen = ({ route }: SelectProductScreenProps) => {
               styles.productItem,
               selectedProducts.some((p) => p.productId === item._id) && styles.selectedProductItem,
             ]}
-            onPress={() => toggleProductSelection(item._id, item.categoryId)}
+            onPress={() => toggleProductSelection(item._id, item.categoryId, item.name, item.price)}
           >
             {item.image && (
               <Image source={{ uri: item.image }} style={styles.productImage} />
@@ -170,10 +206,11 @@ export const SelectProductScreen = ({ route }: SelectProductScreenProps) => {
           </TouchableOpacity>
         )}
       />
-      <Button
-        title="Import Catalog"
-        onPress={handleImportCatalog}
-        disabled={submitting || selectedProducts.length === 0}
+      <CustomButton
+        title="Next: Configure Pricing"
+        onPress={handleNext}
+        disabled={selectedProducts.length === 0}
+        loading={submitting}
       />
     </View>
   );

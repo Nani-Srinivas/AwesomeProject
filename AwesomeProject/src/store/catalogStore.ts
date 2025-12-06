@@ -1,27 +1,40 @@
 
-import {create} from 'zustand';
-import {Category, Product} from '../types/catalog';
-import {storeCatalogService} from '../services/storeCatalogService';
+import { create } from 'zustand';
+import { Category, Product } from '../types/catalog';
+import { storeCatalogService } from '../services/storeCatalogService';
+
+interface Subcategory {
+  _id: string;
+  name: string;
+  storeCategoryId: string;
+}
 
 interface CatalogState {
   categories: Category[];
+  subcategories: Subcategory[];
   products: Product[];
   selectedCategory: string;
+  selectedSubcategory: string;
   loading: boolean;
   error: string | null;
   fetchCategories: () => Promise<void>;
+  fetchSubcategories: () => Promise<void>;
   fetchProducts: () => Promise<void>;
   setSelectedCategory: (category: string) => void;
+  setSelectedSubcategory: (subcategory: string) => void;
+  updateProduct: (productId: string, updates: Partial<Product>) => void;
 }
 
-export const useCatalogStore = create<CatalogState>(set => ({
+export const useCatalogStore = create<CatalogState>((set, get) => ({
   categories: [],
+  subcategories: [],
   products: [],
   selectedCategory: 'All',
+  selectedSubcategory: 'All',
   loading: false,
   error: null,
   fetchCategories: async () => {
-    set({loading: true, error: null});
+    set({ loading: true, error: null });
     try {
       const fetchedCategories: Category[] = await storeCatalogService.getCategories();
       // Add 'All' category with dummy values for new required fields
@@ -34,28 +47,55 @@ export const useCatalogStore = create<CatalogState>(set => ({
         createdByModel: '', // Dummy value
         isActive: true, // Dummy value
       };
-      set({categories: [allCategory, ...fetchedCategories], loading: false});
+      set({ categories: [allCategory, ...fetchedCategories], loading: false });
     } catch (error) {
-      set({error: 'Failed to fetch categories', loading: false});
+      set({ error: 'Failed to fetch categories', loading: false });
+    }
+  },
+  fetchSubcategories: async () => {
+    try {
+      const fetchedSubcategories: Subcategory[] = await storeCatalogService.getSubcategories();
+      set({ subcategories: fetchedSubcategories });
+    } catch (error) {
+      console.error('Failed to fetch subcategories:', error);
     }
   },
   fetchProducts: async () => {
-    set({loading: true, error: null});
+    set({ loading: true, error: null });
     try {
       const fetchedProducts: Product[] = await storeCatalogService.getProducts();
       const productsWithCategory: Product[] = fetchedProducts.map(product => ({
         ...product,
         category: product.storeCategoryId.name, // Map storeCategoryId.name to category
-        tag: 'Dummy Tag', // Dummy value
-        weight: 'Dummy Weight', // Dummy value
-        time: 'Dummy Time', // Dummy value
-        discount: 'Dummy Discount', // Dummy value
+        tag: 'Fresh', // Dummy value
+        weight: '1 kg', // Dummy value
+        time: '15 MINS', // Dummy value
+        discount: '10% OFF', // Dummy value
         mrp: product.price + 10, // Dummy value based on price
       }));
-      set({products: productsWithCategory, loading: false});
+      set({ products: productsWithCategory, loading: false });
     } catch (error) {
-      set({error: 'Failed to fetch products', loading: false});
+      set({ error: 'Failed to fetch products', loading: false });
     }
   },
-  setSelectedCategory: category => set({selectedCategory: category}),
+  setSelectedCategory: category => {
+    set({ selectedCategory: category, selectedSubcategory: 'All' });
+  },
+  setSelectedSubcategory: subcategory => set({ selectedSubcategory: subcategory }),
+  updateProduct: async (productId, updates) => {
+    try {
+      // Update backend
+      await storeCatalogService.updateProduct(productId, updates);
+
+      // Update local state on success
+      set(state => ({
+        products: state.products.map(p =>
+          p._id === productId ? { ...p, ...updates } : p
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to update product:', error);
+      set({ error: 'Failed to update product' });
+    }
+  },
 }));

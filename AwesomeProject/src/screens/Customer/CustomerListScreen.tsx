@@ -6,6 +6,7 @@ import { EditCustomerModal } from '../../components/customer/EditCustomerModal';
 import { AddCustomerModal } from '../../components/customer/AddCustomerModal';
 import { apiService } from '../../services/apiService';
 import { debounce } from 'lodash';
+import { EmptyState } from '../../components/common/EmptyState';
 
 const getStatusStyle = (status: string) => {
   switch (status) {
@@ -291,6 +292,15 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         contentContainerStyle={{ paddingBottom: 80 }} // Increased padding for FAB
         onRefresh={fetchCustomers}
         refreshing={isLoading}
+        ListEmptyComponent={
+          <EmptyState
+            icon="👥"
+            title="No Customers Yet"
+            description="You haven't added any customers yet. Customers are people who subscribe to regular product deliveries. Add your first customer to get started!"
+            actionLabel="Add Your First Customer"
+            onAction={() => setAddModalVisible(true)}
+          />
+        }
       />
       {editingCustomer && (
         <EditCustomerModal

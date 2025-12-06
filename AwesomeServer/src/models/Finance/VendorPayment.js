@@ -30,7 +30,7 @@ const VendorPaymentSchema = new Schema({
   },
   createdBy: {
     type: Schema.Types.ObjectId,
-    ref: 'User', // or StoreManager depending on your user model
+    ref: 'StoreManager',
     required: true
   },
   appliedToReceipts: [{
