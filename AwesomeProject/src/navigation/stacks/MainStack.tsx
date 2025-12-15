@@ -90,7 +90,7 @@ export const MainStack = () => {
 
       {/* ===== DISCONNECTED SCREENS (COMMENTED OUT) ===== */}
       {/* <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} /> */}
-      {/* <Stack.Screen name="Details" component={DetailsScreen} /> */}
+      <Stack.Screen name="Details" component={DetailsScreen} />
       {/* <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} /> */}
       {/* <Stack.Screen name="SideMenu" component={SideMenu} options={{ headerShown: false }} /> */}
       {/* <Stack.Screen name="PayableTemp" component={PayableTempScreen} options={{ title: 'Payable Temp' }} /> */}

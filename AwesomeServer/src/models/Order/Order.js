@@ -45,7 +45,7 @@ const OrderSchema = new Schema({
   businessDate: {
     type: String,
     required: true,
-    index: true,
+    // No inline index - can add schema.index() if needed for queries
     match: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD format
   }
 }, { timestamps: true });

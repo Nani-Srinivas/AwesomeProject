@@ -17,7 +17,8 @@ export const sessionStore = new MongoDBStore({
 })
 
 sessionStore.on('error', (error) => {
-    console.log("Session store error", error)
+    console.log("⚠️  Session store error (non-critical):", error.message)
+    // Don't crash the server - AdminJS sessions are optional for API functionality
 })
 
 export const authenticate = async (email, password) => {
@@ -27,7 +28,7 @@ export const authenticate = async (email, password) => {
     // if (email && password) {
     //     if (email == 'nanisrinivas@gmail.com' && password === "test@123") {
     //         console.log("Hardcoded admin credentials matched.");
-    //         return Promise.resolve({ email: email, password: password, role: 'Admin' });
+    //         return Promise.resolve({ email: email, password: password, role: 'Admin', _id: '5f8d0d55b54764421b7156d9', roles: ['Admin'] });
     //     } else {
     //         console.log("Hardcoded credentials did not match.");
     //     }
@@ -51,8 +52,6 @@ export const authenticate = async (email, password) => {
             console.log("Admin password did not match.");
         }
     }
-    /*
-    */
 
     console.log("Authentication failed.");
     return null;

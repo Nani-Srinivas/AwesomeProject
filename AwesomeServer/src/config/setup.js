@@ -84,11 +84,30 @@ export const admin = new AdminJS({
           roles: {
             availableValues: [{ value: 'Admin', label: 'Admin' }],
           },
+          email: { isVisible: true },
+          password: {
+            type: 'password',
+            isVisible: {
+              list: false,
+              edit: true,
+              filter: false,
+              show: false,
+            },
+          },
+          refreshToken: {
+            isVisible: {
+              list: false,
+              edit: false,
+              filter: false,
+              show: true,
+            },
+          },
         },
         listProperties: ["name", "email", "role", "createdAt"],
         filterProperties: ["name", "email", "role"],
-        editProperties: ['name', 'email', 'phone', 'roles'],
+        editProperties: ['name', 'email', 'phone', 'password', 'roles'],
         newProperties: ['name', 'email', 'phone', 'password', 'roles'],
+        showProperties: ['name', 'email', 'phone', 'roles', 'refreshToken', 'createdAt', 'updatedAt'],
       },
     },
     {
@@ -282,12 +301,15 @@ export const buildAdminRouter = async (app) => {
     },
     app,
     {
-      store: sessionStore,
+      // Using in-memory sessions (works without MongoDB)
+      // Sessions will be lost on server restart but that's OK for MVP
       saveUninitialized: true,
       secret: COOKIE_PASSWORD,
       cookie: {
-        httpOnly: process.env.NODE_ENV === "production",
-        secure: process.env.NODE_ENV === "production",
+        // httpOnly: process.env.NODE_ENV === "production",
+        // secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+        secure: false,
       },
     }
   )

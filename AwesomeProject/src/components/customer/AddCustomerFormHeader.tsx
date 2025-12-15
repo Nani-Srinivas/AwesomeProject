@@ -64,31 +64,10 @@ export const AddCustomerFormHeader = React.memo(({
         <Text>Subscribed</Text>
         <Switch value={isSubscribed} onValueChange={setIsSubscribed} />
       </View>
-      
+
       <Button title="Manage Required Products" onPress={() => setProductSelectorVisible(true)} />
 
-      <Text style={styles.listHeader}>Required Products</Text>
-      <View style={styles.productListContainer}>
-        <FlatList
-          data={requiredProducts}
-          keyExtractor={item => item.product._id}
-          renderItem={({ item, index }) => (
-            <View style={styles.productItem}>
-              <Text style={styles.productName}>{item.product.name}</Text>
-              <TextInput
-                style={styles.quantityInput}
-                value={String(item.quantity)}
-                onChangeText={(text) => handleQuantityChange(text, index)}
-                keyboardType="numeric"
-              />
-              <TouchableOpacity onPress={() => handleRemoveProduct(index)}>
-                <Feather name="x-circle" size={22} color={COLORS.danger} />
-              </TouchableOpacity>
-            </View>
-          )}
-          ListEmptyComponent={<Text style={styles.emptyListText}>No products selected.</Text>}
-        />
-      </View>
+
     </View>
   );
 });
@@ -134,47 +113,5 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 5,
   },
-  listHeader: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 10,
-    color: COLORS.text,
-    alignSelf: 'flex-start',
-  },
-  productListContainer: {
-    width: '100%',
-    minHeight: 50, // Ensure it has some height even if empty
-    maxHeight: 150, // Adjust as needed
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: COLORS.lightGrey,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  productItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGrey,
-  },
-  productName: {
-    flex: 1,
-  },
-  quantityInput: {
-    width: 50,
-    textAlign: 'center',
-    borderColor: COLORS.grey,
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingVertical: 5,
-    marginHorizontal: 10,
-  },
-  emptyListText: {
-    textAlign: 'center',
-    padding: 20,
-    color: COLORS.grey,
-  },
+
 });

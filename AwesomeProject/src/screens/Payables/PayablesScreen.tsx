@@ -13,6 +13,14 @@ type PayablesScreenNavigationProp = NativeStackNavigationProp<MainStackParamList
 interface ExtendedVendor extends Vendor {
   paymentStatus: 'paid' | 'partial' | 'pending';
   payableAmount: number;
+  currentDateStatus: 'paid' | 'partial' | 'pending' | 'no_entry';
+  pendingHistory: Array<{
+    _id: string;
+    date: string;
+    amount: number;
+    status: 'partial' | 'pending';
+    receiptNumber?: string;
+  }>;
 }
 
 const PayablesScreen = ({ route }: any) => {
@@ -30,11 +38,6 @@ const PayablesScreen = ({ route }: any) => {
   const [newVendor, setNewVendor] = useState({
     name: '',
     phone: '',
-    email: '',
-    address: { street: '', city: '', state: '', zip: '', country: '' },
-    contactPerson: { name: '', phone: '', email: '' },
-    paymentTerms: '',
-    notes: '',
   });
   const [storeCategories, setStoreCategories] = useState<any[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -71,8 +74,33 @@ const PayablesScreen = ({ route }: any) => {
       const receiptsResponse = await apiService.get('/inventory/receipts');
       const receipts = receiptsResponse.data.data || [];
 
+      // Fetch categories to ensure names are available (frontend fallback)
+      const categoriesResponse = await apiService.get('/product/store-categories');
+      const allCategories = categoriesResponse.data.data || [];
+      const categoryMap = new Map(allCategories.map((c: any) => [c._id, c.name]));
+
+      // Get today's date string for comparison
+      const todayStr = new Date().toISOString().split('T')[0];
+
       // Calculate payable amounts for each vendor
       const extendedVendors: ExtendedVendor[] = vendorsData.map(vendor => {
+        // Enrich assignedCategories
+        const enrichedCategories = (vendor.assignedCategories || []).map((cat: any) => {
+          let catId: string = '';
+          let catName: string = '';
+
+          if (typeof cat === 'string') {
+            catId = cat;
+          } else if (cat && typeof cat === 'object') {
+            catId = cat._id || '';
+            catName = cat.name || '';
+          }
+
+          if (catName) return { _id: catId, name: catName };
+          if (catId && categoryMap.has(catId)) return { _id: catId, name: categoryMap.get(catId) };
+          return { _id: catId, name: 'Unknown' };
+        });
+
         // Get receipts for this vendor
         const vendorReceipts = receipts.filter(
           (receipt: any) => receipt.vendorId._id === vendor._id
@@ -91,18 +119,71 @@ const PayablesScreen = ({ route }: any) => {
 
         const payableAmount = totalAmount - paidAmount;
 
-        // Determine payment status
-        let paymentStatus: 'paid' | 'partial' | 'pending' = 'paid';
-        if (payableAmount > 0 && paidAmount > 0) {
-          paymentStatus = 'partial';
-        } else if (payableAmount > 0) {
-          paymentStatus = 'pending';
+        // --- NEW LOGIC START ---
+        let currentDateStatus: 'paid' | 'partial' | 'pending' | 'no_entry' = 'no_entry';
+        const pendingHistory: ExtendedVendor['pendingHistory'] = [];
+
+        // Check for today's receipts
+        const todayReceipts = vendorReceipts.filter((r: any) => {
+          const receiptDate = new Date(r.receivedDate).toISOString().split('T')[0];
+          return receiptDate === todayStr;
+        });
+
+        if (todayReceipts.length > 0) {
+          // If any receipt today is pending/partial, status is pending/partial
+          const hasPending = todayReceipts.some((r: any) => r.paymentStatus === 'pending');
+          const hasPartial = todayReceipts.some((r: any) => r.paymentStatus === 'partial');
+
+          if (hasPending) currentDateStatus = 'pending';
+          else if (hasPartial) currentDateStatus = 'partial';
+          else currentDateStatus = 'paid';
+        }
+
+        // Calculate History
+        vendorReceipts.forEach((r: any) => {
+          const receiptDate = new Date(r.receivedDate).toISOString().split('T')[0];
+          // If not today AND not fully paid
+          if (receiptDate !== todayStr && r.paymentStatus !== 'paid') {
+            const due = (r.totalAmount || 0) - (r.amountPaid || 0);
+            if (due > 0) {
+              pendingHistory.push({
+                _id: r._id,
+                date: receiptDate,
+                amount: due,
+                status: r.paymentStatus,
+                receiptNumber: r.receiptNumber
+              });
+            }
+          }
+        });
+
+        // Sort history by date desc
+        pendingHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        // Determine main paymentStatus (used for card badge - strictly current date preference)
+        // User request: "main card payment status need to be according to the current date"
+        // If 'no_entry', we can fallback to 'paid' (visually empty) or handle specifically.
+        // Let's use 'currentDateStatus' logic mapping directly.
+        let displayStatus: 'paid' | 'partial' | 'pending' = 'paid';
+        if (currentDateStatus === 'pending') displayStatus = 'pending';
+        else if (currentDateStatus === 'partial') displayStatus = 'partial';
+        else if (currentDateStatus === 'paid') displayStatus = 'paid';
+        else {
+          // no_entry today. Default to 'paid' green or maybe 'no_entry' distinct logic?
+          // The user says: "if there is old payment pending i see the current status also pending,
+          // what i want to see is if there is any old payment not paid i need to see the date and payment status...
+          // but for the main card payment status need to be according to the current date"
+          // Implication: If no activity today, it shouldn't show Pending.
+          displayStatus = 'paid'; // Default "safe" state
         }
 
         return {
           ...vendor,
+          assignedCategories: enrichedCategories,
           payableAmount,
-          paymentStatus,
+          paymentStatus: displayStatus,
+          currentDateStatus,
+          pendingHistory
         };
       });
 
@@ -151,11 +232,6 @@ const PayablesScreen = ({ route }: any) => {
         setNewVendor({
           name: '',
           phone: '',
-          email: '',
-          address: { street: '', city: '', state: '', zip: '', country: '' },
-          contactPerson: { name: '', phone: '', email: '' },
-          paymentTerms: '',
-          notes: '',
         });
         setSelectedCategories([]);
       }
@@ -238,11 +314,6 @@ const PayablesScreen = ({ route }: any) => {
     setNewVendor({
       name: vendor.name,
       phone: vendor.phone,
-      email: vendor.email || '',
-      address: vendor.address || { street: '', city: '', state: '', zip: '', country: '' },
-      contactPerson: vendor.contactPerson || { name: '', phone: '', email: '' },
-      paymentTerms: vendor.paymentTerms || '',
-      notes: vendor.notes || '',
     });
     setEditingVendor(vendor);
     setAddVendorModalVisible(false); // Close add modal if open
@@ -251,7 +322,7 @@ const PayablesScreen = ({ route }: any) => {
 
   const handleToggleVendorStatus = async (vendor: ExtendedVendor) => {
     // Ask user for confirmation
-    const newStatus = vendor.status === 'active' ? 'inactive' : 'active';
+    const newStatus: 'active' | 'inactive' = vendor.status === 'active' ? 'inactive' : 'active';
     const action = vendor.status === 'active' ? 'deactivate' : 'activate';
 
     Alert.alert(
@@ -272,7 +343,7 @@ const PayablesScreen = ({ route }: any) => {
 
               if (response.data.success) {
                 // Update the vendor in the list
-                const updatedVendor = {
+                const updatedVendor: ExtendedVendor = {
                   ...vendor,
                   status: newStatus
                 };
@@ -333,7 +404,10 @@ const PayablesScreen = ({ route }: any) => {
 
     try {
       setIsSaving(true);
-      const response = await apiService.put(`/vendors/${editingVendor._id}`, newVendor);
+      const response = await apiService.put(`/vendors/${editingVendor._id}`, {
+        name: newVendor.name,
+        phone: newVendor.phone,
+      });
 
       if (response.data.success) {
         // Update the vendor in the list
@@ -372,9 +446,9 @@ const PayablesScreen = ({ route }: any) => {
     try {
       setIsSaving(true);
 
-      // Include the selected categories in the vendor creation request
       const vendorData = {
-        ...newVendor,
+        name: newVendor.name,
+        phone: newVendor.phone,
         assignedCategories: selectedCategories
       };
 
@@ -448,214 +522,80 @@ const PayablesScreen = ({ route }: any) => {
     >
       <TouchableWithoutFeedback onPress={() => setAddVendorModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <Animated.View style={[styles.modalContainer, { transform: [{ translateY: slideAnim }] }]}>
-            <Text style={styles.modalTitle}>Add New Vendor</Text>
-            <ScrollView style={styles.formContainer}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Vendor Name *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.name}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, name: text })}
-                  placeholder="Enter vendor name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Phone *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.phone}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, phone: text })}
-                  placeholder="Enter phone number"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.email}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, email: text })}
-                  placeholder="Enter email"
-                  keyboardType="email-address"
-                />
-              </View>
-
-              <Text style={styles.sectionTitle}>Address</Text>
-              <View style={styles.inputGroup}>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.address.street}
-                  onChangeText={(text) => setNewVendor({
-                    ...newVendor,
-                    address: { ...newVendor.address, street: text }
-                  })}
-                  placeholder="Street"
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={styles.halfInput}>
+          <TouchableWithoutFeedback onPress={() => { }}>
+            <Animated.View style={[styles.modalContainer, { transform: [{ translateY: slideAnim }] }]}>
+              <Text style={styles.modalTitle}>Add New Vendor</Text>
+              <ScrollView style={styles.formContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Vendor Name *</Text>
                   <TextInput
                     style={styles.input}
-                    value={newVendor.address.city}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      address: { ...newVendor.address, city: text }
-                    })}
-                    placeholder="City"
+                    value={newVendor.name}
+                    onChangeText={(text) => setNewVendor({ ...newVendor, name: text })}
+                    placeholder="Enter vendor name"
                   />
                 </View>
-                <View style={styles.halfInput}>
-                  <TextInput
-                    style={styles.input}
-                    value={newVendor.address.state}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      address: { ...newVendor.address, state: text }
-                    })}
-                    placeholder="State"
-                  />
-                </View>
-              </View>
 
-              <View style={styles.row}>
-                <View style={styles.halfInput}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Phone *</Text>
                   <TextInput
                     style={styles.input}
-                    value={newVendor.address.zip}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      address: { ...newVendor.address, zip: text }
-                    })}
-                    placeholder="ZIP Code"
-                  />
-                </View>
-                <View style={styles.halfInput}>
-                  <TextInput
-                    style={styles.input}
-                    value={newVendor.address.country}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      address: { ...newVendor.address, country: text }
-                    })}
-                    placeholder="Country"
-                  />
-                </View>
-              </View>
-
-              <Text style={styles.sectionTitle}>Contact Person</Text>
-              <View style={styles.inputGroup}>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.contactPerson.name}
-                  onChangeText={(text) => setNewVendor({
-                    ...newVendor,
-                    contactPerson: { ...newVendor.contactPerson, name: text }
-                  })}
-                  placeholder="Contact person name"
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={styles.halfInput}>
-                  <TextInput
-                    style={styles.input}
-                    value={newVendor.contactPerson.phone}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      contactPerson: { ...newVendor.contactPerson, phone: text }
-                    })}
-                    placeholder="Contact phone"
+                    value={newVendor.phone}
+                    onChangeText={(text) => setNewVendor({ ...newVendor, phone: text })}
+                    placeholder="Enter phone number"
                     keyboardType="phone-pad"
                   />
                 </View>
-                <View style={styles.halfInput}>
-                  <TextInput
-                    style={styles.input}
-                    value={newVendor.contactPerson.email}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      contactPerson: { ...newVendor.contactPerson, email: text }
-                    })}
-                    placeholder="Contact email"
-                    keyboardType="email-address"
-                  />
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Assign to Store Categories</Text>
+                  <Text style={styles.helperText}>Select the categories this delivery agent will supply</Text>
+                  {storeCategories.length > 0 ? (
+                    storeCategories.map((category) => (
+                      <TouchableOpacity
+                        key={category._id}
+                        style={[
+                          styles.categoryOption,
+                          selectedCategories.includes(category._id) && styles.categoryOptionSelected
+                        ]}
+                        onPress={() => toggleCategorySelection(category._id)}
+                      >
+                        <Text style={[
+                          styles.categoryText,
+                          selectedCategories.includes(category._id) && styles.categoryTextSelected
+                        ]}>
+                          {category.name}
+                        </Text>
+                        {selectedCategories.includes(category._id) && (
+                          <Feather name="check" size={18} color={COLORS.white} />
+                        )}
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={styles.noCategoriesText}>No store categories found</Text>
+                  )}
                 </View>
-              </View>
+              </ScrollView>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Payment Terms</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.paymentTerms}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, paymentTerms: text })}
-                  placeholder="Payment terms (e.g. Net 30, Cash on Delivery)"
-                />
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={() => setAddVendorModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.saveButton]}
+                  onPress={handleSaveVendor}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {isSaving ? 'Saving...' : 'Save Vendor'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Notes</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={newVendor.notes}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, notes: text })}
-                  placeholder="Additional notes"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Assign to Store Categories</Text>
-                <Text style={styles.helperText}>Select the categories this delivery agent will supply</Text>
-                {storeCategories.length > 0 ? (
-                  storeCategories.map((category) => (
-                    <TouchableOpacity
-                      key={category._id}
-                      style={[
-                        styles.categoryOption,
-                        selectedCategories.includes(category._id) && styles.categoryOptionSelected
-                      ]}
-                      onPress={() => toggleCategorySelection(category._id)}
-                    >
-                      <Text style={[
-                        styles.categoryText,
-                        selectedCategories.includes(category._id) && styles.categoryTextSelected
-                      ]}>
-                        {category.name}
-                      </Text>
-                      {selectedCategories.includes(category._id) && (
-                        <Feather name="check" size={18} color={COLORS.white} />
-                      )}
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <Text style={styles.noCategoriesText}>No store categories found</Text>
-                )}
-              </View>
-            </ScrollView>
-
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={() => setAddVendorModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.saveButton]}
-                onPress={handleSaveVendor}
-                disabled={isSaving}
-              >
-                <Text style={styles.saveButtonText}>
-                  {isSaving ? 'Saving...' : 'Save Vendor'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+            </Animated.View>
+          </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
     </Modal>
@@ -670,214 +610,80 @@ const PayablesScreen = ({ route }: any) => {
     >
       <TouchableWithoutFeedback onPress={() => setEditVendorModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <Animated.View style={[styles.modalContainer, { transform: [{ translateY: slideAnim }] }]}>
-            <Text style={styles.modalTitle}>Edit Vendor</Text>
-            <ScrollView style={styles.formContainer}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Vendor Name *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.name}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, name: text })}
-                  placeholder="Enter vendor name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Phone *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.phone}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, phone: text })}
-                  placeholder="Enter phone number"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.email}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, email: text })}
-                  placeholder="Enter email"
-                  keyboardType="email-address"
-                />
-              </View>
-
-              <Text style={styles.sectionTitle}>Address</Text>
-              <View style={styles.inputGroup}>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.address.street}
-                  onChangeText={(text) => setNewVendor({
-                    ...newVendor,
-                    address: { ...newVendor.address, street: text }
-                  })}
-                  placeholder="Street"
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={styles.halfInput}>
+          <TouchableWithoutFeedback onPress={() => { }}>
+            <Animated.View style={[styles.modalContainer, { transform: [{ translateY: slideAnim }] }]}>
+              <Text style={styles.modalTitle}>Edit Vendor</Text>
+              <ScrollView style={styles.formContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Vendor Name *</Text>
                   <TextInput
                     style={styles.input}
-                    value={newVendor.address.city}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      address: { ...newVendor.address, city: text }
-                    })}
-                    placeholder="City"
+                    value={newVendor.name}
+                    onChangeText={(text) => setNewVendor({ ...newVendor, name: text })}
+                    placeholder="Enter vendor name"
                   />
                 </View>
-                <View style={styles.halfInput}>
-                  <TextInput
-                    style={styles.input}
-                    value={newVendor.address.state}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      address: { ...newVendor.address, state: text }
-                    })}
-                    placeholder="State"
-                  />
-                </View>
-              </View>
 
-              <View style={styles.row}>
-                <View style={styles.halfInput}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Phone *</Text>
                   <TextInput
                     style={styles.input}
-                    value={newVendor.address.zip}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      address: { ...newVendor.address, zip: text }
-                    })}
-                    placeholder="ZIP Code"
-                  />
-                </View>
-                <View style={styles.halfInput}>
-                  <TextInput
-                    style={styles.input}
-                    value={newVendor.address.country}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      address: { ...newVendor.address, country: text }
-                    })}
-                    placeholder="Country"
-                  />
-                </View>
-              </View>
-
-              <Text style={styles.sectionTitle}>Contact Person</Text>
-              <View style={styles.inputGroup}>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.contactPerson.name}
-                  onChangeText={(text) => setNewVendor({
-                    ...newVendor,
-                    contactPerson: { ...newVendor.contactPerson, name: text }
-                  })}
-                  placeholder="Contact person name"
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={styles.halfInput}>
-                  <TextInput
-                    style={styles.input}
-                    value={newVendor.contactPerson.phone}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      contactPerson: { ...newVendor.contactPerson, phone: text }
-                    })}
-                    placeholder="Contact phone"
+                    value={newVendor.phone}
+                    onChangeText={(text) => setNewVendor({ ...newVendor, phone: text })}
+                    placeholder="Enter phone number"
                     keyboardType="phone-pad"
                   />
                 </View>
-                <View style={styles.halfInput}>
-                  <TextInput
-                    style={styles.input}
-                    value={newVendor.contactPerson.email}
-                    onChangeText={(text) => setNewVendor({
-                      ...newVendor,
-                      contactPerson: { ...newVendor.contactPerson, email: text }
-                    })}
-                    placeholder="Contact email"
-                    keyboardType="email-address"
-                  />
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Assign to Store Categories</Text>
+                  <Text style={styles.helperText}>Select the categories this delivery agent will supply</Text>
+                  {storeCategories.length > 0 ? (
+                    storeCategories.map((category) => (
+                      <TouchableOpacity
+                        key={category._id}
+                        style={[
+                          styles.categoryOption,
+                          selectedCategories.includes(category._id) && styles.categoryOptionSelected
+                        ]}
+                        onPress={() => toggleCategorySelection(category._id)}
+                      >
+                        <Text style={[
+                          styles.categoryText,
+                          selectedCategories.includes(category._id) && styles.categoryTextSelected
+                        ]}>
+                          {category.name}
+                        </Text>
+                        {selectedCategories.includes(category._id) && (
+                          <Feather name="check" size={18} color={COLORS.white} />
+                        )}
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={styles.noCategoriesText}>No store categories found</Text>
+                  )}
                 </View>
-              </View>
+              </ScrollView>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Payment Terms</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVendor.paymentTerms}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, paymentTerms: text })}
-                  placeholder="Payment terms (e.g. Net 30, Cash on Delivery)"
-                />
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={() => setEditVendorModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.saveButton]}
+                  onPress={handleEditSave}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {isSaving ? 'Saving...' : 'Update Vendor'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Notes</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={newVendor.notes}
-                  onChangeText={(text) => setNewVendor({ ...newVendor, notes: text })}
-                  placeholder="Additional notes"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Assign to Store Categories</Text>
-                <Text style={styles.helperText}>Select the categories this delivery agent will supply</Text>
-                {storeCategories.length > 0 ? (
-                  storeCategories.map((category) => (
-                    <TouchableOpacity
-                      key={category._id}
-                      style={[
-                        styles.categoryOption,
-                        selectedCategories.includes(category._id) && styles.categoryOptionSelected
-                      ]}
-                      onPress={() => toggleCategorySelection(category._id)}
-                    >
-                      <Text style={[
-                        styles.categoryText,
-                        selectedCategories.includes(category._id) && styles.categoryTextSelected
-                      ]}>
-                        {category.name}
-                      </Text>
-                      {selectedCategories.includes(category._id) && (
-                        <Feather name="check" size={18} color={COLORS.white} />
-                      )}
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <Text style={styles.noCategoriesText}>No store categories found</Text>
-                )}
-              </View>
-            </ScrollView>
-
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={() => setEditVendorModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.saveButton]}
-                onPress={handleEditSave}
-                disabled={isSaving}
-              >
-                <Text style={styles.saveButtonText}>
-                  {isSaving ? 'Saving...' : 'Update Vendor'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+            </Animated.View>
+          </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
     </Modal>
@@ -898,34 +704,80 @@ const PayablesScreen = ({ route }: any) => {
 
   const VendorCard = ({ vendor, onPress }: { vendor: ExtendedVendor, onPress: () => void }) => (
     <TouchableOpacity style={styles.card} onPress={onPress}>
-      <View style={[styles.statusBorder, { backgroundColor: getStatusStyle(vendor.paymentStatus).color }]} />
-      <View style={styles.cardContent}>
-        <Text style={styles.customerName}>{vendor.name}</Text>
-        <Text style={styles.customerInfo}>Vendor ID | {vendor._id}</Text>
-        <Text style={styles.customerInfo}>Contact: {vendor.phone}</Text>
-        {vendor.address && <Text style={styles.customerInfo}>{vendor.address.city}, {vendor.address.state}</Text>}
-        {/* Price on the left side below other info */}
-        <Text style={styles.vendorAmount}>₹{vendor.payableAmount?.toFixed(2) || '0.00'}</Text>
-      </View>
-      <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(vendor.paymentStatus).backgroundColor }]}>
-        <Text style={[styles.statusText, { color: getStatusStyle(vendor.paymentStatus).color }]}>
-          {vendor.paymentStatus?.toUpperCase()}
-        </Text>
-      </View>
-      <View style={[styles.vendorStatusBadge, {
-        backgroundColor: vendor.status === 'active' ? '#4CAF50' :
-          vendor.status === 'inactive' ? '#FFC107' : '#F44336'
+      <View style={[styles.statusBorder, {
+        backgroundColor: vendor.currentDateStatus === 'no_entry' ? 'transparent' : getStatusStyle(vendor.paymentStatus).color
+      }]} />
+
+      {/* Absolute Positioned Status Badge */}
+      <View style={[styles.statusBadge, {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        zIndex: 1,
+        backgroundColor: vendor.currentDateStatus === 'no_entry'
+          ? '#F0F0F0'
+          : getStatusStyle(vendor.paymentStatus).backgroundColor
       }]}>
-        <Text style={styles.statusText}>
-          {vendor.status?.charAt(0).toUpperCase() + vendor.status?.slice(1)}
+        <Text style={[styles.statusText, {
+          color: vendor.currentDateStatus === 'no_entry'
+            ? '#999'
+            : getStatusStyle(vendor.paymentStatus).color
+        }]}>
+          {vendor.currentDateStatus === 'no_entry'
+            ? 'NO ENTRY'
+            : vendor.paymentStatus.toUpperCase()}
         </Text>
       </View>
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity
-          onPress={() => handleToggleVendorStatus(vendor)}
-          style={styles.actionButton}
-          title={`Mark as ${vendor.status === 'active' ? 'Inactive' : 'Active'}`}
-        >
+
+      <View style={styles.cardContent}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
+          {vendor.assignedCategories && vendor.assignedCategories.length > 0 && vendor.assignedCategories.slice(0, 3).map((cat: any, index: number) => (
+            <View key={index} style={[styles.brandPill, { marginTop: 0, marginRight: 4 }]}>
+              <Text style={styles.brandText}>{cat?.name || 'Unknown'}</Text>
+            </View>
+          ))}
+          {vendor.assignedCategories && vendor.assignedCategories.length > 3 && (
+            <View style={[styles.brandPill, { marginTop: 0 }]}>
+              <Text style={styles.brandText}>+{vendor.assignedCategories.length - 3}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.customerName}>{vendor.name}</Text>
+
+        <Text style={styles.customerInfo}>Contact: {vendor.phone}</Text>
+
+        {/* Price and Status Row */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 8 }}>
+          <View>
+            <Text style={styles.customerInfo}>Total Payable</Text>
+            <Text style={styles.vendorAmount}>₹{vendor.payableAmount.toFixed(2)}</Text>
+          </View>
+
+        </View>
+
+        {/* PENDING HISTORY SECTION */}
+        {vendor.pendingHistory && vendor.pendingHistory.length > 0 && (
+          <View style={{ marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 4 }}>Pending Dues:</Text>
+            {vendor.pendingHistory.map((historyItem) => (
+              <View key={historyItem._id} style={{ marginBottom: 8 }}>
+                <Text style={{ fontSize: 11, color: '#666', marginBottom: 1 }}>
+                  #{historyItem.receiptNumber || historyItem._id.slice(-6).toUpperCase()}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#DC2626' }}>
+                  {historyItem.date} | Due: ₹{historyItem.amount.toFixed(2)} | {historyItem.status === 'partial' ? 'Partial' : 'Pending'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity onPress={() => handleToggleVendorStatus(vendor)} style={styles.actionButton}>
           <Feather
             name={vendor.status === 'active' ? 'toggle-left' : 'toggle-right'}
             size={20}
@@ -941,7 +793,6 @@ const PayablesScreen = ({ route }: any) => {
       </View>
     </TouchableOpacity>
   );
-
   const renderVendor = ({ item }: { item: ExtendedVendor }) => (
     <VendorCard vendor={item} onPress={() => handleVendorPress(item)} />
   );
@@ -1043,13 +894,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 4, // Further reduced from 8 to 4
-  },
-  vendorAmount: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 8, // Reduced margin to bring it closer to the above content
+    marginTop: 4,
+    alignSelf: 'flex-start',
   },
   dueAmount: {
     fontSize: 12,
@@ -1060,7 +906,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     position: 'absolute',
     top: 0,
-    right: 0, // Positioned at the exact same place as the customer list status badge
+    right: 0,
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderTopRightRadius: 12,
@@ -1071,7 +917,7 @@ const styles = StyleSheet.create({
   vendorStatusBadge: {
     position: 'absolute',
     top: 0,
-    right: 65, // Positioned to the left of the status badge with more spacing (adding 10px gap)
+    right: 65,
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 12,
@@ -1080,44 +926,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-
-  actionsContainer: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    flexDirection: 'row',
-  },
   actionButton: {
     marginLeft: 15,
   },
-  vendorAmount: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 4, // Reduced gap from 8 to 4
-    alignSelf: 'flex-start', // Move to the left side
-  },
-
-  actionsContainer: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    flexDirection: 'row',
-  },
-  actionButton: {
-    marginLeft: 10,
-  },
   fab: {
     position: 'absolute',
-    right: 30,
-    bottom: 30,
+    right: 20,
+    bottom: 20,
+    backgroundColor: COLORS.primary,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 8,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -1125,54 +947,50 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)'
   },
   modalContainer: {
-    backgroundColor: COLORS.white,
-    width: '100%',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    minHeight: Dimensions.get('window').height * 0.6, // Minimum 60% of screen
-    maxHeight: Dimensions.get('window').height * 0.9, // Maximum 90% of screen
-    paddingBottom: 40
+    maxHeight: '80%',
+    padding: 20,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20,
+    color: '#333',
     textAlign: 'center',
-    paddingTop: 10,
   },
   formContainer: {
-    flex: 1,
-    paddingTop: 10,
-    paddingBottom: 200, // Increased padding to account for the button container
+    marginBottom: 20,
   },
   inputGroup: {
-    marginBottom: 15,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 5,
     color: '#333',
+    marginBottom: 8,
+    fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 15,
+    color: COLORS.primary,
+    marginTop: 10,
     marginBottom: 10,
-    color: '#1E73B8',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: '#F5F5F5',
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
-    backgroundColor: '#F9F9F9',
+    fontSize: 14,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
   },
   textArea: {
     height: 80,
@@ -1188,29 +1006,30 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    gap: 12,
   },
   button: {
     flex: 1,
-    padding: 15,
+    padding: 14,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButton: {
-    backgroundColor: '#F0F0F0',
-    marginRight: 10,
+    backgroundColor: '#F5F5F5',
   },
   cancelButtonText: {
     color: '#666',
     fontWeight: '600',
+    fontSize: 16,
   },
   saveButton: {
     backgroundColor: COLORS.primary,
-    marginLeft: 10,
   },
   saveButtonText: {
     color: '#FFFFFF',
     fontWeight: '600',
+    fontSize: 16,
   },
   categoryOption: {
     flexDirection: 'row',
@@ -1244,6 +1063,37 @@ const styles = StyleSheet.create({
     color: COLORS.grey,
     textAlign: 'center',
     padding: 10,
+  },
+  noBrandsText: {
+    fontSize: 12,
+    color: COLORS.grey,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  brandsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    gap: 6,
+  },
+  brandPill: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+  },
+  brandText: {
+    fontSize: 11,
+    color: '#1E88E5',
+    fontWeight: '500',
+  },
+  actionButtons: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    flexDirection: 'row',
   },
 });
 

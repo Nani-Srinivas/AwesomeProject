@@ -19,7 +19,7 @@ const StockSchema = new Schema({
   businessDate: {
     type: String,
     required: true,
-    index: true,
+    // Indexed via schema.index() below
     match: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD format
   },
   storeProductId: [{
@@ -33,6 +33,9 @@ const StockSchema = new Schema({
   }
 }, { timestamps: true });
 
+
+StockSchema.index({ businessDate: 1 }); // For querying by business date
 StockSchema.index({ storeProductId: 1 }, { unique: true });
+
 
 export default model('Stock', StockSchema);

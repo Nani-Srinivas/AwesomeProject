@@ -13,7 +13,7 @@ import { RootStackParamList } from './types';
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 export const AppNavigator = () => {
-  const { authToken, user, isCheckingAuth, isSetupComplete } = useUserStore();
+  const { authToken, user, isCheckingAuth } = useUserStore();
 
   useEffect(() => {
     if (authToken && user) {
@@ -48,31 +48,19 @@ export const AppNavigator = () => {
             // This shouldn't happen as pricing is the last step, but handle it
             reset('SelectCategory');
           } else {
-            // Onboarding complete but setup wizard not shown yet
-            if (!isSetupComplete) {
-              reset('SetupWizard');
-            } else {
-              reset('Home');
-            }
-          }
-        } else {
-          // Onboarding complete - check setup wizard status
-          if (!isSetupComplete) {
-            reset('SetupWizard');
-          } else {
+            // Onboarding complete
             reset('Home');
           }
-        }
-      } else {
-        // Other roles go to home (or setup wizard if not complete)
-        if (!isSetupComplete) {
-          reset('SetupWizard');
         } else {
+          // Onboarding complete
           reset('Home');
         }
+      } else {
+        // Other roles
+        reset('Home');
       }
     }
-  }, [authToken, user, isSetupComplete]);
+  }, [authToken, user]);
 
   if (isCheckingAuth) {
     return (
@@ -88,13 +76,7 @@ export const AppNavigator = () => {
         {!authToken ? (
           <RootStack.Screen name="AuthStack" component={AuthStack} />
         ) : (
-          <>
-            {!isSetupComplete ? (
-              <RootStack.Screen name="SetupWizard" component={SetupWizardScreen} />
-            ) : (
-              <RootStack.Screen name="Main" component={MainStack} />
-            )}
-          </>
+          <RootStack.Screen name="Main" component={MainStack} />
         )}
       </RootStack.Navigator>
     </NavigationContainer>

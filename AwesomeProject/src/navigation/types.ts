@@ -67,7 +67,7 @@ export type MainStackParamList = {
 
   // Disconnected Screens (Commented out in MainStack)
   // Dashboard: undefined;
-  // Details: { customer: any };
+  Details: { customer: any };
   // Calendar: undefined;
   // SideMenu: undefined;
   // PayableTemp: undefined;
@@ -92,7 +92,7 @@ export type ForgotPasswordScreenProps = NativeStackScreenProps<AuthStackParamLis
 // Props for individual screens within MainStack (existing props, adjusted to MainStackParamList)
 // export type DashboardScreenProps = NativeStackScreenProps<MainStackParamList, 'Dashboard'>;
 export type HomeScreenProps = NativeStackScreenProps<MainStackParamList, 'Home'> & { setIsLoggedIn: (isLoggedIn: boolean) => void };
-// export type DetailsScreenProps = NativeStackScreenProps<MainStackParamList, 'Details'>;
+export type DetailsScreenProps = NativeStackScreenProps<MainStackParamList, 'Details'>;
 export type CustomerListScreenProps = NativeStackScreenProps<MainStackParamList, 'CustomerList'>;
 export type DeliveryBoyListScreenProps = NativeStackScreenProps<MainStackParamList, 'DeliveryBoyList'>;
 export type AreaListScreenProps = NativeStackScreenProps<MainStackParamList, 'AreaList'>;

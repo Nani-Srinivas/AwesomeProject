@@ -652,6 +652,9 @@ export const getMasterCategories = async (req, reply) => {
 
 // ✅ Create master category (Admin only)
 export const createMasterCategory = async (req, reply) => {
+  console.log("createMasterCategory function called with:", req.body);
+  console.log("User:", req.user);
+  console.log("req:", req.body);
   try {
     const { name, description, imageUrl } = req.body;
     const createdBy = req.user?.id;

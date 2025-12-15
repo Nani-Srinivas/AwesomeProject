@@ -19,35 +19,35 @@ const VendorSchema = new Schema({
     required: true,
     trim: true
   },
-  email: {
-    type: String,
-    required: false,
-    trim: true,
-    lowercase: true
-  },
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    zip: String,
-    country: String
-  },
-  contactPerson: {
-    name: String,
-    phone: String,
-    email: String
-  },
-  paymentTerms: {
-    type: String,  // e.g. "Net 30", "Cash on Delivery"
-    default: "Cash on Delivery"
-  },
-  rating: {
-    type: Number,
-    min: 0,
-    max: 5,
-    default: 0
-  },
-  notes: String,
+  // email: {
+  //   type: String,
+  //   required: false,
+  //   trim: true,
+  //   lowercase: true
+  // },
+  // address: {
+  //   street: String,
+  //   city: String,
+  //   state: String,
+  //   zip: String,
+  //   country: String
+  // },
+  // contactPerson: {
+  //   name: String,
+  //   phone: String,
+  //   email: String
+  // },
+  // paymentTerms: {
+  //   type: String,  // e.g. "Net 30", "Cash on Delivery"
+  //   default: "Cash on Delivery"
+  // },
+  // rating: {
+  //   type: Number,
+  //   min: 0,
+  //   max: 5,
+  //   default: 0
+  // },
+  // notes: String,
   status: {
     type: String,
     enum: ['active', 'inactive', 'blacklisted'],

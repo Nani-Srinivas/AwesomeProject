@@ -65,6 +65,26 @@ axiosInstance.interceptors.request.use(
   },
 );
 
+// Flag to track if a refresh token request is already in progress
+let isRefreshing = false;
+// Queue to hold pending requests while the token is being refreshed
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token!);
+    }
+  });
+
+  failedQueue = [];
+};
+
 // Response interceptor
 axiosInstance.interceptors.response.use(
   (response) => {
@@ -83,7 +103,23 @@ axiosInstance.interceptors.response.use(
 
       // If status is 401 and it's not a retry request
       if (status === 401 && originalRequest && !originalRequest._retry) {
+        if (isRefreshing) {
+          // If already refreshing, queue this request
+          return new Promise((resolve, reject) => {
+            failedQueue.push({
+              resolve: (token: string) => {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+                resolve(axiosInstance(originalRequest));
+              },
+              reject: (err: any) => {
+                reject(err);
+              },
+            });
+          });
+        }
+
         originalRequest._retry = true; // Mark as retry
+        isRefreshing = true;
 
         try {
           const refreshToken = await secureStorageService.getRefreshToken();
@@ -105,12 +141,20 @@ axiosInstance.interceptors.response.use(
           axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
+          // Process the queue with the new token
+          processQueue(null, newAccessToken);
+
           return axiosInstance(originalRequest);
         } catch (refreshError) {
-          // Refresh token failed, logout user
+          // Refresh token failed, process queue with error
+          processQueue(refreshError, null);
+
+          // Logout user
           useUserStore.getState().logout();
           Alert.alert('Session Expired', 'You have been logged out. Please log in again.');
           return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
         }
       }
 

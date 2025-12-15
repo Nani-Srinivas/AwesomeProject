@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExpandableCalendar, CalendarProvider } from 'react-native-calendars';
@@ -184,7 +185,7 @@ export function AddStockScreen({ route, navigation }: any) {
         productsData.map((p: any) => ({
           productId: p._id,
           receivedQuantity: 0,
-          unitPrice: p.price ?? 0,
+          unitPrice: p.costPrice ?? p.price ?? 0,
           batchNumber: '',
           expiryDate: '',
         }))
@@ -428,6 +429,14 @@ export function AddStockScreen({ route, navigation }: any) {
 
     return (
       <View key={item._id} style={styles.productRow}>
+        <Image
+          source={
+            item.images && item.images.length > 0
+              ? { uri: item.images[0] }
+              : require('../../assets/products/1.png') // Fallback image
+          }
+          style={styles.productImage}
+        />
         <Text style={styles.productNameCompact}>{item.name}</Text>
         <View style={styles.inputsRow}>
           <TextInput
@@ -438,16 +447,16 @@ export function AddStockScreen({ route, navigation }: any) {
               inputRefs.current[item._id].price = ref;
             }}
             style={styles.compactInput}
-            value={String(inv.unitPrice ?? item.price ?? 0)}
+            value={String(inv.unitPrice ?? item.costPrice ?? 0)}
             onChangeText={(text) =>
               updateField(
                 item._id,
                 'unitPrice',
-                parseFloat(text) || item.price || 0
+                parseFloat(text) || item.costPrice || 0
               )
             }
             keyboardType="decimal-pad"
-            placeholder="Price"
+            placeholder="CP"
             returnKeyType="next"
             onSubmitEditing={() => {
               // Focus quantity input for this product
@@ -577,7 +586,7 @@ export function AddStockScreen({ route, navigation }: any) {
               <View style={styles.headerRow}>
                 <Text style={styles.headerText}>Product</Text>
                 <View style={styles.headerInputs}>
-                  <Text style={styles.headerLabel}>Price</Text>
+                  <Text style={styles.headerLabel}>CP</Text>
                   <Text style={styles.headerLabel}>Qty</Text>
                 </View>
               </View>
@@ -600,7 +609,7 @@ export function AddStockScreen({ route, navigation }: any) {
                   <View style={styles.headerRow}>
                     <Text style={styles.headerText}>Product</Text>
                     <View style={styles.headerInputs}>
-                      <Text style={styles.headerLabel}>Price</Text>
+                      <Text style={styles.headerLabel}>CP</Text>
                       <Text style={styles.headerLabel}>Qty</Text>
                     </View>
                   </View>
@@ -1364,11 +1373,11 @@ const styles = StyleSheet.create({
     color: '#333',
     marginLeft: 8,
   },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-  },
+  // statusBadge: {
+  //   paddingVertical: 4,
+  //   paddingHorizontal: 12,
+  //   borderRadius: 12,
+  // },
   statusBadgePaid: {
     backgroundColor: '#4CAF50',
   },
@@ -1483,5 +1492,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  productImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: '#f0f0f0',
   },
 });

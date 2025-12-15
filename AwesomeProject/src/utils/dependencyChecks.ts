@@ -16,7 +16,7 @@ export interface DependencyCheckResult {
  */
 export const checkAreasExist = async (): Promise<boolean> => {
     try {
-        const response = await apiService.get('/areas');
+        const response = await apiService.get('/delivery/area');
         const areas = response.data?.data || response.data || [];
         return Array.isArray(areas) && areas.length > 0;
     } catch (error) {

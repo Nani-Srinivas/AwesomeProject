@@ -7,7 +7,6 @@ import {
   refreshToken,
   logout,
   fetchUser,
-  testEndpoint,
   // refresh,
 } from "../controllers/auth/auth.js";
 import { verifyToken } from "../middleware/auth.js";
@@ -22,12 +21,6 @@ export const authRoutes = async (fastify, options) => {
       }
     }
   };
-
-  // 🧪 TEST ENDPOINTS - No rate limit, no auth - for debugging
-  fastify.get('/test', testEndpoint);
-  fastify.post('/test', testEndpoint);
-  fastify.get('/auth/test', testEndpoint);
-  fastify.post('/auth/test', testEndpoint);
 
   fastify.post('/auth/register', authRateLimit, register);
   fastify.get('/auth/verify', verifyEmail);

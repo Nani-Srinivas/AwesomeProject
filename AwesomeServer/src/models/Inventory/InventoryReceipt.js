@@ -80,7 +80,7 @@ const InventoryReceiptSchema = new mongoose.Schema({
   businessDate: {
     type: String,
     required: true,
-    index: true,
+    // index: true, // REMOVED: Duplicate - indexed via schema.index() below
     match: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD format
   }
 }, {
@@ -89,6 +89,6 @@ const InventoryReceiptSchema = new mongoose.Schema({
 
 // Indexes for efficient queries
 InventoryReceiptSchema.index({ vendorId: 1, businessDate: 1 });
-InventoryReceiptSchema.index({ businessDate: 1 });
+// Single businessDate index removed - covered by compound index above
 
 export default mongoose.model('InventoryReceipt', InventoryReceiptSchema);

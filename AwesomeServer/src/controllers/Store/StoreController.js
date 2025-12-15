@@ -24,10 +24,22 @@ export const getStoreCategories = async (req, reply) => {
     const storeCategories = await StoreCategory.find({ storeId })
       .populate('masterCategoryId');
 
+    // Enrich storeCategories with imageUrl from masterCategory if missing
+    const enrichedCategories = storeCategories.map(cat => {
+      const categoryObj = cat.toObject();
+
+      // If StoreCategory doesn't have imageUrl, try to get it from masterCategory
+      if (!categoryObj.imageUrl && categoryObj.masterCategoryId?.imageUrl) {
+        categoryObj.imageUrl = categoryObj.masterCategoryId.imageUrl;
+      }
+
+      return categoryObj;
+    });
+
     return reply.status(200).send({
       success: true,
       message: 'Store categories fetched successfully',
-      data: storeCategories,
+      data: enrichedCategories,
     });
   } catch (error) {
     console.error('Error fetching store categories:', error);

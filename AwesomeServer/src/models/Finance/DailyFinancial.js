@@ -6,7 +6,7 @@ const dailyFinancialSchema = new mongoose.Schema({
     businessDate: {
         type: String,
         required: true,
-        index: true,
+        // index: true, // REMOVED: Duplicate - indexed via compound index below
         match: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD format
     },
     //   manufacturer:    { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer', required: true, index: true },

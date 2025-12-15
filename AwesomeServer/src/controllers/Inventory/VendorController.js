@@ -7,7 +7,8 @@ import Store from '../../models/Store/Store.js';
 export const createVendor = async (req, reply) => {
   console.log('Create Vendor API called', req.body)
   try {
-    const vendorData = req.body;
+    const { name, phone, assignedCategories } = req.body;
+    const vendorData = { name, phone, assignedCategories };
     const createdBy = req.user?.id;
 
     // Get store for this manager
@@ -109,6 +110,7 @@ export const getVendors = async (req, reply) => {
     if (status) filter.status = status;
 
     const vendors = await Vendor.find(filter)
+      .populate('assignedCategories')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -140,7 +142,13 @@ export const updateVendor = async (req, reply) => {
   console.log("Update API is Called")
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const { name, phone, status, assignedCategories } = req.body;
+    // Only include defined fields in updates to avoid overwriting with undefined
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (phone !== undefined) updates.phone = phone;
+    if (status !== undefined) updates.status = status;
+    if (assignedCategories !== undefined) updates.assignedCategories = assignedCategories;
 
     // If assigned categories are being updated, check if any of the selected categories are already assigned to other vendors
     if (updates.assignedCategories && Array.isArray(updates.assignedCategories)) {

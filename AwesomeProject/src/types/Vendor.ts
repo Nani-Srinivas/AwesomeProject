@@ -26,6 +26,7 @@ export interface Vendor {
   status?: 'active' | 'inactive' | 'blacklisted';
   paymentStatus?: 'paid' | 'partial' | 'pending';
   payableAmount?: number;
+  assignedCategories?: any[];
   createdAt: string;
   updatedAt: string;
 }

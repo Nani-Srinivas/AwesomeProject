@@ -1,4 +1,11 @@
 node_modules
 .env
+.env.*
+!.env.example
 .adminjs
 .DS_Store
+
+# Security - Never commit these
+JWT_SECRETS.md
+*.keystore
+*.jks

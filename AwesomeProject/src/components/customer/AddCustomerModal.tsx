@@ -87,41 +87,43 @@ export const AddCustomerModal = ({ isVisible, onClose, onSave, isSaving, areas }
       <Modal transparent={true} visible={isVisible} onRequestClose={onClose} animationType="none">
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={styles.modalOverlay}>
-            <Animated.View style={[styles.modalContent, { transform: [{ translateY: slideAnim }] }]}>
-              <FlatList
-                data={requiredProducts}
-                keyExtractor={item => item.product._id}
-                ListHeaderComponent={
-                  <AddCustomerFormHeader
-                    name={name} setName={setName}
-                    phone={phone} setPhone={setPhone}
-                    address={address} setAddress={setAddress}
-                    deliveryCost={deliveryCost} setDeliveryCost={setDeliveryCost}
-                    advanceAmount={advanceAmount} setAdvanceAmount={setAdvanceAmount}
-                    isSubscribed={isSubscribed} setIsSubscribed={setIsSubscribed}
-                    setProductSelectorVisible={setProductSelectorVisible}
-                    requiredProducts={requiredProducts}
-                    handleQuantityChange={handleQuantityChange}
-                    handleRemoveProduct={handleRemoveProduct}
-                    areas={areas}
-                    selectedArea={selectedArea}
-                    setSelectedArea={setSelectedArea}
-                  />
-                }
-                ListFooterComponent={renderListFooter}
-                renderItem={({ item, index }) => (
-                  <View style={styles.productItem}>
-                    <Text style={styles.productName}>{item.product.name}</Text>
-                    <TextInput style={styles.quantityInput} value={String(item.quantity)} onChangeText={(text) => handleQuantityChange(text, index)} keyboardType="numeric" />
-                    <TouchableOpacity onPress={() => handleRemoveProduct(index)}>
-                      <Feather name="x-circle" size={22} color={COLORS.danger} />
-                    </TouchableOpacity>
-                  </View>
-                )}
-                ListEmptyComponent={<Text style={styles.emptyListText}>No products selected.</Text>}
-                contentContainerStyle={styles.innerContent}
-              />
-            </Animated.View>
+            <TouchableWithoutFeedback>
+              <Animated.View style={[styles.modalContent, { transform: [{ translateY: slideAnim }] }]}>
+                <FlatList
+                  data={requiredProducts}
+                  keyExtractor={item => item.product._id}
+                  ListHeaderComponent={
+                    <AddCustomerFormHeader
+                      name={name} setName={setName}
+                      phone={phone} setPhone={setPhone}
+                      address={address} setAddress={setAddress}
+                      deliveryCost={deliveryCost} setDeliveryCost={setDeliveryCost}
+                      advanceAmount={advanceAmount} setAdvanceAmount={setAdvanceAmount}
+                      isSubscribed={isSubscribed} setIsSubscribed={setIsSubscribed}
+                      setProductSelectorVisible={setProductSelectorVisible}
+                      requiredProducts={requiredProducts}
+                      handleQuantityChange={handleQuantityChange}
+                      handleRemoveProduct={handleRemoveProduct}
+                      areas={areas}
+                      selectedArea={selectedArea}
+                      setSelectedArea={setSelectedArea}
+                    />
+                  }
+                  ListFooterComponent={renderListFooter}
+                  renderItem={({ item, index }) => (
+                    <View style={styles.productItem}>
+                      <Text style={styles.productName}>{item.product.name}</Text>
+                      <TextInput style={styles.quantityInput} value={String(item.quantity)} onChangeText={(text) => handleQuantityChange(text, index)} keyboardType="numeric" />
+                      <TouchableOpacity onPress={() => handleRemoveProduct(index)}>
+                        <Feather name="x-circle" size={22} color={COLORS.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  ListEmptyComponent={<Text style={styles.emptyListText}>No products selected.</Text>}
+                  contentContainerStyle={styles.innerContent}
+                />
+              </Animated.View>
+            </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
       </Modal>

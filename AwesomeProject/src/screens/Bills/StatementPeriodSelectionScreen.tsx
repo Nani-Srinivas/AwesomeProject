@@ -1158,12 +1158,12 @@
 //     if (Platform.OS === 'android') {
 //       try {
 //         const androidVersion = Platform.Version;
-        
+
 //         // Android 13+ (API 33+) doesn't need WRITE_EXTERNAL_STORAGE
 //         if (androidVersion >= 33) {
 //           return true;
 //         }
-        
+
 //         // For Android 10-12 (API 29-32)
 //         if (androidVersion >= 29) {
 //           const granted = await PermissionsAndroid.request(
@@ -1178,7 +1178,7 @@
 //           );
 //           return granted === PermissionsAndroid.RESULTS.GRANTED;
 //         }
-        
+
 //         // For older Android versions
 //         const granted = await PermissionsAndroid.request(
 //           PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
@@ -1620,7 +1620,7 @@
 //       });
 
 //       const res = await config(configOptions).fetch('GET', pdfUrl);
-      
+
 //       await Share.share({
 //         url: Platform.OS === 'ios' ? res.path() : `file://${res.path()}`,
 //         title: 'Share Invoice',
@@ -1671,7 +1671,7 @@
 //       });
 
 //       const res = await config(configOptions).fetch('GET', pdfUrl);
-      
+
 //       if (Platform.OS === 'ios') {
 //         Alert.alert('Success', `Invoice saved to ${res.path()}`);
 //       } else {
@@ -2142,12 +2142,12 @@
 //     if (Platform.OS === 'android') {
 //       try {
 //         const androidVersion = Platform.Version;
-        
+
 //         // Android 13+ (API 33+) doesn't need WRITE_EXTERNAL_STORAGE
 //         if (androidVersion >= 33) {
 //           return true;
 //         }
-        
+
 //         // For Android 10-12 (API 29-32)
 //         if (androidVersion >= 29) {
 //           const granted = await PermissionsAndroid.request(
@@ -2162,7 +2162,7 @@
 //           );
 //           return granted === PermissionsAndroid.RESULTS.GRANTED;
 //         }
-        
+
 //         // For older Android versions
 //         const granted = await PermissionsAndroid.request(
 //           PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
@@ -2353,7 +2353,7 @@
 //       >
 //         <SafeAreaView style={styles.modalContainer}>
 //           <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-          
+
 //           <View style={styles.modalHeader}>
 //             <Text style={styles.modalTitle}>Invoice Preview</Text>
 //             <TouchableOpacity 
@@ -2620,7 +2620,7 @@
 //       });
 
 //       const res = await config(configOptions).fetch('GET', pdfUrl);
-      
+
 //       await Share.share({
 //         url: Platform.OS === 'ios' ? res.path() : `file://${res.path()}`,
 //         title: 'Share Invoice',
@@ -2671,7 +2671,7 @@
 //       });
 
 //       const res = await config(configOptions).fetch('GET', pdfUrl);
-      
+
 //       if (Platform.OS === 'ios') {
 //         Alert.alert('Success', `Invoice saved to ${res.path()}`);
 //       } else {
@@ -2764,7 +2764,7 @@
 //         >
 //           <SafeAreaView style={styles.modalContainer}>
 //             <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-            
+
 //             <View style={styles.modalHeader}>
 //               <Text style={styles.modalTitle}>Invoice Preview</Text>
 //               <TouchableOpacity 
@@ -3117,7 +3117,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const Tab = createMaterialTopTabNavigator();
 
 
-type Props = { 
+type Props = {
   customerId?: string;
   onBillOperationComplete?: () => void;
   onInvoiceGenerated?: () => void;
@@ -3126,12 +3126,12 @@ type Props = {
 // =====================================================
 // INVOICE LIST COMPONENT (Simplified)
 // =====================================================
-const InvoiceList = ({ 
-  customerId, 
+const InvoiceList = ({
+  customerId,
   onRefresh,
   onBillOperationComplete
-}: { 
-  customerId: string; 
+}: {
+  customerId: string;
   onRefresh?: () => void;
   onBillOperationComplete?: () => void;
 }) => {
@@ -3161,7 +3161,7 @@ const InvoiceList = ({
       const response = await apiService.get(`/invoice/customer/${customerId}`);
       const freshInvoices = response.data.invoices || [];
       setInvoices(freshInvoices);
-      
+
       // Cache the fresh data for offline access
       await AsyncStorage.setItem(`invoices_${customerId}`, JSON.stringify(freshInvoices));
     } catch (error: any) {
@@ -3232,7 +3232,7 @@ const InvoiceList = ({
       }
 
       const fileName = `${invoice.billNo}.pdf`;
-      const downloadDest = Platform.OS === 'ios' 
+      const downloadDest = Platform.OS === 'ios'
         ? `${RNFS.DocumentDirectoryPath}/${fileName}`
         : `${RNFS.DownloadDirectoryPath}/${fileName}`;
 
@@ -3309,10 +3309,10 @@ const InvoiceList = ({
 
   const renderInvoiceCard = ({ item }: { item: Invoice }) => {
     const isExpanded = expandedId === item.id;
-    
+
     return (
       <View style={styles.invoiceCard}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.invoiceMainContent}
           onPress={() => toggleExpand(item.id)}
           activeOpacity={0.7}
@@ -3423,11 +3423,11 @@ const InvoiceList = ({
       >
         <SafeAreaView style={styles.modalContainer}>
           <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-          
+
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Invoice Preview</Text>
-            <TouchableOpacity 
-              onPress={() => setPreviewVisible(false)} 
+            <TouchableOpacity
+              onPress={() => setPreviewVisible(false)}
               style={styles.closeButtonContainer}
             >
               <Text style={styles.closeButton}>✕</Text>
@@ -3436,8 +3436,8 @@ const InvoiceList = ({
 
           {previewUrl && (
             <WebView
-              source={{ 
-                uri: `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true` 
+              source={{
+                uri: `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`
               }}
               startInLoadingState={true}
               renderLoading={() => (
@@ -3510,9 +3510,11 @@ const MonthlyStatement = ({ customerId, onBillOperationComplete }: Props) => {
 
     try {
       setGeneratingInvoice(true);
-      await apiService.post('/invoice/generate', {
+      await apiService.postWithConfig('/invoice/generate', {
         customerId,
         period: selectedPeriod,
+      }, {
+        headers: { 'X-Suppress-Global-Error-Alert': 'true' }
       });
 
       Alert.alert('Success', 'Bill generated successfully!');
@@ -3523,6 +3525,8 @@ const MonthlyStatement = ({ customerId, onBillOperationComplete }: Props) => {
       console.error('Invoice generation error:', err);
       if (err.response?.status === 409) {
         Alert.alert('Duplicate Invoice', 'An invoice already exists for this period. Please check the invoice list.');
+      } else if (err.response?.status === 404) {
+        Alert.alert('No Records', err.response.data?.message || 'No attendance records found for this period.');
       } else if (err.response?.status === 400) {
         Alert.alert('Invalid Request', err.response.data?.message || 'Invalid data provided for invoice generation.');
       } else if (err.response?.status === 500) {
@@ -3541,21 +3545,21 @@ const MonthlyStatement = ({ customerId, onBillOperationComplete }: Props) => {
     <View style={styles.tabContainer}>
       {/* Scrollable Invoice List */}
       <View style={styles.invoiceListSection}>
-        <InvoiceList 
-          customerId={customerId!} 
+        <InvoiceList
+          customerId={customerId!}
           onRefresh={() => setRefreshKey(prev => prev + 1)}
           onBillOperationComplete={onBillOperationComplete}
         />
       </View>
 
       {/* Scrollable Period Selection */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollableContent}
         contentContainerStyle={styles.scrollableContentContainer}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sectionTitle}>Generate New Invoice</Text>
-        
+
         <View style={styles.periodGrid}>
           {availablePeriods.map((period, index) => {
             const isDisabled = isPeriodDisabled(index, period);
@@ -3738,10 +3742,12 @@ const CustomStatement = ({ customerId, onBillOperationComplete }: Props) => {
 
     try {
       setGeneratingInvoice(true);
-      await apiService.post('/invoice/generate', {
+      await apiService.postWithConfig('/invoice/generate', {
         customerId,
         from: startDate,
         to: endDate,
+      }, {
+        headers: { 'X-Suppress-Global-Error-Alert': 'true' }
       });
 
       Alert.alert('Success', 'Bill generated successfully!');
@@ -3752,6 +3758,8 @@ const CustomStatement = ({ customerId, onBillOperationComplete }: Props) => {
       console.error('Invoice generation error:', err);
       if (err.response?.status === 409) {
         Alert.alert('Duplicate Invoice', 'An invoice already exists for this period. Please check the invoice list.');
+      } else if (err.response?.status === 404) {
+        Alert.alert('No Records', err.response.data?.message || 'No attendance records found for this period.');
       } else if (err.response?.status === 400) {
         Alert.alert('Invalid Request', err.response.data?.message || 'Invalid data provided for invoice generation.');
       } else if (err.response?.status === 500) {
@@ -3770,21 +3778,21 @@ const CustomStatement = ({ customerId, onBillOperationComplete }: Props) => {
     <View style={styles.tabContainer}>
       {/* Scrollable Invoice List */}
       <View style={styles.invoiceListSection}>
-        <InvoiceList 
-          customerId={customerId!} 
+        <InvoiceList
+          customerId={customerId!}
           onRefresh={() => setRefreshKey(prev => prev + 1)}
           onBillOperationComplete={onBillOperationComplete}
         />
       </View>
 
       {/* Scrollable Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollableContent}
         contentContainerStyle={styles.scrollableContentContainer}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sectionTitle}>Select Date Range</Text>
-        
+
         <Calendar
           onDayPress={onDayPress}
           markingType={'period'}
@@ -3828,7 +3836,7 @@ const CustomStatement = ({ customerId, onBillOperationComplete }: Props) => {
             </View>
           ) : (
             <Text style={styles.generateButtonText}>
-              {startDate && endDate 
+              {startDate && endDate
                 ? `Generate Bill (${startDate} to ${endDate})`
                 : 'Select Date Range'}
             </Text>
@@ -3846,18 +3854,18 @@ const requestStoragePermission = async () => {
   if (Platform.OS === 'android') {
     try {
       const androidVersion = Platform.Version;
-      
+
       if (androidVersion >= 33) {
         return true;
       }
-      
+
       if (androidVersion >= 29) {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       }
-      
+
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
       );
@@ -3948,7 +3956,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 12,
   },
-  
+
   // Invoice List
   centerContainer: {
     flex: 1,
@@ -4204,7 +4212,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 10,
   },
-    modalContainer: {
+  modalContainer: {
     flex: 1,
     backgroundColor: '#fff',
   },
@@ -4226,7 +4234,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-    closeButtonContainer: {
+  closeButtonContainer: {
     padding: 8,
     marginRight: -4,
   },

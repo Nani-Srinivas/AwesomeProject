@@ -74,6 +74,24 @@ export const verifyEmail = async (req, reply) => {
   }
 };
 
+// 🧪 TEST ENDPOINT - Simple endpoint to test API connectivity
+export const testEndpoint = async (req, reply) => {
+  console.log('✅ TEST ENDPOINT HIT!');
+  console.log('Request headers:', req.headers);
+  console.log('Request body:', req.body);
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+
+  return reply.send({
+    success: true,
+    message: 'Test endpoint working! Server is reachable.',
+    timestamp: new Date().toISOString(),
+    serverTime: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    receivedData: req.body,
+    environment: process.env.NODE_ENV || 'development'
+  });
+};
+
 
 // controllers/authController.js
 export const register = async (req, reply) => {
@@ -217,7 +235,7 @@ const generateTokens = (user, storeId = null) => {
   const accessToken = jwt.sign(
     tokenPayload,
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: '1d' }
+    { expiresIn: '15m' } // Shortened from 1d for better security
   );
 
   const refreshToken = jwt.sign(
@@ -474,7 +492,7 @@ export const refreshToken = async (req, reply) => {
       return reply.status(403).send({ message: 'Invalid refresh token' });
     }
 
-    const tokens = generateTokens(user);
+    const tokens = generateTokens(user, user.storeId);
     // Hash the new refresh token before saving
     const hashedNewRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
     user.refreshToken = hashedNewRefreshToken;
@@ -484,6 +502,56 @@ export const refreshToken = async (req, reply) => {
   } catch (err) {
     console.error('Refresh token error:', err);
     return reply.status(403).send({ message: 'Invalid or expired refresh token' });
+  }
+};
+
+
+// ✅ Logout (Invalidate Refresh Token)
+export const logout = async (req, reply) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return reply.status(200).send({
+      success: true,
+      message: 'Already logged out'
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const role = decoded.roles && decoded.roles[0];
+
+    let Model;
+    switch (role) {
+      case 'Customer': Model = Customer; break;
+      case 'StoreManager': Model = StoreManager; break;
+      case 'DeliveryPartner': Model = DeliveryPartner; break;
+      case 'Admin': Model = Admin; break;
+      default:
+        return reply.status(200).send({
+          success: true,
+          message: 'Logged out'
+        });
+    }
+
+    const user = await Model.findById(decoded.id);
+    if (user) {
+      // Clear the refresh token to invalidate it
+      user.refreshToken = null;
+      await user.save();
+    }
+
+    return reply.send({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (err) {
+    // Even if token is invalid/expired, consider it a successful logout
+    console.log('Logout token verification failed (expected):', err.message);
+    return reply.status(200).send({
+      success: true,
+      message: 'Logged out'
+    });
   }
 };
 

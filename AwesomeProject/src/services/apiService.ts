@@ -105,4 +105,12 @@ export const apiService = {
     return response;
   },
 
+  /**
+   * Get all customers
+   */
+  getCustomers: async () => {
+    const response = await axiosInstance.get('/customer');
+    return response;
+  },
+
 };

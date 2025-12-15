@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Button,
 } from 'react-native';
 import { ExpandableCalendar, CalendarProvider } from 'react-native-calendars';
 import Feather from 'react-native-vector-icons/Feather';
@@ -17,6 +16,7 @@ import { CustomerAttendanceItem } from './components/CustomerAttendanceItem';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Button } from '../../components/common/Button';
 
 const agendaItems = {
   '2025-09-20': [{ time: '10:00 AM', title: 'Meeting with John' }],
@@ -403,23 +403,36 @@ export const AddAttendance = () => {
           keyExtractor={item => item._id}
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
-            <EmptyState
-              icon="👥"
-              title="No Customers in This Area"
-              description="There are no customers subscribed in the selected area yet. Add customers with delivery subscriptions to start managing their daily attendance."
-              actionLabel="Go to Customers"
-              onAction={() => navigation.navigate('CustomerList')}
-            />
+            areas.length === 0 ? (
+              <EmptyState
+                icon="📍"
+                title="No Delivery Areas Found"
+                description="You haven't created any delivery areas yet. Please create an area first to start managing attendance."
+                actionLabel="Create Area"
+                onAction={() => navigation.navigate('AreaList')}
+              />
+            ) : (
+              <EmptyState
+                icon="👥"
+                title="No Customers in This Area"
+                description="There are no customers subscribed in the selected area yet. Add customers with delivery subscriptions to start managing their daily attendance."
+                actionLabel="Go to Customers"
+                onAction={() => navigation.navigate('CustomerList')}
+              />
+            )
           }
         />
       </CalendarProvider>
 
       {/* Submit button */}
-      <Button
-        title={isLoading ? 'Submitting...' : 'Submit Attendance'}
-        onPress={handleSubmit}
-        disabled={isLoading}
-      />
+      <View style={styles.buttonContainer}>
+        <Button
+          title="Submit Attendance"
+          onPress={handleSubmit}
+          loading={isLoading}
+          disabled={isLoading}
+        />
+      </View>
 
       {/* Edit modal */}
       <EditAttendanceBottomSheet
@@ -498,4 +511,7 @@ const styles = StyleSheet.create({
   successBackground: { backgroundColor: COLORS.success },
   errorBackground: { backgroundColor: COLORS.error },
   feedbackText: { color: COLORS.white, fontWeight: 'bold' },
+  buttonContainer: {
+    padding: 16,
+  },
 });
