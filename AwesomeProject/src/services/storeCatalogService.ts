@@ -27,9 +27,17 @@ const updateProduct = async (productId: string, updates: Partial<Product>): Prom
   return response.data.data;
 };
 
+const importCatalog = async (brandIds: string[], productIds: string[]): Promise<void> => {
+  await apiService.post('/store/import-catalog', {
+    brandIds,
+    productIds,
+  });
+};
+
 export const storeCatalogService = {
   getCategories,
   getSubcategories,
   getProducts,
   updateProduct,
+  importCatalog,
 };

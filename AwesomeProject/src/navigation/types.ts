@@ -35,19 +35,15 @@ export type MainStackParamList = {
   InventoryReceipt: { vendorId: string };
   VendorSelection: undefined;
 
-  // Store Onboarding Screens
+  // Store Onboarding Screens (New Flow: Brands → Subcategories → Products)
   StoreCreation: undefined;
-  SelectCategory: undefined;
-  SelectSubcategory: { selectedCategories: string[] };
-  SelectProduct: { selectedCategories: string[]; selectedSubcategories?: string[]; selectedProducts?: string[] };
+  SelectBrands: undefined;
+  SelectSubcategories: { selectedBrandIds: string[] };
+  SelectProducts: { selectedBrandIds: string[]; selectedSubcategoryIds: string[] };
   PricingConfig: {
-    selectedCategories: string[];
-    selectedProducts: {
-      productId: string;
-      categoryId: string;
-      name: string;
-      price: number;
-    }[]
+    selectedBrandIds: string[];
+    selectedSubcategoryIds: string[];
+    selectedProductIds: string[];
   };
 
   // Product Management Screens

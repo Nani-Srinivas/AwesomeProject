@@ -12,8 +12,8 @@ export const apiService = {
     const response = await axiosInstance.get(url, { params, signal });
     return response;
   },
-  post: async (url: string, data: object, signal?: AbortSignal) => {
-    const response = await axiosInstance.post(url, data, { signal });
+  post: async (url: string, data: object, config?: object) => {
+    const response = await axiosInstance.post(url, data, config);
     return response;
   },
   put: async (url: string, data: object, signal?: AbortSignal) => {

@@ -66,12 +66,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       const fetchedProducts: Product[] = await storeCatalogService.getProducts();
       const productsWithCategory: Product[] = fetchedProducts.map(product => ({
         ...product,
-        category: product.storeCategoryId.name, // Map storeCategoryId.name to category
+        category: product.storeCategoryId?.name || 'Uncategorized', // Safely access name
         tag: 'Fresh', // Dummy value
         weight: '1 kg', // Dummy value
         time: '15 MINS', // Dummy value
         discount: '10% OFF', // Dummy value
-        mrp: product.price + 10, // Dummy value based on price
+        price: product.sellingPrice, // Map sellingPrice to price for UI compatibility
+        mrp: (product.sellingPrice || 0) + 10, // Dummy value based on sellingPrice
       }));
       set({ products: productsWithCategory, loading: false });
     } catch (error) {

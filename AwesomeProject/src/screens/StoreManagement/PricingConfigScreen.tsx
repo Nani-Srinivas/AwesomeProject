@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    ActivityIndicator,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainStackParamList } from '../../navigation/types';
@@ -23,23 +24,51 @@ interface PricingItem {
     productId: string;
     categoryId: string;
     name: string;
+    basePrice: number;
     costPrice: string;
     sellingPrice: string;
 }
 
 export const PricingConfigScreen = ({ route, navigation }: PricingConfigScreenProps) => {
-    const { selectedProducts, selectedCategories } = route.params;
+    const { selectedBrandIds, selectedSubcategoryIds, selectedProductIds } = route.params;
 
-    const [pricingItems, setPricingItems] = useState<PricingItem[]>(
-        selectedProducts.map(p => ({
-            productId: p.productId,
-            categoryId: p.categoryId,
-            name: p.name,
-            costPrice: '', // Default empty, user must enter
-            sellingPrice: p.price.toString(), // Default to base price
-        }))
-    );
+    const [pricingItems, setPricingItems] = useState<PricingItem[]>([]);
+    const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        fetchProductDetails();
+    }, []);
+
+    const fetchProductDetails = async () => {
+        try {
+            setLoading(true);
+            // Fetch full product details for the selected product IDs
+            const response = await apiService.get(
+                `/admin/master-products?brandIds=${selectedBrandIds.join(',')}&subcategoryIds=${selectedSubcategoryIds.join(',')}`
+            );
+
+            // Filter to only selected products and map to pricing items
+            const allProducts = response.data.data;
+            const selectedProducts = allProducts.filter((p: any) => selectedProductIds.includes(p._id));
+
+            const items = selectedProducts.map((p: any) => ({
+                productId: p._id,
+                categoryId: p.category?._id || p.category, // Handle populated or ID
+                name: p.name,
+                basePrice: p.basePrice || 0,
+                costPrice: '', // User must enter
+                sellingPrice: (p.basePrice || 0).toString(), // Default to base price
+            }));
+
+            setPricingItems(items);
+        } catch (error: any) {
+            console.error('Failed to fetch product details:', error);
+            Alert.alert('Error', 'Failed to load product details.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const updatePrice = (index: number, field: 'costPrice' | 'sellingPrice', value: string) => {
         const newItems = [...pricingItems];
@@ -67,8 +96,11 @@ export const PricingConfigScreen = ({ route, navigation }: PricingConfigScreenPr
                 sellingPrice: parseFloat(item.sellingPrice),
             }));
 
+            // Extract unique category IDs from the selected products
+            const uniqueCategoryIds = [...new Set(pricingItems.map(item => item.categoryId))];
+
             const payload = {
-                selectedMasterCategoryIds: selectedCategories,
+                selectedMasterCategoryIds: uniqueCategoryIds,
                 productsWithPricing,
             };
 
@@ -90,6 +122,15 @@ export const PricingConfigScreen = ({ route, navigation }: PricingConfigScreenPr
             setSubmitting(false);
         }
     };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Loading products...</Text>
+            </View>
+        );
+    }
 
     return (
         <KeyboardAvoidingView
@@ -210,5 +251,16 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#eee',
         backgroundColor: COLORS.white,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: COLORS.white,
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: COLORS.text,
     },
 });

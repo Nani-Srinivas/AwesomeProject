@@ -25,6 +25,9 @@ interface EditCustomerFormHeaderProps {
   areas: any[];
   selectedArea: any;
   setSelectedArea: (value: any) => void;
+  apartments: string[];
+  flatNo: string;
+  setFlatNo: (text: string) => void;
 }
 
 export const EditCustomerFormHeader = React.memo(({
@@ -41,13 +44,19 @@ export const EditCustomerFormHeader = React.memo(({
   areas,
   selectedArea,
   setSelectedArea,
+  apartments = [],
+  flatNo, setFlatNo
 }: EditCustomerFormHeaderProps) => {
+  const isKnownApartment = apartments.includes(address);
+  const pickerValue = isKnownApartment ? address : 'OTHER';
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Edit Customer</Text>
       <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
       <TextInput style={styles.input} placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-      <TextInput style={styles.input} placeholder="Address (Apartment/Building)" value={address} onChangeText={setAddress} />
+
+      {/* Area Selection - Moved to Top */}
       <View style={styles.pickerContainer}>
         <Picker
           selectedValue={selectedArea}
@@ -58,13 +67,56 @@ export const EditCustomerFormHeader = React.memo(({
           ))}
         </Picker>
       </View>
+
+      {/* Apartment Selection */}
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={pickerValue}
+          onValueChange={(itemValue) => {
+            if (itemValue === 'OTHER') {
+              if (isKnownApartment) setAddress('');
+            } else {
+              setAddress(itemValue);
+            }
+          }}
+        >
+          <Picker.Item label="Select Apartment..." value="" enabled={false} />
+          {apartments.map(apt => (
+            <Picker.Item key={apt} label={apt} value={apt} />
+          ))}
+          <Picker.Item label="Add New Apartment..." value="OTHER" />
+        </Picker>
+      </View>
+
+      {/* Show TextInput if 'OTHER' is selected */}
+      {(pickerValue === 'OTHER' || !isKnownApartment) && (
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Apartment Name"
+          value={address}
+          onChangeText={setAddress}
+        />
+      )}
+
+      {/* Flat Number Input */}
+      <TextInput
+        style={styles.input}
+        placeholder="Flat No"
+        value={flatNo}
+        onChangeText={setFlatNo}
+      />
+
       <TextInput style={styles.input} placeholder="Delivery Cost" value={deliveryCost} onChangeText={setDeliveryCost} keyboardType="numeric" />
-      <TextInput style={styles.input} placeholder="Advance Amount" value={advanceAmount} onChangeText={setAdvanceAmount} keyboardType="numeric" />
+
       <View style={styles.switchContainer}>
         <Text>Subscribed</Text>
         <Switch value={isSubscribed} onValueChange={setIsSubscribed} />
       </View>
-      
+
+      {isSubscribed && (
+        <TextInput style={styles.input} placeholder="Advance Amount" value={advanceAmount} onChangeText={setAdvanceAmount} keyboardType="numeric" />
+      )}
+
       <Button title="Manage Required Products" onPress={() => setProductSelectorVisible(true)} />
 
       <Text style={styles.listHeader}>Required Products</Text>

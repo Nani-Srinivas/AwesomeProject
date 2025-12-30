@@ -1,36 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { Button } from '../../components/common/Button';
+import { apiService } from '../../services/apiService';
 import { storeCatalogService } from '../../services/storeCatalogService';
 
 interface SelectProductsScreenProps {
   navigation: any;
-  route: any; // To get params from previous screen
-}
-
-interface MasterSubcategory {
-  _id: string;
-  name: string;
+  route: any;
 }
 
 interface MasterProduct {
   _id: string;
   name: string;
   basePrice: number;
+  brandId: {
+    _id: string;
+    name: string;
+  };
+  category: {
+    _id: string;
+    name: string;
+  };
+  subcategory: {
+    _id: string;
+    name: string;
+  };
   imageUrl?: string;
 }
 
-interface CategoryWithProducts {
-  category: { _id: string; name: string };
-  subcategories: MasterSubcategory[];
-  products: MasterProduct[];
-}
-
 export const SelectProductsScreen = ({ navigation, route }: SelectProductsScreenProps) => {
-  const { selectedCategoryIds } = route.params;
-  const [categorizedProducts, setCategorizedProducts] = useState<CategoryWithProducts[]>([]);
+  const { selectedBrandIds, selectedSubcategoryIds } = route.params;
+  const [products, setProducts] = useState<MasterProduct[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,8 +44,10 @@ export const SelectProductsScreen = ({ navigation, route }: SelectProductsScreen
   const fetchMasterProducts = async () => {
     try {
       setLoading(true);
-      const data = await storeCatalogService.getMasterProductsByCategories(selectedCategoryIds);
-      setCategorizedProducts(data);
+      const response = await apiService.get(
+        `/admin/master-products?brandIds=${selectedBrandIds.join(',')}&subcategoryIds=${selectedSubcategoryIds.join(',')}`
+      );
+      setProducts(response.data.data);
     } catch (err: any) {
       console.error('Failed to fetch master products:', err);
       setError(err.message || 'Failed to load products.');
@@ -67,50 +71,52 @@ export const SelectProductsScreen = ({ navigation, route }: SelectProductsScreen
       return;
     }
 
-    try {
-      setLoading(true);
-      // Assuming selectedCategoryIds are also needed for import, though the API only asks for product IDs
-      // The API definition in IMPLEMENTATION_PLAN.md asks for both selectedMasterCategoryIds and selectedMasterProductIds
-      await storeCatalogService.importCatalog(selectedCategoryIds, selectedProductIds);
-      Alert.alert('Success', 'Selected products imported to your catalog!');
-      // Navigate to the main store management screen or dashboard
-      navigation.navigate('Home'); // Adjust this to your actual dashboard route
-    } catch (err: any) {
-      console.error('Failed to import catalog:', err);
-      Alert.alert('Error', err.message || 'Failed to import catalog.');
-    } finally {
-      setLoading(false);
-    }
+    // Navigate to PricingConfig with selected data
+    navigation.navigate('PricingConfig', {
+      selectedBrandIds,
+      selectedSubcategoryIds,
+      selectedProductIds,
+    });
   };
 
   const renderProductItem = ({ item }: { item: MasterProduct }) => (
     <TouchableOpacity
       style={[
-        styles.productItem,
-        selectedProductIds.includes(item._id) && styles.selectedProductItem,
+        styles.productCard,
+        selectedProductIds.includes(item._id) && styles.selectedProductCard,
       ]}
       onPress={() => toggleProductSelection(item._id)}
     >
-      <Text style={styles.productName}>{item.name}</Text>
-      <Text style={styles.productPrice}>${item.basePrice.toFixed(2)}</Text>
-      {/* Add image if available */}
-    </TouchableOpacity>
-  );
+      <View style={styles.cardContent}>
+        {/* Product Image */}
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.productImage} />
+        ) : (
+          <View style={[styles.productImage, styles.placeholderImage]}>
+            <Text style={styles.placeholderText}>📦</Text>
+          </View>
+        )}
 
-  const renderCategorySection = ({ item }: { item: CategoryWithProducts }) => (
-    <View style={styles.categorySection}>
-      <Text style={styles.categoryTitle}>{item.category.name}</Text>
-      {item.subcategories.map(sub => (
-        <Text key={sub._id} style={styles.subCategoryText}>- {sub.name}</Text>
-      ))}
-      <FlatList
-        data={item.products}
-        renderItem={renderProductItem}
-        keyExtractor={product => product._id}
-        numColumns={2}
-        contentContainerStyle={styles.productList}
-      />
-    </View>
+        {/* Product Info */}
+        <View style={styles.productInfo}>
+          <View style={styles.headerRow}>
+            <Text style={styles.productName} numberOfLines={2}>
+              {item.name}
+            </Text>
+            {selectedProductIds.includes(item._id) && (
+              <View style={styles.checkmark}>
+                <Text style={styles.checkmarkText}>✓</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.brandName}>{item.brandId?.name}</Text>
+          <Text style={styles.subcategoryName}>{item.subcategory?.name}</Text>
+
+          <Text style={styles.productPrice}>₹{item.basePrice?.toFixed(2)}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 
   if (loading) {
@@ -135,17 +141,25 @@ export const SelectProductsScreen = ({ navigation, route }: SelectProductsScreen
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.title}>Select Products</Text>
-        <Text style={styles.subtitle}>Choose products to add to your store's catalog.</Text>
+        <Text style={styles.subtitle}>
+          Choose products from your selected brands and subcategories
+        </Text>
 
-        <FlatList
-          data={categorizedProducts}
-          renderItem={renderCategorySection}
-          keyExtractor={item => item.category._id}
-          contentContainerStyle={styles.mainProductList}
-        />
+        {products.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No products found</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={products}
+            renderItem={renderProductItem}
+            keyExtractor={item => item._id}
+            contentContainerStyle={styles.productList}
+          />
+        )}
 
         <Button
-          title="Import Catalog"
+          title={`Import Catalog (${selectedProductIds.length} selected)`}
           onPress={handleImportCatalog}
           disabled={selectedProductIds.length === 0}
         />
@@ -201,55 +215,97 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  mainProductList: {
-    flexGrow: 1,
-  },
-  categorySection: {
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 10,
-  },
-  categoryTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 5,
-  },
-  subCategoryText: {
-    fontSize: 14,
-    color: COLORS.text,
-    marginLeft: 10,
-    marginBottom: 3,
-  },
   productList: {
-    justifyContent: 'space-between',
+    padding: 16,
   },
-  productItem: {
-    flex: 1,
-    margin: 5,
-    padding: 15,
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
+  productCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 2,
     borderColor: COLORS.lightGray,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  selectedProductItem: {
+  selectedProductCard: {
     borderColor: COLORS.primary,
     backgroundColor: COLORS.lightPrimary,
-    borderWidth: 2,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    padding: 12,
+  },
+  productImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  placeholderImage: {
+    backgroundColor: COLORS.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 32,
+  },
+  productInfo: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
   },
   productName: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: COLORS.text,
-    textAlign: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  brandName: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  subcategoryName: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 4,
   },
   productPrice: {
-    fontSize: 12,
-    color: COLORS.text,
-    marginTop: 5,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  checkmark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmarkText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: COLORS.gray,
+    textAlign: 'center',
   },
 });

@@ -140,12 +140,12 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
         }
         if (isCreatingNewCategory) {
             if (!newCategoryName.trim()) {
-                Alert.alert('Validation Error', 'New category name is required');
+                Alert.alert('Validation Error', 'New brand name is required');
                 return false;
             }
         } else {
             if (!selectedCategoryId) {
-                Alert.alert('Validation Error', 'Please select a category');
+                Alert.alert('Validation Error', 'Please select a brand');
                 return false;
             }
         }
@@ -349,11 +349,11 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                             />
                         </View>
 
-                        {/* Category Section */}
-                        <Text style={styles.sectionTitle}>Category</Text>
+                        {/* Brand Section (Previously Category) */}
+                        <Text style={styles.sectionTitle}>Brand</Text>
 
                         <View style={styles.toggleRow}>
-                            <Text style={styles.toggleLabel}>Create new category</Text>
+                            <Text style={styles.toggleLabel}>Create new brand</Text>
                             <Switch
                                 value={isCreatingNewCategory}
                                 onValueChange={setIsCreatingNewCategory}
@@ -364,18 +364,18 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
 
                         {isCreatingNewCategory ? (
                             <>
-                                <Text style={styles.label}>New Category Name *</Text>
+                                <Text style={styles.label}>New Brand Name *</Text>
                                 <TextInput
                                     style={styles.input}
                                     value={newCategoryName}
                                     onChangeText={setNewCategoryName}
-                                    placeholder="Enter category name"
+                                    placeholder="Enter brand name (e.g., Amul, Nestle)"
                                     placeholderTextColor={COLORS.gray}
                                 />
                             </>
                         ) : (
                             <>
-                                <Text style={styles.label}>Select Category *</Text>
+                                <Text style={styles.label}>Select Brand *</Text>
                                 <View style={styles.pickerWrapper}>
                                     {loading ? (
                                         <ActivityIndicator size="small" color={COLORS.primary} />
@@ -385,7 +385,7 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                                             onValueChange={setSelectedCategoryId}
                                             style={styles.picker}
                                         >
-                                            <Picker.Item label="Select a category" value="" />
+                                            <Picker.Item label="Select a brand" value="" />
                                             {categories.map((cat) => (
                                                 <Picker.Item key={cat._id} label={cat.name} value={cat._id} />
                                             ))}

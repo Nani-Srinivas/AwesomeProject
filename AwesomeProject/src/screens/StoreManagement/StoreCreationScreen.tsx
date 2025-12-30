@@ -170,7 +170,7 @@ export const StoreCreationScreen = ({
         if (user) {
           setUser({ ...user, storeId: response.data.store._id });
         }
-        reset('SelectCategory');
+        reset('SelectBrands');
       } else {
         Alert.alert('Error', response.data?.message || 'Failed to create store.');
       }

@@ -7,6 +7,7 @@ import { AddCustomerModal } from '../../components/customer/AddCustomerModal';
 import { apiService } from '../../services/apiService';
 import { debounce } from 'lodash';
 import { EmptyState } from '../../components/common/EmptyState';
+import * as DocumentPicker from '@react-native-documents/picker';
 
 const getStatusStyle = (status: string) => {
   switch (status) {
@@ -30,6 +31,12 @@ const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill, onViewH
         <Feather name="phone" size={13} color="#6B6B6B" style={{ marginRight: 6 }} />
         <Text style={styles.customerInfo}>{customer.phone}</Text>
       </View>
+      {customer.address?.FlatNo && (
+        <View style={styles.contactRow}>
+          <Feather name="home" size={13} color="#6B6B6B" style={{ marginRight: 6 }} />
+          <Text style={styles.customerInfo}>Flat: {customer.address.FlatNo}</Text>
+        </View>
+      )}
 
       {customer.currentDueAmount !== undefined && (
         <Text style={styles.dueAmount}>Due: ₹{customer.currentDueAmount || 0}</Text>
@@ -145,6 +152,25 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
     return list;
   }, [filter, debouncedSearchQuery, customers]);
 
+  const apartmentsByArea = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    customers.forEach((c: any) => {
+      const areaId = c.area?._id || 'unknown'; // assuming c.area is populated object or we check how it comes
+      // NOTE: Based on getCustomers controller, 'area' IS populated.
+      // c.area might be null if not assigned
+      if (!areaId) return;
+
+      const apt = c.address?.Apartment;
+      if (apt && typeof apt === 'string' && apt.trim() !== '') {
+        if (!map[areaId]) map[areaId] = [];
+        if (!map[areaId].includes(apt)) map[areaId].push(apt);
+      }
+    });
+    // Sort apartments in each area
+    Object.keys(map).forEach(key => map[key].sort());
+    return map;
+  }, [customers]);
+
   const handleCustomerPress = (customer: any) => {
     navigation.navigate('Details', { customer });
   };
@@ -240,6 +266,52 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
     );
   };
 
+  const handleBulkUpload = async () => {
+    try {
+      const [result] = await DocumentPicker.pick({
+        type: [DocumentPicker.types.allFiles],
+      });
+
+      if (!result) return;
+
+      const file = {
+        uri: result.uri,
+        type: result.type || 'text/csv',
+        name: result.name || 'upload.csv',
+      };
+
+      const formData = new FormData();
+      formData.append('file', file as any);
+
+      setIsLoading(true);
+      const response = await apiService.post('/admin/bulk-upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        Alert.alert(
+          'Success',
+          `Upload processed.\nSuccess: ${response.data.successCount}\nErrors: ${response.data.errors?.length || 0}`,
+          [{ text: 'OK', onPress: fetchCustomers }]
+        );
+      } else {
+        Alert.alert('Upload Failed', 'Server returned an error.');
+      }
+
+    } catch (err) {
+      if (DocumentPicker.isCancel(err)) {
+        // User cancelled the picker, do nothing
+      } else {
+        console.error('Bulk Upload Error:', err);
+        Alert.alert('Error', 'Failed to upload file.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (isLoading) {
     return <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />;
   }
@@ -310,6 +382,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
           onSave={handleSaveCustomer}
           isSaving={isSaving}
           areas={areas}
+          apartmentsByArea={apartmentsByArea}
         />
       )}
 
@@ -319,7 +392,12 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         onSave={handleAddNewCustomer}
         isSaving={isSaving} // We can reuse the isSaving state for now
         areas={areas}
+        apartmentsByArea={apartmentsByArea}
       />
+
+      <TouchableOpacity style={styles.fabUpload} onPress={handleBulkUpload}>
+        <Feather name="upload-cloud" size={24} color={COLORS.white} />
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.fab} onPress={() => setAddModalVisible(true)}>
         <Feather name="plus" size={24} color={COLORS.white} />
@@ -451,5 +529,33 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  fabUpload: {
+    position: 'absolute',
+    right: 30,
+    bottom: 100, // Positioned above the Add button
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FF9800',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  errorText: {
+    fontSize: 16,
+    color: COLORS.danger,
+    textAlign: 'center',
+    marginTop: 20,
   },
 });

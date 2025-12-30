@@ -33,7 +33,7 @@ export const ProductAttendanceItem = ({ product, status, onStatusChange, onQuant
       </Text>
       <TextInput
         style={styles.quantityInput}
-        keyboardType="numeric"
+        keyboardType="decimal-pad"
         onChangeText={onQuantityChange}
         value={String(product.quantity)}
         editable={!isDisabled}

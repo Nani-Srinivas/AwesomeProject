@@ -1,0 +1,3102 @@
+﻿> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :react-native-mmkv
+[react-native-mmkv] Thank you for using react-native-mmkv ??
+[react-native-mmkv] If you enjoy using react-native-mmkv, please consider sponsoring this project: https://github.com/sponsors/mrousavy
+
+> Task :app:externalNativeBuildCleanDebug FAILED
+Clean react_codegen_rnviewshot-armeabi-v7a, react_codegen_RNVectorIconsSpec-armeabi-v7a, react_codegen_safeareacontext-armeabi-v7a, react_codegen_HtmlToPdfSpec-armeabi-v7a, react_codegen_rngesturehandler_codegen-armeabi-v7a, react_codegen_RNCWebViewSpec-armeabi-v7a, appmodules-armeabi-v7a, react_codegen_RNMapsSpecs-armeabi-v7a, react_codegen_VectorIconsFeather-armeabi-v7a, react_codegen_rnasyncstorage-armeabi-v7a, react_codegen_RNCGeolocationSpec-armeabi-v7a, react_codegen_VectorIconsMaterialIcons-armeabi-v7a, react_codegen_rnpdf-armeabi-v7a, core-armeabi-v7a, react_codegen_pagerview-armeabi-v7a, react-native-mmkv-armeabi-v7a, react_codegen_rnscreens-armeabi-v7a, react_codegen_RNKeychainSpec-armeabi-v7a, react_codegen_RNSentrySpec-armeabi-v7a, react_codegen_RNMmkvSpec-armeabi-v7a, react_codegen_RNShareSpec-armeabi-v7a, react_codegen_rnpicker-armeabi-v7a
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:9 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/@react-native-async-storage/async-storage/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:11 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/@react-native-community/geolocation/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:14 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/@react-native-vector-icons/feather/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:15 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/@react-native-vector-icons/material-icons/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:16 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/@sentry/react-native/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:19 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:20 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-html-to-pdf/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:21 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-keychain/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:24 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-mmkv/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:26 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-pager-view/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:27 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-pdf/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:30 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-share/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:31 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:32 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-view-shot/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:33 (add_subdirectory):
+C/C++:   add_subdirectory given source
+C/C++:   "C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native-webview/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at C:/Users/LionO/Downloads/Awesome/AwesomeProject/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:97 (target_link_libraries):
+C/C++:   Cannot specify link libraries for target "react_codegen_rnasyncstorage"
+C/C++:   which is not built by this project.
+C/C++: Call Stack (most recent call first):
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: ninja: error: rebuilding 'build.ninja': subcommand failed
+
+[Incubating] Problems report is available at: file:///C:/Users/LionO/Downloads/Awesome/AwesomeProject/android/build/reports/problems/problems-report.html
+.\gradlew : 
+At line:1 char:1
++ .\gradlew clean 
+--console=plain 
+--stacktrace > 
+build_log.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
+~~~~~~~
+    + CategoryInfo  
+            : NotS  
+  pecified: (:Str   
+ ing) [], Remote    
+Exception
+    + FullyQualifie 
+   dErrorId : Nati  
+  veCommandError
+ 
+FAILURE: Build 
+failed with an 
+exception.
+
+* What went wrong:
+Execution failed 
+for task ':app:exter
+nalNativeBuildCleanD
+ebug'.
+> com.android.ide.co
+mmon.process.Process
+Exception: ninja: 
+Entering directory `
+C:\Users\LionO\Downl
+oads\Awesome\Awesome
+Project\android\app\
+.cxx\Debug\5v225x1s\
+armeabi-v7a'
+  [0/2] Re-checking 
+globbed 
+directories...
+  [1/2] Re-running 
+CMake...
+  -- Configuring 
+incomplete, errors 
+occurred!
+  See also "C:/Users
+/LionO/Downloads/Awe
+some/AwesomeProject/
+android/app/.cxx/Deb
+ug/5v225x1s/armeabi-
+v7a/CMakeFiles/CMake
+Output.log".
+  See also "C:/Users
+/LionO/Downloads/Awe
+some/AwesomeProject/
+android/app/.cxx/Deb
+ug/5v225x1s/armeabi-
+v7a/CMakeFiles/CMake
+Error.log".
+  FAILED: 
+build.ninja 
+  C:\Users\LionO\App
+Data\Local\Android\S
+dk\cmake\3.22.1\bin\
+cmake.exe --regenera
+te-during-build -SC:
+\Users\LionO\Downloa
+ds\Awesome\AwesomePr
+oject\node_modules\r
+eact-native\ReactAnd
+roid\cmake-utils\def
+ault-app-setup -BC:\
+Users\LionO\Download
+s\Awesome\AwesomePro
+ject\android\app\.cx
+x\Debug\5v225x1s\arm
+eabi-v7a
+  
+  C++ build system 
+[clean] failed 
+while executing:
+      @echo off
+      "C:\\Users\\Li
+onO\\AppData\\Local\
+\Android\\Sdk\\cmake
+\\3.22.1\\bin\\ninja
+.exe" ^
+        -C ^
+        "C:\\Users\\
+LionO\\Downloads\\Aw
+esome\\AwesomeProjec
+t\\android\\app\\.cx
+x\\Debug\\5v225x1s\\
+armeabi-v7a" ^
+        clean
+    from C:\Users\Li
+onO\Downloads\Awesom
+e\AwesomeProject\and
+roid\app
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:9 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/@react-native-
+async-storage/async-
+storage/android/buil
+d/generated/source/c
+odegen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:11 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/@react-native-
+community/geolocatio
+n/android/build/gene
+rated/source/codegen
+/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:14 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/@react-native-
+vector-icons/feather
+/android/build/gener
+ated/source/codegen/
+jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:15 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/@react-native-
+vector-icons/materia
+l-icons/android/buil
+d/generated/source/c
+odegen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:16 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/@sentry/react-
+native/android/build
+/generated/source/co
+degen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:19 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-g
+esture-handler/andro
+id/build/generated/s
+ource/codegen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:20 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-h
+tml-to-pdf/android/b
+uild/generated/sourc
+e/codegen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:21 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-k
+eychain/android/buil
+d/generated/source/c
+odegen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:24 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-m
+mkv/android/build/ge
+nerated/source/codeg
+en/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:26 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-p
+ager-view/android/bu
+ild/generated/source
+/codegen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:27 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-p
+df/android/build/gen
+erated/source/codege
+n/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:30 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-s
+hare/android/build/g
+enerated/source/code
+gen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:31 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-v
+ector-icons/android/
+build/generated/sour
+ce/codegen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:32 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-v
+iew-shot/android/bui
+ld/generated/source/
+codegen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/android/app/bui
+ld/generated/autolin
+king/src/main/jni/An
+droid-autolinking.cm
+ake:33 
+(add_subdirectory):
+    
+add_subdirectory 
+given source
+    "C:/Users/LionO/
+Downloads/Awesome/Aw
+esomeProject/node_mo
+dules/react-native-w
+ebview/android/build
+/generated/source/co
+degen/jni/"
+    which is not an 
+existing directory.
+  Call Stack (most 
+recent call first):
+    C:/Users/LionO/D
+ownloads/Awesome/Awe
+someProject/node_mod
+ules/react-native/Re
+actAndroid/cmake-uti
+ls/ReactNative-appli
+cation.cmake:94 
+(include)
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  CMake Error at C:/
+Users/LionO/Download
+s/Awesome/AwesomePro
+ject/node_modules/re
+act-native/ReactAndr
+oid/cmake-utils/Reac
+tNative-application.
+cmake:97 (target_lin
+k_libraries):
+    Cannot specify 
+link libraries for 
+target "react_codege
+n_rnasyncstorage"
+    which is not 
+built by this 
+project.
+  Call Stack (most 
+recent call first):
+    
+CMakeLists.txt:31 
+(include)
+  
+  
+  ninja: error: 
+rebuilding 
+'build.ninja': 
+subcommand failed
+
+* Try:
+> Run with --info 
+or --debug option 
+to get more log 
+output.
+> Run with --scan 
+to get full 
+insights.
+> Get more help at h
+ttps://help.gradle.o
+rg.
+
+* Exception is:
+org.gradle.api.tasks
+.TaskExecutionExcept
+ion: Execution 
+failed for task ':ap
+p:externalNativeBuil
+dCleanDebug'.
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ExecuteActionsTa
+skExecuter.lambda$ex
+ecuteIfValid$1(Execu
+teActionsTaskExecute
+r.java:130)
+	at org.gradle.inter
+nal.Try$Failure.ifSu
+ccessfulOrElse(Try.j
+ava:293)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ExecuteActionsTa
+skExecuter.executeIf
+Valid(ExecuteActions
+TaskExecuter.java:12
+8)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ExecuteActionsTa
+skExecuter.execute(E
+xecuteActionsTaskExe
+cuter.java:116)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ProblemsTaskPath
+TrackingTaskExecuter
+.execute(ProblemsTas
+kPathTrackingTaskExe
+cuter.java:41)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.FinalizeProperti
+esTaskExecuter.execu
+te(FinalizePropertie
+sTaskExecuter.java:4
+6)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ResolveTaskExecu
+tionModeExecuter.exe
+cute(ResolveTaskExec
+utionModeExecuter.ja
+va:51)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.SkipTaskWithNoAc
+tionsExecuter.execut
+e(SkipTaskWithNoActi
+onsExecuter.java:57)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.SkipOnlyIfTaskEx
+ecuter.execute(SkipO
+nlyIfTaskExecuter.ja
+va:74)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.CatchExceptionTa
+skExecuter.execute(C
+atchExceptionTaskExe
+cuter.java:36)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.EventFiringTaskE
+xecuter$1.executeTas
+k(EventFiringTaskExe
+cuter.java:77)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.EventFiringTaskE
+xecuter$1.call(Event
+FiringTaskExecuter.j
+ava:55)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.EventFiringTaskE
+xecuter$1.call(Event
+FiringTaskExecuter.j
+ava:52)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$CallableBuildOper
+ationWorker.execute(
+DefaultBuildOperatio
+nRunner.java:210)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$CallableBuildOper
+ationWorker.execute(
+DefaultBuildOperatio
+nRunner.java:205)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$2.execute(Default
+BuildOperationRunner
+.java:67)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$2.execute(Default
+BuildOperationRunner
+.java:60)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.execute(DefaultBu
+ildOperationRunner.j
+ava:167)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.execute(DefaultBu
+ildOperationRunner.j
+ava:60)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.call(DefaultBuild
+OperationRunner.java
+:54)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.EventFiringTaskE
+xecuter.execute(Even
+tFiringTaskExecuter.
+java:52)
+	at org.gradle.execu
+tion.plan.LocalTaskN
+odeExecutor.execute(
+LocalTaskNodeExecuto
+r.java:42)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$InvokeNodeExecutors
+Action.execute(Defau
+ltTaskExecutionGraph
+.java:331)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$InvokeNodeExecutors
+Action.execute(Defau
+ltTaskExecutionGraph
+.java:318)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$BuildOperationAware
+ExecutionAction.lamb
+da$execute$0(Default
+TaskExecutionGraph.j
+ava:314)
+	at org.gradle.inter
+nal.operations.Curre
+ntBuildOperationRef.
+with(CurrentBuildOpe
+rationRef.java:85)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$BuildOperationAware
+ExecutionAction.exec
+ute(DefaultTaskExecu
+tionGraph.java:314)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$BuildOperationAware
+ExecutionAction.exec
+ute(DefaultTaskExecu
+tionGraph.java:303)
+	at org.gradle.execu
+tion.plan.DefaultPla
+nExecutor$ExecutorWo
+rker.execute(Default
+PlanExecutor.java:45
+9)
+	at org.gradle.execu
+tion.plan.DefaultPla
+nExecutor$ExecutorWo
+rker.run(DefaultPlan
+Executor.java:376)
+	at org.gradle.inter
+nal.concurrent.Execu
+torPolicy$CatchAndRe
+cordFailures.onExecu
+te(ExecutorPolicy.ja
+va:64)
+	at org.gradle.inter
+nal.concurrent.Abstr
+actManagedExecutor$1
+.run(AbstractManaged
+Executor.java:48)
+Caused by: org.gradl
+e.internal.Unchecked
+Exception: com.andro
+id.ide.common.proces
+s.ProcessException: 
+ninja: Entering 
+directory `C:\Users\
+LionO\Downloads\Awes
+ome\AwesomeProject\a
+ndroid\app\.cxx\Debu
+g\5v225x1s\armeabi-v
+7a'
+[0/2] Re-checking 
+globbed 
+directories...
+[1/2] Re-running 
+CMake...
+-- Configuring 
+incomplete, errors 
+occurred!
+See also "C:/Users/L
+ionO/Downloads/Aweso
+me/AwesomeProject/an
+droid/app/.cxx/Debug
+/5v225x1s/armeabi-v7
+a/CMakeFiles/CMakeOu
+tput.log".
+See also "C:/Users/L
+ionO/Downloads/Aweso
+me/AwesomeProject/an
+droid/app/.cxx/Debug
+/5v225x1s/armeabi-v7
+a/CMakeFiles/CMakeEr
+ror.log".
+FAILED: build.ninja 
+C:\Users\LionO\AppDa
+ta\Local\Android\Sdk
+\cmake\3.22.1\bin\cm
+ake.exe --regenerate
+-during-build -SC:\U
+sers\LionO\Downloads
+\Awesome\AwesomeProj
+ect\node_modules\rea
+ct-native\ReactAndro
+id\cmake-utils\defau
+lt-app-setup -BC:\Us
+ers\LionO\Downloads\
+Awesome\AwesomeProje
+ct\android\app\.cxx\
+Debug\5v225x1s\armea
+bi-v7a
+
+C++ build system 
+[clean] failed 
+while executing:
+    @echo off
+    "C:\\Users\\Lion
+O\\AppData\\Local\\A
+ndroid\\Sdk\\cmake\\
+3.22.1\\bin\\ninja.e
+xe" ^
+      -C ^
+      "C:\\Users\\Li
+onO\\Downloads\\Awes
+ome\\AwesomeProject\
+\android\\app\\.cxx\
+\Debug\\5v225x1s\\ar
+meabi-v7a" ^
+      clean
+  from C:\Users\Lion
+O\Downloads\Awesome\
+AwesomeProject\andro
+id\app
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:9 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@react-native-as
+ync-storage/async-st
+orage/android/build/
+generated/source/cod
+egen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:11 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@react-native-co
+mmunity/geolocation/
+android/build/genera
+ted/source/codegen/j
+ni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:14 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@react-native-ve
+ctor-icons/feather/a
+ndroid/build/generat
+ed/source/codegen/jn
+i/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:15 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@react-native-ve
+ctor-icons/material-
+icons/android/build/
+generated/source/cod
+egen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:16 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@sentry/react-na
+tive/android/build/g
+enerated/source/code
+gen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:19 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-ges
+ture-handler/android
+/build/generated/sou
+rce/codegen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:20 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-htm
+l-to-pdf/android/bui
+ld/generated/source/
+codegen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:21 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-key
+chain/android/build/
+generated/source/cod
+egen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:24 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-mmk
+v/android/build/gene
+rated/source/codegen
+/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:26 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-pag
+er-view/android/buil
+d/generated/source/c
+odegen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:27 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-pdf
+/android/build/gener
+ated/source/codegen/
+jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:30 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-sha
+re/android/build/gen
+erated/source/codege
+n/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:31 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-vec
+tor-icons/android/bu
+ild/generated/source
+/codegen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:32 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-vie
+w-shot/android/build
+/generated/source/co
+degen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:33 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-web
+view/android/build/g
+enerated/source/code
+gen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/node_modules/reac
+t-native/ReactAndroi
+d/cmake-utils/ReactN
+ative-application.cm
+ake:97 (target_link_
+libraries):
+  Cannot specify 
+link libraries for 
+target "react_codege
+n_rnasyncstorage"
+  which is not 
+built by this 
+project.
+Call Stack (most 
+recent call first):
+  CMakeLists.txt:31 
+(include)
+
+
+ninja: error: 
+rebuilding 
+'build.ninja': 
+subcommand failed
+
+	at org.gradle.inter
+nal.UncheckedExcepti
+on.throwAsUncheckedE
+xception(UncheckedEx
+ception.java:69)
+	at org.gradle.inter
+nal.UncheckedExcepti
+on.throwAsUncheckedE
+xception(UncheckedEx
+ception.java:42)
+	at org.gradle.inter
+nal.reflect.JavaMeth
+od.invoke(JavaMethod
+.java:128)
+	at org.gradle.api.i
+nternal.project.task
+factory.StandardTask
+Action.doExecute(Sta
+ndardTaskAction.java
+:58)
+	at org.gradle.api.i
+nternal.project.task
+factory.StandardTask
+Action.execute(Stand
+ardTaskAction.java:5
+1)
+	at org.gradle.api.i
+nternal.project.task
+factory.StandardTask
+Action.execute(Stand
+ardTaskAction.java:2
+9)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.TaskExecution$3.
+run(TaskExecution.ja
+va:244)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$1.execute(Default
+BuildOperationRunner
+.java:30)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$1.execute(Default
+BuildOperationRunner
+.java:27)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$2.execute(Default
+BuildOperationRunner
+.java:67)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$2.execute(Default
+BuildOperationRunner
+.java:60)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.execute(DefaultBu
+ildOperationRunner.j
+ava:167)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.execute(DefaultBu
+ildOperationRunner.j
+ava:60)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.run(DefaultBuildO
+perationRunner.java:
+48)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.TaskExecution.ex
+ecuteAction(TaskExec
+ution.java:229)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.TaskExecution.ex
+ecuteActions(TaskExe
+cution.java:212)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.TaskExecution.ex
+ecuteWithPreviousOut
+putFiles(TaskExecuti
+on.java:195)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.TaskExecution.ex
+ecute(TaskExecution.
+java:162)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteStep.executeI
+nternal(ExecuteStep.
+java:105)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteStep.access$0
+00(ExecuteStep.java:
+44)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteStep$1.call(E
+xecuteStep.java:59)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteStep$1.call(E
+xecuteStep.java:56)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$CallableBuildOper
+ationWorker.execute(
+DefaultBuildOperatio
+nRunner.java:210)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$CallableBuildOper
+ationWorker.execute(
+DefaultBuildOperatio
+nRunner.java:205)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$2.execute(Default
+BuildOperationRunner
+.java:67)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$2.execute(Default
+BuildOperationRunner
+.java:60)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.execute(DefaultBu
+ildOperationRunner.j
+ava:167)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.execute(DefaultBu
+ildOperationRunner.j
+ava:60)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.call(DefaultBuild
+OperationRunner.java
+:54)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteStep.execute(
+ExecuteStep.java:56)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteStep.execute(
+ExecuteStep.java:44)
+	at org.gradle.inter
+nal.execution.steps.
+CancelExecutionStep.
+execute(CancelExecut
+ionStep.java:42)
+	at org.gradle.inter
+nal.execution.steps.
+TimeoutStep.executeW
+ithoutTimeout(Timeou
+tStep.java:75)
+	at org.gradle.inter
+nal.execution.steps.
+TimeoutStep.execute(
+TimeoutStep.java:55)
+	at org.gradle.inter
+nal.execution.steps.
+PreCreateOutputParen
+tsStep.execute(PreCr
+eateOutputParentsSte
+p.java:50)
+	at org.gradle.inter
+nal.execution.steps.
+PreCreateOutputParen
+tsStep.execute(PreCr
+eateOutputParentsSte
+p.java:28)
+	at org.gradle.inter
+nal.execution.steps.
+RemovePreviousOutput
+sStep.execute(Remove
+PreviousOutputsStep.
+java:67)
+	at org.gradle.inter
+nal.execution.steps.
+RemovePreviousOutput
+sStep.execute(Remove
+PreviousOutputsStep.
+java:37)
+	at org.gradle.inter
+nal.execution.steps.
+BroadcastChangingOut
+putsStep.execute(Bro
+adcastChangingOutput
+sStep.java:61)
+	at org.gradle.inter
+nal.execution.steps.
+BroadcastChangingOut
+putsStep.execute(Bro
+adcastChangingOutput
+sStep.java:26)
+	at org.gradle.inter
+nal.execution.steps.
+CaptureOutputsAfterE
+xecutionStep.execute
+(CaptureOutputsAfter
+ExecutionStep.java:6
+9)
+	at org.gradle.inter
+nal.execution.steps.
+CaptureOutputsAfterE
+xecutionStep.execute
+(CaptureOutputsAfter
+ExecutionStep.java:4
+6)
+	at org.gradle.inter
+nal.execution.steps.
+ResolveInputChangesS
+tep.execute(ResolveI
+nputChangesStep.java
+:40)
+	at org.gradle.inter
+nal.execution.steps.
+ResolveInputChangesS
+tep.execute(ResolveI
+nputChangesStep.java
+:29)
+	at org.gradle.inter
+nal.execution.steps.
+BuildCacheStep.execu
+teWithoutCache(Build
+CacheStep.java:189)
+	at org.gradle.inter
+nal.execution.steps.
+BuildCacheStep.lambd
+a$execute$1(BuildCac
+heStep.java:75)
+	at org.gradle.inter
+nal.Either$Right.fol
+d(Either.java:175)
+	at org.gradle.inter
+nal.execution.cachin
+g.CachingState.fold(
+CachingState.java:62
+)
+	at org.gradle.inter
+nal.execution.steps.
+BuildCacheStep.execu
+te(BuildCacheStep.ja
+va:73)
+	at org.gradle.inter
+nal.execution.steps.
+BuildCacheStep.execu
+te(BuildCacheStep.ja
+va:48)
+	at org.gradle.inter
+nal.execution.steps.
+StoreExecutionStateS
+tep.execute(StoreExe
+cutionStateStep.java
+:46)
+	at org.gradle.inter
+nal.execution.steps.
+StoreExecutionStateS
+tep.execute(StoreExe
+cutionStateStep.java
+:35)
+	at org.gradle.inter
+nal.execution.steps.
+SkipUpToDateStep.exe
+cuteBecause(SkipUpTo
+DateStep.java:75)
+	at org.gradle.inter
+nal.execution.steps.
+SkipUpToDateStep.lam
+bda$execute$2(SkipUp
+ToDateStep.java:53)
+	at org.gradle.inter
+nal.execution.steps.
+SkipUpToDateStep.exe
+cute(SkipUpToDateSte
+p.java:53)
+	at org.gradle.inter
+nal.execution.steps.
+SkipUpToDateStep.exe
+cute(SkipUpToDateSte
+p.java:35)
+	at org.gradle.inter
+nal.execution.steps.
+legacy.MarkSnapshott
+ingInputsFinishedSte
+p.execute(MarkSnapsh
+ottingInputsFinished
+Step.java:37)
+	at org.gradle.inter
+nal.execution.steps.
+legacy.MarkSnapshott
+ingInputsFinishedSte
+p.execute(MarkSnapsh
+ottingInputsFinished
+Step.java:27)
+	at org.gradle.inter
+nal.execution.steps.
+ResolveIncrementalCa
+chingStateStep.execu
+teDelegate(ResolveIn
+crementalCachingStat
+eStep.java:49)
+	at org.gradle.inter
+nal.execution.steps.
+ResolveIncrementalCa
+chingStateStep.execu
+teDelegate(ResolveIn
+crementalCachingStat
+eStep.java:27)
+	at org.gradle.inter
+nal.execution.steps.
+AbstractResolveCachi
+ngStateStep.execute(
+AbstractResolveCachi
+ngStateStep.java:71)
+	at org.gradle.inter
+nal.execution.steps.
+AbstractResolveCachi
+ngStateStep.execute(
+AbstractResolveCachi
+ngStateStep.java:39)
+	at org.gradle.inter
+nal.execution.steps.
+ResolveChangesStep.e
+xecute(ResolveChange
+sStep.java:65)
+	at org.gradle.inter
+nal.execution.steps.
+ResolveChangesStep.e
+xecute(ResolveChange
+sStep.java:36)
+	at org.gradle.inter
+nal.execution.steps.
+ValidateStep.execute
+(ValidateStep.java:1
+07)
+	at org.gradle.inter
+nal.execution.steps.
+ValidateStep.execute
+(ValidateStep.java:5
+6)
+	at org.gradle.inter
+nal.execution.steps.
+AbstractCaptureState
+BeforeExecutionStep.
+execute(AbstractCapt
+ureStateBeforeExecut
+ionStep.java:64)
+	at org.gradle.inter
+nal.execution.steps.
+AbstractCaptureState
+BeforeExecutionStep.
+execute(AbstractCapt
+ureStateBeforeExecut
+ionStep.java:43)
+	at org.gradle.inter
+nal.execution.steps.
+AbstractSkipEmptyWor
+kStep.executeWithNon
+EmptySources(Abstrac
+tSkipEmptyWorkStep.j
+ava:125)
+	at org.gradle.inter
+nal.execution.steps.
+AbstractSkipEmptyWor
+kStep.execute(Abstra
+ctSkipEmptyWorkStep.
+java:56)
+	at org.gradle.inter
+nal.execution.steps.
+AbstractSkipEmptyWor
+kStep.execute(Abstra
+ctSkipEmptyWorkStep.
+java:36)
+	at org.gradle.inter
+nal.execution.steps.
+legacy.MarkSnapshott
+ingInputsStartedStep
+.execute(MarkSnapsho
+ttingInputsStartedSt
+ep.java:38)
+	at org.gradle.inter
+nal.execution.steps.
+LoadPreviousExecutio
+nStateStep.execute(L
+oadPreviousExecution
+StateStep.java:36)
+	at org.gradle.inter
+nal.execution.steps.
+LoadPreviousExecutio
+nStateStep.execute(L
+oadPreviousExecution
+StateStep.java:23)
+	at org.gradle.inter
+nal.execution.steps.
+HandleStaleOutputsSt
+ep.execute(HandleSta
+leOutputsStep.java:7
+5)
+	at org.gradle.inter
+nal.execution.steps.
+HandleStaleOutputsSt
+ep.execute(HandleSta
+leOutputsStep.java:4
+1)
+	at org.gradle.inter
+nal.execution.steps.
+AssignMutableWorkspa
+ceStep.lambda$execut
+e$0(AssignMutableWor
+kspaceStep.java:35)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.TaskExecution$4.
+withWorkspace(TaskEx
+ecution.java:289)
+	at org.gradle.inter
+nal.execution.steps.
+AssignMutableWorkspa
+ceStep.execute(Assig
+nMutableWorkspaceSte
+p.java:31)
+	at org.gradle.inter
+nal.execution.steps.
+AssignMutableWorkspa
+ceStep.execute(Assig
+nMutableWorkspaceSte
+p.java:22)
+	at org.gradle.inter
+nal.execution.steps.
+ChoosePipelineStep.e
+xecute(ChoosePipelin
+eStep.java:40)
+	at org.gradle.inter
+nal.execution.steps.
+ChoosePipelineStep.e
+xecute(ChoosePipelin
+eStep.java:23)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteWorkBuildOper
+ationFiringStep.lamb
+da$execute$2(Execute
+WorkBuildOperationFi
+ringStep.java:67)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteWorkBuildOper
+ationFiringStep.exec
+ute(ExecuteWorkBuild
+OperationFiringStep.
+java:67)
+	at org.gradle.inter
+nal.execution.steps.
+ExecuteWorkBuildOper
+ationFiringStep.exec
+ute(ExecuteWorkBuild
+OperationFiringStep.
+java:39)
+	at org.gradle.inter
+nal.execution.steps.
+IdentityCacheStep.ex
+ecute(IdentityCacheS
+tep.java:46)
+	at org.gradle.inter
+nal.execution.steps.
+IdentityCacheStep.ex
+ecute(IdentityCacheS
+tep.java:34)
+	at org.gradle.inter
+nal.execution.steps.
+IdentifyStep.execute
+(IdentifyStep.java:4
+8)
+	at org.gradle.inter
+nal.execution.steps.
+IdentifyStep.execute
+(IdentifyStep.java:3
+5)
+	at org.gradle.inter
+nal.execution.impl.D
+efaultExecutionEngin
+e$1.execute(DefaultE
+xecutionEngine.java:
+64)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ExecuteActionsTa
+skExecuter.executeIf
+Valid(ExecuteActions
+TaskExecuter.java:12
+7)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ExecuteActionsTa
+skExecuter.execute(E
+xecuteActionsTaskExe
+cuter.java:116)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ProblemsTaskPath
+TrackingTaskExecuter
+.execute(ProblemsTas
+kPathTrackingTaskExe
+cuter.java:41)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.FinalizeProperti
+esTaskExecuter.execu
+te(FinalizePropertie
+sTaskExecuter.java:4
+6)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.ResolveTaskExecu
+tionModeExecuter.exe
+cute(ResolveTaskExec
+utionModeExecuter.ja
+va:51)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.SkipTaskWithNoAc
+tionsExecuter.execut
+e(SkipTaskWithNoActi
+onsExecuter.java:57)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.SkipOnlyIfTaskEx
+ecuter.execute(SkipO
+nlyIfTaskExecuter.ja
+va:74)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.CatchExceptionTa
+skExecuter.execute(C
+atchExceptionTaskExe
+cuter.java:36)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.EventFiringTaskE
+xecuter$1.executeTas
+k(EventFiringTaskExe
+cuter.java:77)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.EventFiringTaskE
+xecuter$1.call(Event
+FiringTaskExecuter.j
+ava:55)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.EventFiringTaskE
+xecuter$1.call(Event
+FiringTaskExecuter.j
+ava:52)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$CallableBuildOper
+ationWorker.execute(
+DefaultBuildOperatio
+nRunner.java:210)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$CallableBuildOper
+ationWorker.execute(
+DefaultBuildOperatio
+nRunner.java:205)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$2.execute(Default
+BuildOperationRunner
+.java:67)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er$2.execute(Default
+BuildOperationRunner
+.java:60)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.execute(DefaultBu
+ildOperationRunner.j
+ava:167)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.execute(DefaultBu
+ildOperationRunner.j
+ava:60)
+	at org.gradle.inter
+nal.operations.Defau
+ltBuildOperationRunn
+er.call(DefaultBuild
+OperationRunner.java
+:54)
+	at org.gradle.api.i
+nternal.tasks.execut
+ion.EventFiringTaskE
+xecuter.execute(Even
+tFiringTaskExecuter.
+java:52)
+	at org.gradle.execu
+tion.plan.LocalTaskN
+odeExecutor.execute(
+LocalTaskNodeExecuto
+r.java:42)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$InvokeNodeExecutors
+Action.execute(Defau
+ltTaskExecutionGraph
+.java:331)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$InvokeNodeExecutors
+Action.execute(Defau
+ltTaskExecutionGraph
+.java:318)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$BuildOperationAware
+ExecutionAction.lamb
+da$execute$0(Default
+TaskExecutionGraph.j
+ava:314)
+	at org.gradle.inter
+nal.operations.Curre
+ntBuildOperationRef.
+with(CurrentBuildOpe
+rationRef.java:85)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$BuildOperationAware
+ExecutionAction.exec
+ute(DefaultTaskExecu
+tionGraph.java:314)
+	at org.gradle.execu
+tion.taskgraph.Defau
+ltTaskExecutionGraph
+$BuildOperationAware
+ExecutionAction.exec
+ute(DefaultTaskExecu
+tionGraph.java:303)
+	at org.gradle.execu
+tion.plan.DefaultPla
+nExecutor$ExecutorWo
+rker.execute(Default
+PlanExecutor.java:45
+9)
+	at org.gradle.execu
+tion.plan.DefaultPla
+nExecutor$ExecutorWo
+rker.run(DefaultPlan
+Executor.java:376)
+	at org.gradle.inter
+nal.concurrent.Execu
+torPolicy$CatchAndRe
+cordFailures.onExecu
+te(ExecutorPolicy.ja
+va:64)
+	at org.gradle.inter
+nal.concurrent.Abstr
+actManagedExecutor$1
+.run(AbstractManaged
+Executor.java:48)
+Caused by: com.andro
+id.ide.common.proces
+s.ProcessException: 
+ninja: Entering 
+directory `C:\Users\
+LionO\Downloads\Awes
+ome\AwesomeProject\a
+ndroid\app\.cxx\Debu
+g\5v225x1s\armeabi-v
+7a'
+[0/2] Re-checking 
+globbed 
+directories...
+[1/2] Re-running 
+CMake...
+-- Configuring 
+incomplete, errors 
+occurred!
+See also "C:/Users/L
+ionO/Downloads/Aweso
+me/AwesomeProject/an
+droid/app/.cxx/Debug
+/5v225x1s/armeabi-v7
+a/CMakeFiles/CMakeOu
+tput.log".
+See also "C:/Users/L
+ionO/Downloads/Aweso
+me/AwesomeProject/an
+droid/app/.cxx/Debug
+/5v225x1s/armeabi-v7
+a/CMakeFiles/CMakeEr
+ror.log".
+FAILED: build.ninja 
+C:\Users\LionO\AppDa
+ta\Local\Android\Sdk
+\cmake\3.22.1\bin\cm
+ake.exe --regenerate
+-during-build -SC:\U
+sers\LionO\Downloads
+\Awesome\AwesomeProj
+ect\node_modules\rea
+ct-native\ReactAndro
+id\cmake-utils\defau
+lt-app-setup -BC:\Us
+ers\LionO\Downloads\
+Awesome\AwesomeProje
+ct\android\app\.cxx\
+Debug\5v225x1s\armea
+bi-v7a
+
+C++ build system 
+[clean] failed 
+while executing:
+    @echo off
+    "C:\\Users\\Lion
+O\\AppData\\Local\\A
+ndroid\\Sdk\\cmake\\
+3.22.1\\bin\\ninja.e
+xe" ^
+      -C ^
+      "C:\\Users\\Li
+onO\\Downloads\\Awes
+ome\\AwesomeProject\
+\android\\app\\.cxx\
+\Debug\\5v225x1s\\ar
+meabi-v7a" ^
+      clean
+  from C:\Users\Lion
+O\Downloads\Awesome\
+AwesomeProject\andro
+id\app
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:9 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@react-native-as
+ync-storage/async-st
+orage/android/build/
+generated/source/cod
+egen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:11 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@react-native-co
+mmunity/geolocation/
+android/build/genera
+ted/source/codegen/j
+ni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:14 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@react-native-ve
+ctor-icons/feather/a
+ndroid/build/generat
+ed/source/codegen/jn
+i/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:15 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@react-native-ve
+ctor-icons/material-
+icons/android/build/
+generated/source/cod
+egen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:16 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/@sentry/react-na
+tive/android/build/g
+enerated/source/code
+gen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:19 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-ges
+ture-handler/android
+/build/generated/sou
+rce/codegen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:20 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-htm
+l-to-pdf/android/bui
+ld/generated/source/
+codegen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:21 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-key
+chain/android/build/
+generated/source/cod
+egen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:24 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-mmk
+v/android/build/gene
+rated/source/codegen
+/jni/"
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+11 actionable tasks: 1 executed, 10 up-to-date
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:26 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-pag
+er-view/android/buil
+d/generated/source/c
+odegen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:27 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-pdf
+/android/build/gener
+ated/source/codegen/
+jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:30 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-sha
+re/android/build/gen
+erated/source/codege
+n/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:31 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-vec
+tor-icons/android/bu
+ild/generated/source
+/codegen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:32 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-vie
+w-shot/android/build
+/generated/source/co
+degen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/android/app/build
+/generated/autolinki
+ng/src/main/jni/Andr
+oid-autolinking.cmak
+e:33 
+(add_subdirectory):
+  add_subdirectory 
+given source
+  "C:/Users/LionO/Do
+wnloads/Awesome/Awes
+omeProject/node_modu
+les/react-native-web
+view/android/build/g
+enerated/source/code
+gen/jni/"
+  which is not an 
+existing directory.
+Call Stack (most 
+recent call first):
+  C:/Users/LionO/Dow
+nloads/Awesome/Aweso
+meProject/node_modul
+es/react-native/Reac
+tAndroid/cmake-utils
+/ReactNative-applica
+tion.cmake:94 
+(include)
+  CMakeLists.txt:31 
+(include)
+
+
+CMake Error at C:/Us
+ers/LionO/Downloads/
+Awesome/AwesomeProje
+ct/node_modules/reac
+t-native/ReactAndroi
+d/cmake-utils/ReactN
+ative-application.cm
+ake:97 (target_link_
+libraries):
+  Cannot specify 
+link libraries for 
+target "react_codege
+n_rnasyncstorage"
+  which is not 
+built by this 
+project.
+Call Stack (most 
+recent call first):
+  CMakeLists.txt:31 
+(include)
+
+
+ninja: error: 
+rebuilding 
+'build.ninja': 
+subcommand failed
+
+	at com.android.buil
+d.gradle.internal.cx
+x.process.ExecutePro
+cessKt.execute(Execu
+teProcess.kt:288)
+	at com.android.buil
+d.gradle.internal.cx
+x.process.ExecutePro
+cessKt$executeProces
+s$1.invoke(ExecutePr
+ocess.kt:108)
+	at com.android.buil
+d.gradle.internal.cx
+x.process.ExecutePro
+cessKt$executeProces
+s$1.invoke(ExecutePr
+ocess.kt:106)
+	at com.android.buil
+d.gradle.internal.cx
+x.timing.TimingEnvir
+onmentKt.time(Timing
+Environment.kt:32)
+	at com.android.buil
+d.gradle.internal.cx
+x.process.ExecutePro
+cessKt.executeProces
+s(ExecuteProcess.kt:
+106)
+	at com.android.buil
+d.gradle.internal.cx
+x.process.ExecutePro
+cessKt.executeProces
+s$default(ExecutePro
+cess.kt:85)
+	at com.android.buil
+d.gradle.tasks.Exter
+nalNativeCleanTask.e
+xecuteProcessBatch(E
+xternalNativeCleanTa
+sk.kt:135)
+	at com.android.buil
+d.gradle.tasks.Exter
+nalNativeCleanTask.d
+oTaskAction(External
+NativeCleanTask.kt:1
+07)
+	at com.android.buil
+d.gradle.internal.ta
+sks.NonIncrementalTa
+sk$taskAction$$inlin
+ed$recordTaskAction$
+1.invoke(BaseTask.kt
+:60)
+	at com.android.buil
+d.gradle.internal.ta
+sks.Blocks.recordSpa
+n(Blocks.java:51)
+	at com.android.buil
+d.gradle.internal.ta
+sks.NonIncrementalTa
+sk.taskAction(NonInc
+rementalTask.kt:78)
+	at java.base/jdk.in
+ternal.reflect.Nativ
+eMethodAccessorImpl.
+invoke0(Native 
+Method)
+	at java.base/jdk.in
+ternal.reflect.Nativ
+eMethodAccessorImpl.
+invoke(NativeMethodA
+ccessorImpl.java:77)
+	at java.base/jdk.in
+ternal.reflect.Deleg
+atingMethodAccessorI
+mpl.invoke(Delegatin
+gMethodAccessorImpl.
+java:43)
+	at org.gradle.inter
+nal.reflect.JavaMeth
+od.invoke(JavaMethod
+.java:125)
+	... 117 more
+Caused by: com.andro
+id.ide.common.proces
+s.ProcessException: 
+Error while 
+executing process C:
+\Users\LionO\AppData
+\Local\Android\Sdk\c
+make\3.22.1\bin\ninj
+a.exe with 
+arguments {-C C:\Use
+rs\LionO\Downloads\A
+wesome\AwesomeProjec
+t\android\app\.cxx\D
+ebug\5v225x1s\armeab
+i-v7a clean}
+	at com.android.buil
+d.gradle.internal.pr
+ocess.GradleProcessR
+esult.buildProcessEx
+ception(GradleProces
+sResult.java:73)
+	at com.android.buil
+d.gradle.internal.pr
+ocess.GradleProcessR
+esult.assertNormalEx
+itValue(GradleProces
+sResult.java:48)
+	at com.android.buil
+d.gradle.internal.cx
+x.process.ExecutePro
+cessKt.execute(Execu
+teProcess.kt:277)
+	... 131 more
+Caused by: org.gradl
+e.process.internal.E
+xecException: 
+Process 'command 'C:
+\Users\LionO\AppData
+\Local\Android\Sdk\c
+make\3.22.1\bin\ninj
+a.exe'' finished 
+with non-zero exit 
+value 1
+	at org.gradle.proce
+ss.internal.DefaultE
+xecHandle$ExecResult
+Impl.assertNormalExi
+tValue(DefaultExecHa
+ndle.java:442)
+	at com.android.buil
+d.gradle.internal.pr
+ocess.GradleProcessR
+esult.assertNormalEx
+itValue(GradleProces
+sResult.java:46)
+	... 132 more
+
+
+BUILD FAILED in 9s

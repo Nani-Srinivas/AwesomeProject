@@ -18,9 +18,7 @@ import { StatementPeriodSelection } from '../../screens/Bills/StatementPeriodSel
 import { InvoiceScreen } from '../../screens/Bills/InvoiceScreen';
 import { OrderScreen } from '../../screens/Order/OrderScreen';
 import { StoreCreationScreen } from '../../screens/StoreManagement/StoreCreationScreen';
-import { SelectCategoryScreen } from '../../screens/StoreManagement/SelectCategoryScreen';
-import { SelectSubcategoryScreen } from '../../screens/StoreManagement/SelectSubcategoryScreen';
-import { SelectProductScreen } from '../../screens/StoreManagement/SelectProductScreen';
+import { SelectBrandsScreen, SelectSubcategoriesScreen, SelectProductsScreen } from '../../screens/Onboarding';
 import { PricingConfigScreen } from '../../screens/StoreManagement/PricingConfigScreen';
 import { CardsScreen } from '../../screens/Cards/CardsScreen';
 import { InvoiceHistoryScreen } from '../../screens/Bills/InvoiceHistoryScreen';
@@ -79,9 +77,9 @@ export const MainStack = () => {
 
       {/* ===== Store Onboarding Screens ===== */}
       <Stack.Screen name="StoreCreation" component={StoreCreationScreen} options={{ title: 'Create Store' }} />
-      <Stack.Screen name="SelectCategory" component={SelectCategoryScreen} options={{ title: 'Select Category' }} />
-      <Stack.Screen name="SelectSubcategory" component={SelectSubcategoryScreen} options={{ title: 'Select Subcategory' }} />
-      <Stack.Screen name="SelectProduct" component={SelectProductScreen} options={{ title: 'Select Product' }} />
+      <Stack.Screen name="SelectBrands" component={SelectBrandsScreen} options={{ title: 'Select Brands' }} />
+      <Stack.Screen name="SelectSubcategories" component={SelectSubcategoriesScreen} options={{ title: 'Select Subcategories' }} />
+      <Stack.Screen name="SelectProducts" component={SelectProductsScreen} options={{ title: 'Select Products' }} />
       <Stack.Screen name="PricingConfig" component={PricingConfigScreen} options={{ title: 'Configure Pricing' }} />
 
       {/* ===== Product Management Screens ===== */}

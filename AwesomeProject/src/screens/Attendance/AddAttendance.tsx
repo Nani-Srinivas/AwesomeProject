@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import { AddExtraProductBottomSheet } from './components/AddExtraProductModal';
 import { COLORS } from '../../constants/colors';
 import { CustomerAttendanceItem } from './components/CustomerAttendanceItem';
 import { Picker } from '@react-native-picker/picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/common/Button';
 
@@ -56,50 +56,52 @@ export const AddAttendance = () => {
   }, []);
 
 
-  // ✅ fetch customers for selected area
-  useEffect(() => {
-    if (!selectedArea) return;
+  // ✅ fetch customers for selected area - REFRESH ON FOCUS
+  useFocusEffect(
+    useCallback(() => {
+      if (!selectedArea) return;
 
-    const fetchCustomers = async () => {
-      try {
-        const response = await apiService.get(`/customer/area/${selectedArea}`);
-        const fetchedCustomers = response.data.data;
-        if (!Array.isArray(fetchedCustomers)) {
+      const fetchCustomers = async () => {
+        try {
+          const response = await apiService.get(`/customer/area/${selectedArea}`);
+          const fetchedCustomers = response.data.data;
+          if (!Array.isArray(fetchedCustomers)) {
+            setCustomers([]);
+            setAttendance({});
+            return;
+          }
+
+          setCustomers(fetchedCustomers);
+
+          // Initialize attendance with status
+          const initialAttendance = {};
+          const initialExpandedState = {};
+          fetchedCustomers.forEach(customer => {
+            initialAttendance[customer._id] = {};
+            initialExpandedState[customer._id] = true; // Expand all customers by default
+            if (Array.isArray(customer.requiredProduct)) {
+              customer.requiredProduct.forEach(product => {
+                if (product.product?._id) {
+                  initialAttendance[customer._id][product.product._id] = {
+                    quantity: product.quantity, // Keep as is (string or number)
+                    status: 'delivered', // Default status
+                  };
+                }
+              });
+            }
+          });
+          setAttendance(initialAttendance);
+          setExpandedCustomers(initialExpandedState);
+        } catch (error) {
+          console.error('Error fetching customers:', error);
           setCustomers([]);
           setAttendance({});
-          return;
         }
+      };
 
-        setCustomers(fetchedCustomers);
-
-        // Initialize attendance with status
-        const initialAttendance = {};
-        const initialExpandedState = {};
-        fetchedCustomers.forEach(customer => {
-          initialAttendance[customer._id] = {};
-          initialExpandedState[customer._id] = true; // Expand all customers by default
-          if (Array.isArray(customer.requiredProduct)) {
-            customer.requiredProduct.forEach(product => {
-              if (product.product?._id) {
-                initialAttendance[customer._id][product.product._id] = {
-                  quantity: product.quantity,
-                  status: 'delivered', // Default status
-                };
-              }
-            });
-          }
-        });
-        setAttendance(initialAttendance);
-        setExpandedCustomers(initialExpandedState);
-      } catch (error) {
-        console.error('Error fetching customers:', error);
-        setCustomers([]);
-        setAttendance({});
-      }
-    };
-
-    fetchCustomers();
-  }, [selectedArea]);
+      fetchCustomers();
+    }, [selectedArea])
+  );
 
 
 
@@ -132,7 +134,7 @@ export const AddAttendance = () => {
         ...prev[customerId],
         [productId]: {
           ...prev[customerId]?.[productId],
-          quantity: Number(newQuantity),
+          quantity: newQuantity, // Allow string input
         },
       },
     }));
@@ -250,7 +252,7 @@ export const AddAttendance = () => {
         customerId,
         products: Object.keys(attendance[customerId]).map(productId => ({
           productId,
-          quantity: attendance[customerId][productId].quantity,
+          quantity: parseFloat(String(attendance[customerId][productId].quantity)) || 0,
           status: attendance[customerId][productId].status,
         })),
       }))
