@@ -11,25 +11,31 @@ interface Subcategory {
 
 interface CatalogState {
   categories: Category[];
+  brands: any[]; // Add brands
   subcategories: Subcategory[];
   products: Product[];
   selectedCategory: string;
+  selectedBrand: string; // Add selectedBrand
   selectedSubcategory: string;
   loading: boolean;
   error: string | null;
   fetchCategories: () => Promise<void>;
+  fetchBrands: () => Promise<void>; // Add fetchBrands
   fetchSubcategories: () => Promise<void>;
   fetchProducts: () => Promise<void>;
   setSelectedCategory: (category: string) => void;
+  setSelectedBrand: (brandId: string) => void; // Add setSelectedBrand
   setSelectedSubcategory: (subcategory: string) => void;
   updateProduct: (productId: string, updates: Partial<Product>) => void;
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
   categories: [],
+  brands: [],
   subcategories: [],
   products: [],
   selectedCategory: 'All',
+  selectedBrand: 'All', // Default to 'All'
   selectedSubcategory: 'All',
   loading: false,
   error: null,
@@ -50,6 +56,22 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       set({ categories: [allCategory, ...fetchedCategories], loading: false });
     } catch (error) {
       set({ error: 'Failed to fetch categories', loading: false });
+    }
+  },
+  fetchBrands: async () => {
+    set({ loading: true, error: null });
+    try {
+      const fetchedBrands: any[] = await storeCatalogService.getBrands();
+      // Add 'All' brand
+      const allBrand: any = {
+        _id: 'All',
+        name: 'All',
+        // Use a generic image or the first brand's image if available, or placeholder
+        imageUrl: 'https://cdn-icons-png.flaticon.com/512/8827/8827054.png',
+      };
+      set({ brands: [allBrand, ...fetchedBrands], loading: false });
+    } catch (error) {
+      set({ error: 'Failed to fetch brands', loading: false });
     }
   },
   fetchSubcategories: async () => {
@@ -81,6 +103,9 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   },
   setSelectedCategory: category => {
     set({ selectedCategory: category, selectedSubcategory: 'All' });
+  },
+  setSelectedBrand: brandId => {
+    set({ selectedBrand: brandId, selectedCategory: 'All', selectedSubcategory: 'All' });
   },
   setSelectedSubcategory: subcategory => set({ selectedSubcategory: subcategory }),
   updateProduct: async (productId, updates) => {

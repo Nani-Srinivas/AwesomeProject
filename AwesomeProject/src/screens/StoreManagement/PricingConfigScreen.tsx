@@ -101,6 +101,7 @@ export const PricingConfigScreen = ({ route, navigation }: PricingConfigScreenPr
 
             const payload = {
                 selectedMasterCategoryIds: uniqueCategoryIds,
+                selectedBrandIds, // Pass explicitly selected brands
                 productsWithPricing,
             };
 

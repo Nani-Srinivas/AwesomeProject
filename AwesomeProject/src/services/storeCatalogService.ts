@@ -34,9 +34,15 @@ const importCatalog = async (brandIds: string[], productIds: string[]): Promise<
   });
 };
 
+const getBrands = async (): Promise<any[]> => {
+  const response = await apiService.get('/product/store-brands');
+  return response.data.data;
+};
+
 export const storeCatalogService = {
   getCategories,
   getSubcategories,
+  getBrands,
   getProducts,
   updateProduct,
   importCatalog,

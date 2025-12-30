@@ -6,6 +6,8 @@ import StoreSubcategory from "../../models/Product/StoreSubcategory.js";
 import StoreProduct from "../../models/Product/StoreProduct.js";
 import Store from "../../models/Store/Store.js";
 import { StoreManager } from "../../models/User/StoreManager.js";
+import Brand from "../../models/Product/Brand.js";
+import StoreBrand from "../../models/Product/StoreBrand.js";
 
 export const getMasterCategories = async (req, reply) => {
   try {
@@ -87,7 +89,7 @@ export const importCatalog = async (req, reply) => {
   console.log('req.body:', req.body);
   console.log('req.user:', req.user);
   try {
-    const { selectedMasterCategoryIds, productsWithPricing } = req.body;
+    const { selectedMasterCategoryIds, selectedBrandIds, productsWithPricing } = req.body;
     const createdBy = req.user?.id;
     const createdByModel = req.user?.roles[0]; // Use roles[0] for consistency
 
@@ -127,9 +129,39 @@ export const importCatalog = async (req, reply) => {
     }
     console.log(`Created ${storeCategoriesMap.size} StoreCategories.`);
 
+    // 1.5 Create StoreBrands
+    console.log('Creating StoreBrands...');
+    const selectedMasterProductIds = productsWithPricing.map(p => p.masterProductId);
+    const brandMasterProducts = await MasterProduct.find({ _id: { $in: selectedMasterProductIds } }).populate('subcategory');
+
+    // Extract unique Brand IDs from MasterProducts AND explicit selections
+    const productBrandIds = brandMasterProducts.map(p => p.brandId?.toString()).filter(Boolean);
+    const explicitBrandIds = selectedBrandIds ? (Array.isArray(selectedBrandIds) ? selectedBrandIds : [selectedBrandIds]) : [];
+    const uniqueBrandIds = [...new Set([...productBrandIds, ...explicitBrandIds])];
+
+    const masterBrands = await Brand.find({ _id: { $in: uniqueBrandIds } });
+
+    for (const masterBrand of masterBrands) {
+      // Check if StoreBrand already exists (idempotency)
+      const existingStoreBrand = await StoreBrand.findOne({ storeId, masterBrandId: masterBrand._id });
+      if (!existingStoreBrand) {
+        await StoreBrand.create({
+          storeId,
+          masterBrandId: masterBrand._id,
+          name: masterBrand.name,
+          description: masterBrand.description,
+          imageUrl: masterBrand.imageUrl,
+          createdBy,
+          createdByModel,
+          isActive: true
+        });
+      }
+    }
+    console.log(`Processed ${masterBrands.length} StoreBrands.`);
+
     // 2. Create StoreSubcategories (for selected products)
     console.log('Creating StoreSubcategories...');
-    const selectedMasterProductIds = productsWithPricing.map(p => p.masterProductId);
+    // const selectedMasterProductIds = productsWithPricing.map(p => p.masterProductId); // Already defined above
     const masterProducts = await MasterProduct.find({ _id: { $in: selectedMasterProductIds } }).populate('subcategory');
     const masterSubcategoryIds = [...new Set(masterProducts.map(p => p.subcategory?._id).filter(Boolean))];
     const masterSubcategories = await Subcategory.find({ _id: { $in: masterSubcategoryIds } });
@@ -321,3 +353,5 @@ export const updateSelectedProducts = async (req, reply) => {
     return reply.status(500).send({ message: 'Internal server error' });
   }
 };
+
+

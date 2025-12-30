@@ -20,39 +20,39 @@ export const createVendor = async (req, reply) => {
       });
     }
 
-    // Check if required categories are provided
+    // Check if required categories (brands) are provided
     if (!vendorData.assignedCategories || vendorData.assignedCategories.length === 0) {
       return reply.code(400).send({
         success: false,
-        message: 'At least one store category must be assigned to the vendor'
+        message: 'At least one store brand must be assigned to the vendor'
       });
     }
 
-    // Check if any of the selected categories are already assigned to other vendors
-    const { default: StoreCategory } = await import('../../models/Product/StoreCategory.js');
-    const existingCategories = await StoreCategory.find({
+    // Check if any of the selected brands are already assigned to other vendors
+    const { default: StoreBrand } = await import('../../models/Product/StoreBrand.js');
+    const existingBrands = await StoreBrand.find({
       _id: { $in: vendorData.assignedCategories },
-      vendorId: { $exists: true, $ne: null } // Categories that already have a vendor assigned
+      vendorId: { $exists: true, $ne: null } // Brands that already have a vendor assigned
     });
 
-    if (existingCategories.length > 0) {
-      const categoryNames = existingCategories.map(cat => cat.name).join(', ');
+    if (existingBrands.length > 0) {
+      const brandNames = existingBrands.map(b => b.name).join(', ');
       return reply.code(400).send({
         success: false,
-        message: `The following categories are already assigned to other vendors and cannot be assigned: ${categoryNames}`
+        message: `The following brands are already assigned to other vendors and cannot be assigned: ${brandNames}`
       });
     }
 
-    // Additional validation - make sure the categories exist and belong to this store
-    const validCategories = await StoreCategory.find({
+    // Additional validation - make sure the brands exist and belong to this store
+    const validBrands = await StoreBrand.find({
       _id: { $in: vendorData.assignedCategories },
-      storeId: store._id  // Ensure categories belong to this store
+      storeId: store._id  // Ensure brands belong to this store
     });
 
-    if (validCategories.length !== vendorData.assignedCategories.length) {
+    if (validBrands.length !== vendorData.assignedCategories.length) {
       return reply.code(400).send({
         success: false,
-        message: 'One or more assigned categories do not exist or do not belong to your store'
+        message: 'One or more assigned brands do not exist or do not belong to your store'
       });
     }
 
@@ -63,8 +63,8 @@ export const createVendor = async (req, reply) => {
     });
     await vendor.save();
 
-    // Update the store categories to reference this vendor
-    await StoreCategory.updateMany(
+    // Update the store brands to reference this vendor
+    await StoreBrand.updateMany(
       { _id: { $in: vendorData.assignedCategories } },
       { vendorId: vendor._id }
     );
@@ -150,35 +150,36 @@ export const updateVendor = async (req, reply) => {
     if (status !== undefined) updates.status = status;
     if (assignedCategories !== undefined) updates.assignedCategories = assignedCategories;
 
-    // If assigned categories are being updated, check if any of the selected categories are already assigned to other vendors
+    // If assigned categories (brands) are being updated, check if any of the selected brands are already assigned to other vendors
     if (updates.assignedCategories && Array.isArray(updates.assignedCategories)) {
-      const { default: StoreCategory } = await import('../../models/Product/StoreCategory.js');
+      const { default: StoreBrand } = await import('../../models/Product/StoreBrand.js');
 
-      // Find categories that are already assigned to other vendors
-      const existingCategories = await StoreCategory.find({
+      // Find brands that are already assigned to other vendors
+      const existingBrands = await StoreBrand.find({
         _id: { $in: updates.assignedCategories },
-        vendorId: { $exists: true, $ne: null, $ne: id } // Categories assigned to other vendors
+        vendorId: { $exists: true, $ne: null, $ne: id } // Brands assigned to other vendors
       });
 
-      if (existingCategories.length > 0) {
-        const categoryNames = existingCategories.map(cat => cat.name).join(', ');
+      if (existingBrands.length > 0) {
+        const brandNames = existingBrands.map(b => b.name).join(', ');
         return reply.code(400).send({
           success: false,
-          message: `The following categories are already assigned to other vendors and cannot be assigned: ${categoryNames}`
+          message: `The following brands are already assigned to other vendors and cannot be assigned: ${brandNames}`
         });
       }
     }
 
-    // If assigned categories are being updated, update the StoreCategory records as well
+    // If assigned categories are being updated, update the StoreBrand records as well
     if (updates.assignedCategories && Array.isArray(updates.assignedCategories)) {
-      // First, remove this vendorId from all store categories that currently reference it
-      await StoreCategory.updateMany(
+      const { default: StoreBrand } = await import('../../models/Product/StoreBrand.js');
+      // First, remove this vendorId from all store brands that currently reference it
+      await StoreBrand.updateMany(
         { vendorId: id },
         { $unset: { vendorId: 1 } }
       );
 
-      // Then update the store categories to reference this vendor
-      await StoreCategory.updateMany(
+      // Then update the store brands to reference this vendor
+      await StoreBrand.updateMany(
         { _id: { $in: updates.assignedCategories } },
         { vendorId: id }
       );
@@ -254,8 +255,9 @@ export const deleteVendor = async (req, reply) => {
       });
     }
 
-    // Remove vendor reference from all store categories that reference this vendor
-    await StoreCategory.updateMany(
+    // Remove vendor reference from all store brands that reference this vendor
+    const { default: StoreBrand } = await import('../../models/Product/StoreBrand.js');
+    await StoreBrand.updateMany(
       { vendorId: id },
       { $unset: { vendorId: 1 } } // Remove the vendorId field
     );

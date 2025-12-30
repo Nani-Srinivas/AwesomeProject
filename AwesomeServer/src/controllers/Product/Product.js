@@ -5,6 +5,8 @@ import StoreProduct from "../../models/Product/StoreProduct.js";
 import StoreCategory from "../../models/Product/StoreCategory.js";
 import StoreSubcategory from "../../models/Product/StoreSubcategory.js";
 import Vendor from "../../models/Vendor.js";
+import StoreBrand from "../../models/Product/StoreBrand.js";
+import Brand from "../../models/Product/Brand.js";
 
 // MASTER PRODUCTS
 export const getProducts = async (req, reply) => {
@@ -492,6 +494,152 @@ export const getAllProducts = async (req, reply) => {
     });
   } catch (error) {
     console.error('Error fetching all products:', error.message);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+// ==========================================
+// STORE BRAND CONTROLLERS
+// ==========================================
+
+export const getStoreBrands = async (req, reply) => {
+  try {
+    const storeManagerId = req.user.id;
+    const store = await Store.findOne({ ownerId: storeManagerId });
+    if (!store) {
+      return reply.status(404).send({ message: 'Store not found for this manager.' });
+    }
+
+    const brands = await StoreBrand.find({ storeId: store._id })
+      .populate('masterBrandId')
+      .populate('vendorId');
+
+    return reply.status(200).send({ success: true, data: brands });
+  } catch (error) {
+    console.error('Error fetching store brands:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const createStoreBrand = async (req, reply) => {
+  try {
+    const { name, description, imageUrl, masterBrandId } = req.body;
+    const storeManagerId = req.user.id;
+
+    const store = await Store.findOne({ ownerId: storeManagerId });
+    if (!store) {
+      return reply.status(404).send({ message: 'Store not found for this manager.' });
+    }
+
+    // Check if duplicate
+    const query = { storeId: store._id };
+    if (masterBrandId) {
+      query.masterBrandId = masterBrandId;
+    } else {
+      query.name = name; // For local brands, check by name
+    }
+
+    const existing = await StoreBrand.findOne(query);
+    if (existing) {
+      return reply.status(409).send({ message: 'Brand already exists in your store.' });
+    }
+
+    const newBrand = await StoreBrand.create({
+      storeId: store._id,
+      name,
+      description,
+      imageUrl,
+      masterBrandId: masterBrandId || undefined, // Allow undefined for local brands
+      createdBy: storeManagerId,
+      createdByModel: 'StoreManager',
+    });
+
+    return reply.status(201).send({ success: true, message: 'Store brand created successfully', data: newBrand });
+  } catch (error) {
+    console.error('Error creating store brand:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const assignVendorToStoreBrand = async (req, reply) => {
+  try {
+    const { id } = req.params;
+    const { vendorId } = req.body;
+    const storeManagerId = req.user.id;
+
+    // Verify the user has a store
+    const store = await Store.findOne({ ownerId: storeManagerId });
+    if (!store) {
+      return reply.status(404).send({ success: false, message: 'Store not found for this manager.' });
+    }
+
+    // Validate vendor exists (if provided)
+    if (vendorId) {
+      const vendor = await Vendor.findById(vendorId);
+      if (!vendor) {
+        return reply.status(404).send({ success: false, message: 'Vendor not found' });
+      }
+    }
+
+    // Find and update the specific store brand
+    const updatedBrand = await StoreBrand.findOneAndUpdate(
+      { _id: id, storeId: store._id }, // Ensure it belongs to the current user's store
+      { vendorId: vendorId || null }, // Allow unassigning by sending null
+      { new: true }
+    );
+
+    if (!updatedBrand) {
+      return reply.status(404).send({ success: false, message: 'Store brand not found or does not belong to your store.' });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Vendor assigned to store brand successfully',
+      data: updatedBrand
+    });
+  } catch (error) {
+    console.error('Error assigning vendor to store brand:', error);
+    return reply.status(500).send({ success: false, message: error.message });
+  }
+};
+
+// Get products filtered by vendor (Updated to use StoreBrand)
+export const getStoreProductsByVendorBrands = async (req, reply) => {
+  try {
+    const storeManagerId = req.user.id;
+    const { vendorId } = req.query;
+
+    const store = await Store.findOne({ ownerId: storeManagerId });
+    if (!store) {
+      return reply.status(404).send({ message: 'Store not found for this manager.' });
+    }
+
+    // Find store brands assigned to this vendor
+    const storeBrands = await StoreBrand.find({ vendorId: vendorId, storeId: store._id });
+
+    // Get the IDs of the master brands
+    const masterBrandIds = storeBrands.map(brand => brand.masterBrandId.toString());
+
+    // Find products that belong to these brands
+    const products = await StoreProduct.find({
+      storeId: store._id
+    })
+      .populate('masterProductId')
+      .populate('storeCategoryId')
+      .populate('storeSubcategoryId');
+
+    // Filter products whose master product belongs to one of the assigned brands
+    const filteredProducts = products.filter(sp => {
+      const masterProduct = sp.masterProductId;
+      if (!masterProduct || !masterProduct.brandId) return false;
+
+      // Check if the master product's brand ID is in our allowed list
+      return masterBrandIds.includes(masterProduct.brandId.toString());
+    });
+
+    return reply.status(200).send({ success: true, data: filteredProducts });
+  } catch (error) {
+    console.error('Error fetching store products by vendor:', error);
     return reply.status(500).send({ message: 'Internal server error' });
   }
 };

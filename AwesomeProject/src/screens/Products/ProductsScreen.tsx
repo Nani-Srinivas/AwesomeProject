@@ -571,17 +571,17 @@ const SubcategoryChip = ({ label, isSelected, onPress }: any) => {
 
 export const ProductsScreen = () => {
   const {
-    categories,
+    brands, // Use brands
     subcategories,
     products,
-    selectedCategory,
+    selectedBrand, // Use selectedBrand
     selectedSubcategory,
     loading,
     error,
-    fetchCategories,
+    fetchBrands, // Use fetchBrands
     fetchSubcategories,
     fetchProducts,
-    setSelectedCategory,
+    setSelectedBrand, // Use setSelectedBrand
     setSelectedSubcategory,
     updateProduct,
   } = useCatalogStore();
@@ -591,25 +591,10 @@ export const ProductsScreen = () => {
   const [isAddProductVisible, setAddProductVisible] = useState(false);
 
   useEffect(() => {
-    fetchCategories();
+    fetchBrands(); // Fetch brands instead of categories
     fetchSubcategories();
     fetchProducts();
-  }, [fetchCategories, fetchSubcategories, fetchProducts]);
-
-  // Debug: Log categories when they load
-  useEffect(() => {
-    if (categories.length > 0) {
-      console.log('=== ALL CATEGORIES ===');
-      categories.forEach((cat, idx) => {
-        console.log(`Category ${idx + 1}:`, {
-          name: cat.name,
-          id: cat._id,
-          imageUrl: cat.imageUrl,
-        });
-      });
-      console.log('=====================');
-    }
-  }, [categories]);
+  }, []); // Run once on mount
 
   const handleEditPress = (product: any) => {
     setEditingProduct(product);
@@ -626,9 +611,9 @@ export const ProductsScreen = () => {
     setEditingProduct(null);
   };
 
-  // Build subcategories dynamically based on selected category
+  // Build subcategories dynamically based on selected brand
   const availableSubcategories = useMemo(() => {
-    if (selectedCategory === 'All') {
+    if (selectedBrand === 'All') {
       // Get unique subcategories from all products
       const subIds = new Set(
         products
@@ -638,26 +623,26 @@ export const ProductsScreen = () => {
       const subs = subcategories.filter(s => subIds.has(s._id));
       return ['All', ...subs.map(s => s.name)];
     } else {
-      // Get subcategories for selected category
-      const categorySubcategories = subcategories.filter(
+      // Get subcategories for selected brand
+      const brandSubcategories = subcategories.filter(
         s => {
-          // Find a product that matches this subcategory and category
+          // Find a product that matches this subcategory and brand
           return products.some(
-            p => p.storeSubcategoryId === s._id && p.storeCategoryId._id === selectedCategory
+            p => p.storeSubcategoryId === s._id && p.storeBrandId === selectedBrand
           );
         }
       );
-      return ['All', ...categorySubcategories.map(s => s.name)];
+      return ['All', ...brandSubcategories.map(s => s.name)];
     }
-  }, [selectedCategory, products, subcategories]);
+  }, [selectedBrand, products, subcategories]);
 
   const filteredProducts = useMemo(() => {
     let filtered = products;
 
-    // Filter by category
-    if (selectedCategory !== 'All') {
+    // Filter by Brand
+    if (selectedBrand !== 'All') {
       filtered = filtered.filter(
-        product => product.storeCategoryId._id === selectedCategory
+        product => product.storeBrandId === selectedBrand
       );
     }
 
@@ -672,15 +657,16 @@ export const ProductsScreen = () => {
     }
 
     return filtered;
-  }, [products, selectedCategory, selectedSubcategory, subcategories]);
+  }, [products, selectedBrand, selectedSubcategory, subcategories]);
 
-  if (loading && categories.length === 0) {
+  if (loading && brands.length === 0) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="green" />
       </View>
     );
   }
+
 
   if (error) {
     return (
@@ -693,14 +679,14 @@ export const ProductsScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {/* Categories (Left) */}
+        {/* Categories (Left) - NOW BRANDS */}
         <FlatList
-          data={categories}
+          data={brands}
           renderItem={({ item }) => (
             <CategoryCard
-              category={item}
-              isSelected={item._id === selectedCategory}
-              onPress={() => setSelectedCategory(item._id)}
+              category={item} // Reusing CategoryCard for Brand visualization for now
+              isSelected={item._id === selectedBrand}
+              onPress={() => setSelectedBrand(item._id)}
             />
           )}
           keyExtractor={item => item._id}
@@ -759,7 +745,7 @@ export const ProductsScreen = () => {
         onClose={() => setAddProductVisible(false)}
         onSuccess={() => {
           fetchProducts();
-          fetchCategories();
+          fetchBrands(); // Fetch brands on success
           fetchSubcategories();
         }}
       />

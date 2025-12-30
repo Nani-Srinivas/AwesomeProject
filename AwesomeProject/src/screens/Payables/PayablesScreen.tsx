@@ -39,8 +39,8 @@ const PayablesScreen = ({ route }: any) => {
     name: '',
     phone: '',
   });
-  const [storeCategories, setStoreCategories] = useState<any[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [storeBrands, setStoreBrands] = useState<any[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
 
@@ -74,31 +74,32 @@ const PayablesScreen = ({ route }: any) => {
       const receiptsResponse = await apiService.get('/inventory/receipts');
       const receipts = receiptsResponse.data.data || [];
 
-      // Fetch categories to ensure names are available (frontend fallback)
-      const categoriesResponse = await apiService.get('/product/store-categories');
-      const allCategories = categoriesResponse.data.data || [];
-      const categoryMap = new Map(allCategories.map((c: any) => [c._id, c.name]));
+      // Fetch brands to ensure names are available
+      const brandsResponse = await apiService.get('/product/store-brands');
+      const allBrands = brandsResponse.data.data || [];
+      const brandMap = new Map(allBrands.map((b: any) => [b._id, b.name]));
 
       // Get today's date string for comparison
       const todayStr = new Date().toISOString().split('T')[0];
 
       // Calculate payable amounts for each vendor
       const extendedVendors: ExtendedVendor[] = vendorsData.map(vendor => {
-        // Enrich assignedCategories
-        const enrichedCategories = (vendor.assignedCategories || []).map((cat: any) => {
-          let catId: string = '';
-          let catName: string = '';
+        // Enrich assignedBrands based on backend response structure for vendor (it might still have field name assignedCategories if we didn't migrate DB schema name, but logically it's Brands now)
+        // CAUTION: The Vendor model still says 'assignedCategories'. We should proceed assuming the data inside is now Brands.
+        const enrichedBrands = (vendor.assignedCategories || []).map((brand: any) => {
+          let brandId: string = '';
+          let brandName: string = '';
 
-          if (typeof cat === 'string') {
-            catId = cat;
-          } else if (cat && typeof cat === 'object') {
-            catId = cat._id || '';
-            catName = cat.name || '';
+          if (typeof brand === 'string') {
+            brandId = brand;
+          } else if (brand && typeof brand === 'object') {
+            brandId = brand._id || '';
+            brandName = brand.name || '';
           }
 
-          if (catName) return { _id: catId, name: catName };
-          if (catId && categoryMap.has(catId)) return { _id: catId, name: categoryMap.get(catId) };
-          return { _id: catId, name: 'Unknown' };
+          if (brandName) return { _id: brandId, name: brandName };
+          if (brandId && brandMap.has(brandId)) return { _id: brandId, name: brandMap.get(brandId) };
+          return { _id: brandId, name: 'Unknown' };
         });
 
         // Get receipts for this vendor
@@ -179,7 +180,7 @@ const PayablesScreen = ({ route }: any) => {
 
         return {
           ...vendor,
-          assignedCategories: enrichedCategories,
+          assignedCategories: enrichedBrands, // Keeping property name for TS compatibility if Vendor type is not updated, but value is brands
           payableAmount,
           paymentStatus: displayStatus,
           currentDateStatus,
@@ -216,24 +217,23 @@ const PayablesScreen = ({ route }: any) => {
 
   useEffect(() => {
     if (isAddVendorModalVisible || isEditVendorModalVisible) {
-      // Load store categories
-      loadStoreCategories();
+      // Load store brands
+      loadStoreBrands();
 
-      // If editing, we'll set the selected categories based on the vendor's assigned categories
+      // If editing, we'll set the selected brands based on the vendor's assigned brands
       if (isEditVendorModalVisible && editingVendor) {
-        // Set the selected categories to match the current vendor's assignments
         if (editingVendor.assignedCategories) {
-          setSelectedCategories(editingVendor.assignedCategories.map((cat: any) => cat._id || cat));
+          setSelectedBrands(editingVendor.assignedCategories.map((b: any) => b._id || b));
         } else {
-          setSelectedCategories([]);
+          setSelectedBrands([]);
         }
       } else if (isAddVendorModalVisible) {
-        // Reset form and categories for adding new vendor
+        // Reset form and brands for adding new vendor
         setNewVendor({
           name: '',
           phone: '',
         });
-        setSelectedCategories([]);
+        setSelectedBrands([]);
       }
 
       Animated.timing(slideAnim, {
@@ -250,62 +250,60 @@ const PayablesScreen = ({ route }: any) => {
     }
   }, [isAddVendorModalVisible, isEditVendorModalVisible, editingVendor, slideAnim]);
 
-  const loadStoreCategories = async () => {
+  const loadStoreBrands = async () => {
     try {
-      const response = await apiService.get('/product/store-categories');
+      const response = await apiService.get('/product/store-brands');
       if (response.data.success) {
-        let availableCategories;
+        let availableBrands;
 
         if (isEditVendorModalVisible && editingVendor) {
-          // If we're editing a vendor, show categories assigned to this vendor plus unassigned ones
-          availableCategories = response.data.data.filter(
-            (category: any) => !category.vendorId || category.vendorId === editingVendor._id
+          // If we're editing a vendor, show brands assigned to this vendor plus unassigned ones
+          availableBrands = response.data.data.filter(
+            (brand: any) => !brand.vendorId || brand.vendorId._id === editingVendor._id || brand.vendorId === editingVendor._id
           );
         } else {
-          // If we're adding a new vendor, only show unassigned categories
-          availableCategories = response.data.data.filter(
-            (category: any) => !category.vendorId
+          // If we're adding a new vendor, only show unassigned brands
+          availableBrands = response.data.data.filter(
+            (brand: any) => !brand.vendorId
           );
         }
 
-        setStoreCategories(availableCategories);
+        setStoreBrands(availableBrands);
       } else {
-        console.error('Failed to load store categories:', response.data.message);
-        setStoreCategories([]);
+        console.error('Failed to load store brands:', response.data.message);
+        setStoreBrands([]);
       }
     } catch (error) {
-      console.error('Error loading store categories:', error);
-      setStoreCategories([]);
+      console.error('Error loading store brands:', error);
+      setStoreBrands([]);
     }
   };
 
-  const updateStoreCategoriesWithVendor = async (vendorId: string, categoryIds: string[]): Promise<boolean> => {
+  const updateStoreBrandsWithVendor = async (vendorId: string, brandIds: string[]): Promise<boolean> => {
     try {
-      // Update each selected category with the vendorId
-      for (const categoryId of categoryIds) {
-        const response = await apiService.put(`/product/store-categories/${categoryId}`, {
+      // Update each selected brand with the vendorId
+      for (const brandId of brandIds) {
+        const response = await apiService.put(`/product/store-brands/${brandId}`, {
           vendorId: vendorId
         });
 
-        // Check if the update was successful
         if (!response.data.success) {
-          console.error('Failed to update category:', categoryId, response.data.message);
+          console.error('Failed to update brand:', brandId, response.data.message);
           return false;
         }
       }
       return true; // All updates successful
     } catch (error: any) {
-      console.error('Error updating store categories with vendor:', error);
-      // Don't alert here as the calling function handles error messaging
+      console.error('Error updating store brands with vendor:', error);
       return false;
     }
   };
 
-  const toggleCategorySelection = (categoryId: string) => {
-    setSelectedCategories(prev =>
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
+  const toggleBrandSelection = (brandId: string) => {
+    setSelectedBrands(prev =>
+      prev.includes(brandId)
+        ? prev.filter(id => id !== brandId)
+        : [...prev, brandId]
     );
   };
 
@@ -407,14 +405,41 @@ const PayablesScreen = ({ route }: any) => {
       const response = await apiService.put(`/vendors/${editingVendor._id}`, {
         name: newVendor.name,
         phone: newVendor.phone,
+        assignedCategories: selectedBrands
       });
 
       if (response.data.success) {
-        // Update the vendor in the list
+        // Handle Brand Assignment Diff
+        const originalBrandIds = editingVendor.assignedCategories
+          ? editingVendor.assignedCategories.map((b: any) => b._id || b)
+          : [];
+
+        const toUnassign = originalBrandIds.filter((id: string) => !selectedBrands.includes(id));
+        const toAssign = selectedBrands.filter((id: string) => !originalBrandIds.includes(id));
+
+        // Unassign removed brands
+        for (const brandId of toUnassign) {
+          await apiService.put(`/product/store-brands/${brandId}`, { vendorId: null });
+        }
+
+        // Assign new brands
+        for (const brandId of toAssign) {
+          await apiService.put(`/product/store-brands/${brandId}`, { vendorId: editingVendor._id });
+        }
+
+        // Construct updated list of brand objects for the UI
+        // We find objects in storeBrands store which should contain all potential selections
+        const updatedAssignedBrands = storeBrands.filter(b => selectedBrands.includes(b._id));
+
+        // If some brands were originally assigned but not in storeBrands (due to filter?), 
+        // we might lose their full object data if we rely solely on storeBrands.
+        // But loadStoreBrands fetches everything relevant to this vendor. So it should be fine.
+
         const updatedVendor: ExtendedVendor = {
           ...response.data.data,
           payableAmount: editingVendor.payableAmount,
           paymentStatus: editingVendor.paymentStatus,
+          assignedCategories: updatedAssignedBrands
         };
 
         setVendors(prev => prev.map(v => v._id === editingVendor._id ? updatedVendor : v));
@@ -449,24 +474,25 @@ const PayablesScreen = ({ route }: any) => {
       const vendorData = {
         name: newVendor.name,
         phone: newVendor.phone,
-        assignedCategories: selectedCategories
+        phone: newVendor.phone,
+        assignedCategories: selectedBrands // Still sending as assignedCategories for Vendor model compatibility
       };
 
       const response = await apiService.post('/vendors', vendorData);
 
       if (response.data.success) {
-        // If categories were selected, try to update them with the new vendorId
-        if (selectedCategories.length > 0) {
-          const categoryUpdateSuccess = await updateStoreCategoriesWithVendor(response.data.data._id, selectedCategories);
+        // If brands were selected, try to update them with the new vendorId
+        if (selectedBrands.length > 0) {
+          const brandUpdateSuccess = await updateStoreBrandsWithVendor(response.data.data._id, selectedBrands);
 
-          // Only show success message if both vendor creation and category updates succeed
-          if (categoryUpdateSuccess) {
-            Alert.alert('Success', `Vendor "${response.data.data.name}" has been added and assigned to ${selectedCategories.length} categories.`);
+          // Only show success message if both vendor creation and brand updates succeed
+          if (brandUpdateSuccess) {
+            Alert.alert('Success', `Vendor "${response.data.data.name}" has been added and assigned to ${selectedBrands.length} brands.`);
           } else {
             // Show partial success message if category updates failed
             Alert.alert(
               'Partial Success',
-              `Vendor "${response.data.data.name}" has been added, but failed to assign to categories. Please assign categories manually later.`,
+              `Vendor "${response.data.data.name}" has been added, but failed to assign to brands. Please assign brands manually later.`,
               [
                 {
                   text: 'OK',
@@ -548,31 +574,31 @@ const PayablesScreen = ({ route }: any) => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Assign to Store Categories</Text>
-                  <Text style={styles.helperText}>Select the categories this delivery agent will supply</Text>
-                  {storeCategories.length > 0 ? (
-                    storeCategories.map((category) => (
+                  <Text style={styles.label}>Assign to Brands</Text>
+                  <Text style={styles.helperText}>Select the brands this delivery agent will supply</Text>
+                  {storeBrands.length > 0 ? (
+                    storeBrands.map((brand) => (
                       <TouchableOpacity
-                        key={category._id}
+                        key={brand._id}
                         style={[
                           styles.categoryOption,
-                          selectedCategories.includes(category._id) && styles.categoryOptionSelected
+                          selectedBrands.includes(brand._id) && styles.categoryOptionSelected
                         ]}
-                        onPress={() => toggleCategorySelection(category._id)}
+                        onPress={() => toggleBrandSelection(brand._id)}
                       >
                         <Text style={[
                           styles.categoryText,
-                          selectedCategories.includes(category._id) && styles.categoryTextSelected
+                          selectedBrands.includes(brand._id) && styles.categoryTextSelected
                         ]}>
-                          {category.name}
+                          {brand.name}
                         </Text>
-                        {selectedCategories.includes(category._id) && (
+                        {selectedBrands.includes(brand._id) && (
                           <Feather name="check" size={18} color={COLORS.white} />
                         )}
                       </TouchableOpacity>
                     ))
                   ) : (
-                    <Text style={styles.noCategoriesText}>No store categories found</Text>
+                    <Text style={styles.noCategoriesText}>No store brands found</Text>
                   )}
                 </View>
               </ScrollView>
@@ -636,31 +662,31 @@ const PayablesScreen = ({ route }: any) => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Assign to Store Categories</Text>
-                  <Text style={styles.helperText}>Select the categories this delivery agent will supply</Text>
-                  {storeCategories.length > 0 ? (
-                    storeCategories.map((category) => (
+                  <Text style={styles.label}>Assign to Brands</Text>
+                  <Text style={styles.helperText}>Select the brands this delivery agent will supply</Text>
+                  {storeBrands.length > 0 ? (
+                    storeBrands.map((brand) => (
                       <TouchableOpacity
-                        key={category._id}
+                        key={brand._id}
                         style={[
                           styles.categoryOption,
-                          selectedCategories.includes(category._id) && styles.categoryOptionSelected
+                          selectedBrands.includes(brand._id) && styles.categoryOptionSelected
                         ]}
-                        onPress={() => toggleCategorySelection(category._id)}
+                        onPress={() => toggleBrandSelection(brand._id)}
                       >
                         <Text style={[
                           styles.categoryText,
-                          selectedCategories.includes(category._id) && styles.categoryTextSelected
+                          selectedBrands.includes(brand._id) && styles.categoryTextSelected
                         ]}>
-                          {category.name}
+                          {brand.name}
                         </Text>
-                        {selectedCategories.includes(category._id) && (
+                        {selectedBrands.includes(brand._id) && (
                           <Feather name="check" size={18} color={COLORS.white} />
                         )}
                       </TouchableOpacity>
                     ))
                   ) : (
-                    <Text style={styles.noCategoriesText}>No store categories found</Text>
+                    <Text style={styles.noCategoriesText}>No store brands found</Text>
                   )}
                 </View>
               </ScrollView>

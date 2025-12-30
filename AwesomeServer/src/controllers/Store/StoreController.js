@@ -283,7 +283,7 @@ export const getStoreProducts = async (req, reply) => {
 
 export const createStoreProduct = async (req, reply) => {
   try {
-    const { name, description, costPrice, sellingPrice, stock, status, isAvailable, storeCategoryId, storeSubcategoryId, images, masterProductId } = req.body;
+    const { name, description, costPrice, sellingPrice, stock, status, isAvailable, storeCategoryId, storeSubcategoryId, storeBrandId, images, masterProductId } = req.body;
     const createdBy = req.user?.id;
     const createdByModel = req.user?.role;
 
@@ -311,6 +311,15 @@ export const createStoreProduct = async (req, reply) => {
       const storeSubcategoryExists = await StoreSubcategory.findById(storeSubcategoryId);
       if (!storeSubcategoryExists || String(storeSubcategoryExists.storeId) !== String(storeId) || String(storeSubcategoryExists.storeCategoryId) !== String(storeCategoryId)) {
         return reply.status(400).send({ message: 'Invalid storeSubcategoryId provided or it does not belong to your store/category.' });
+      }
+    }
+
+    // Validate storeBrandId if provided
+    if (storeBrandId) {
+      const { default: StoreBrand } = await import('../../models/Product/StoreBrand.js');
+      const storeBrandExists = await StoreBrand.findById(storeBrandId);
+      if (!storeBrandExists || String(storeBrandExists.storeId) !== String(storeId)) {
+        return reply.status(400).send({ message: 'Invalid storeBrandId provided or it does not belong to your store.' });
       }
     }
 
@@ -345,6 +354,7 @@ export const createStoreProduct = async (req, reply) => {
       isAvailable: isAvailable !== undefined ? isAvailable : true,
       storeCategoryId,
       storeSubcategoryId: storeSubcategoryId || null,
+      storeBrandId: storeBrandId || null, // Ensure this is saved
       images: images || [],
       createdBy,
       createdByModel,
@@ -366,7 +376,7 @@ export const createStoreProduct = async (req, reply) => {
 export const updateStoreProduct = async (req, reply) => {
   try {
     const { id } = req.params;
-    const { name, description, costPrice, sellingPrice, stock, status, storeCategoryId, storeSubcategoryId, images, isAvailable } = req.body;
+    const { name, description, costPrice, sellingPrice, stock, status, storeCategoryId, storeSubcategoryId, storeBrandId, images, isAvailable } = req.body;
     const createdBy = req.user?.id;
 
     if (!createdBy || req.user?.role !== 'StoreManager') {
@@ -396,9 +406,18 @@ export const updateStoreProduct = async (req, reply) => {
       }
     }
 
+    // Validate storeBrandId if provided
+    if (storeBrandId) {
+      const { default: StoreBrand } = await import('../../models/Product/StoreBrand.js');
+      const storeBrandExists = await StoreBrand.findById(storeBrandId);
+      if (!storeBrandExists || String(storeBrandExists.storeId) !== String(storeId)) {
+        return reply.status(400).send({ message: 'Invalid storeBrandId provided or it does not belong to your store.' });
+      }
+    }
+
     const updatedProduct = await StoreProduct.findOneAndUpdate(
       { _id: id, storeId },
-      { name, description, costPrice, sellingPrice, stock, status, storeCategoryId, storeSubcategoryId, images, isAvailable },
+      { name, description, costPrice, sellingPrice, stock, status, storeCategoryId, storeSubcategoryId, storeBrandId, images, isAvailable },
       { new: true, runValidators: true }
     );
 

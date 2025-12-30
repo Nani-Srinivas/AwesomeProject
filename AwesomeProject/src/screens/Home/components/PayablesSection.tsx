@@ -69,7 +69,7 @@ export const PayablesSection = () => {
                         return false;
                     }
                     // Filter by today's date
-                    const receiptDate = new Date(receipt.date);
+                    const receiptDate = new Date(receipt.receivedDate); // Changed from .date to .receivedDate
                     return receiptDate >= todayStart && receiptDate <= todayEnd;
                 });
 
@@ -83,9 +83,9 @@ export const PayablesSection = () => {
                 let lastDate = '';
                 if (vendorReceipts.length > 0) {
                     const sortedReceipts = [...vendorReceipts].sort((a: any, b: any) =>
-                        new Date(b.date).getTime() - new Date(a.date).getTime()
+                        new Date(b.receivedDate).getTime() - new Date(a.receivedDate).getTime()
                     );
-                    const dateObj = new Date(sortedReceipts[0].date);
+                    const dateObj = new Date(sortedReceipts[0].receivedDate);
                     lastDate = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
                 }
 
@@ -190,8 +190,8 @@ export const PayablesSection = () => {
                                         vendor.receipts.map((receipt: any, receiptIndex: number) => (
                                             <View key={receipt._id || receiptIndex} style={styles.receiptBlock}>
                                                 <Text style={styles.receiptDate}>
-                                                    {receipt.date ?
-                                                        new Date(receipt.date).toLocaleDateString('en-US', {
+                                                    {receipt.receivedDate ?
+                                                        new Date(receipt.receivedDate).toLocaleDateString('en-US', {
                                                             day: 'numeric',
                                                             month: 'short',
                                                             year: 'numeric'

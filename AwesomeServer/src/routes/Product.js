@@ -6,6 +6,9 @@ import {
   getStoreCategories,
   assignVendorToStoreCategory,
   getAllProducts,
+  getStoreBrands,
+  assignVendorToStoreBrand,
+  getStoreProductsByVendorBrands,
 } from "../controllers/Product/Product.js";
 import { getCategories, getProducts as getCatalogProducts } from "../controllers/Product/Catalog.js";
 import { verifyToken } from "../middleware/auth.js";
@@ -17,7 +20,14 @@ export const productRoutes = async (fastify, options) => {
 
   // Store-specific routes
   fastify.get('/product/store', { preHandler: [verifyToken] }, getStoreProducts);
-  fastify.get('/product/store-by-vendor', { preHandler: [verifyToken] }, getStoreProductsByVendor);
+  fastify.get('/product/store-brands', { preHandler: [verifyToken] }, getStoreBrands);
+  fastify.put('/product/store-brands/:id', { preHandler: [verifyToken] }, assignVendorToStoreBrand);
+  // Replaced /product/store-by-vendor with Brand-based version
+  fastify.get('/product/store-by-vendor', { preHandler: [verifyToken] }, getStoreProductsByVendorBrands);
+
+  // Deprecated or Secondary
+  fastify.get('/product/store-old-by-vendor', { preHandler: [verifyToken] }, getStoreProductsByVendor);
+
   fastify.get('/product/store-categories', { preHandler: [verifyToken] }, getStoreCategories);
   fastify.put('/product/store-categories/:id', { preHandler: [verifyToken] }, assignVendorToStoreCategory);
 

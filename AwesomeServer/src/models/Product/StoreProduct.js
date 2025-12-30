@@ -48,6 +48,11 @@ const StoreProductSchema = new Schema({
     ref: 'StoreSubcategory',
     default: null,
   },
+  storeBrandId: {
+    type: Schema.Types.ObjectId,
+    ref: 'StoreBrand',
+    default: null,
+  },
   images: [String],
   isAvailable: {
     type: Boolean,

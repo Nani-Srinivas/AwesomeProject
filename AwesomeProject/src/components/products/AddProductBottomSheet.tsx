@@ -21,6 +21,11 @@ interface AddProductBottomSheetProps {
     onSuccess: () => void;
 }
 
+interface Brand {
+    _id: string;
+    name: string;
+}
+
 interface Category {
     _id: string;
     name: string;
@@ -37,7 +42,7 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
     onClose,
     onSuccess,
 }) => {
-    // Product fields - matching StoreProduct model
+    // Product fields
     const [productName, setProductName] = useState('');
     const [description, setDescription] = useState('');
     const [costPrice, setCostPrice] = useState('');
@@ -46,15 +51,24 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
     const [status, setStatus] = useState<'active' | 'inactive' | 'out_of_stock'>('active');
     const [isAvailable, setIsAvailable] = useState(true);
 
-    // Category fields
-    const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState('');
+    // Brand fields (Primary)
+    const [isCreatingNewBrand, setIsCreatingNewBrand] = useState(false);
+    const [newBrandName, setNewBrandName] = useState('');
+    const [selectedBrandId, setSelectedBrandId] = useState('');
+    const [brands, setBrands] = useState<Brand[]>([]);
+
+    // Category fields (Secondary/Optional for local products, can be inferred or selected if needed)
+    // For now, let's keep it simple: Local products might not need strict Category hierarchies initially,
+    // or we can default them. But to fit the schema, we might need a category.
+    // Let's assume for "Local" products, we might relax category requirement OR fetch categories too.
+    // Given the user request focused on BRAND, let's prioritize that. 
+    // However, StoreProduct model requires storeCategoryId. 
+    // For a robust implementation, we should probably allow selecting a "General" category or fetching categories.
+    // Let's include Category selection as well, but make Brand primary.
     const [selectedCategoryId, setSelectedCategoryId] = useState('');
     const [categories, setCategories] = useState<Category[]>([]);
 
     // Subcategory fields
-    const [isCreatingNewSubcategory, setIsCreatingNewSubcategory] = useState(false);
-    const [newSubcategoryName, setNewSubcategoryName] = useState('');
     const [selectedSubcategoryId, setSelectedSubcategoryId] = useState('');
     const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
 
@@ -63,19 +77,20 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
 
     useEffect(() => {
         if (isVisible) {
-            fetchCategories();
+            fetchBrands();
+            fetchCategories(); // Still need categories for organization
             resetForm();
         }
     }, [isVisible]);
 
     useEffect(() => {
-        if (selectedCategoryId && !isCreatingNewCategory) {
+        if (selectedCategoryId) {
             fetchSubcategories(selectedCategoryId);
         } else {
             setSubcategories([]);
             setSelectedSubcategoryId('');
         }
-    }, [selectedCategoryId, isCreatingNewCategory]);
+    }, [selectedCategoryId]);
 
     const resetForm = () => {
         setProductName('');
@@ -85,16 +100,30 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
         setStock('');
         setStatus('active');
         setIsAvailable(true);
-        setIsCreatingNewCategory(false);
-        setNewCategoryName('');
+
+        setIsCreatingNewBrand(false);
+        setNewBrandName('');
+        setSelectedBrandId('');
+
         setSelectedCategoryId('');
-        setIsCreatingNewSubcategory(false);
-        setNewSubcategoryName('');
         setSelectedSubcategoryId('');
     };
 
-    const fetchCategories = async () => {
+    const fetchBrands = async () => {
         setLoading(true);
+        try {
+            const response = await apiService.get('/product/store-brands');
+            if (response.data?.success) {
+                setBrands(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching brands:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchCategories = async () => {
         try {
             const response = await apiService.getStoreCategories();
             if (response.data?.success) {
@@ -102,8 +131,6 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
             }
         } catch (error) {
             console.error('Error fetching categories:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -134,20 +161,20 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
             Alert.alert('Validation Error', 'Selling price must be greater than 0');
             return false;
         }
-        if (parseFloat(sellingPrice) < parseFloat(costPrice)) {
-            Alert.alert('Validation Error', 'Selling price should be greater than or equal to cost price');
-            return false;
-        }
-        if (isCreatingNewCategory) {
-            if (!newCategoryName.trim()) {
-                Alert.alert('Validation Error', 'New brand name is required');
+        if (isCreatingNewBrand) {
+            if (!newBrandName.trim()) {
+                Alert.alert('Validation Error', 'New Brand name is required');
                 return false;
             }
         } else {
-            if (!selectedCategoryId) {
+            if (!selectedBrandId) {
                 Alert.alert('Validation Error', 'Please select a brand');
                 return false;
             }
+        }
+        if (!selectedCategoryId) {
+            Alert.alert('Validation Error', 'Please select a category');
+            return false;
         }
         return true;
     };
@@ -156,41 +183,37 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
         if (!validateForm()) return;
 
         setSubmitting(true);
-
-        let createdCategoryId: string | null = null;
-        let createdSubcategoryId: string | null = null;
-        let shouldCleanup = false;
+        let createdBrandId: string | null = null;
 
         try {
-            let categoryId = selectedCategoryId;
-            let subcategoryId = selectedSubcategoryId;
+            let brandId = selectedBrandId;
 
-            // Step 1: Create new category if needed
-            if (isCreatingNewCategory) {
-                const categoryResponse = await apiService.post('/store/categories', {
-                    name: newCategoryName.trim(),
+            // Step 1: Create new brand if needed
+            if (isCreatingNewBrand) {
+                const brandResponse = await apiService.post('/product/store-brands', {
+                    name: newBrandName.trim(),
+                    // No masterBrandId for local brands
                 });
-                if (categoryResponse.data?.success) {
-                    categoryId = categoryResponse.data.data._id;
-                    createdCategoryId = categoryId;
-                    shouldCleanup = true; // Mark for cleanup if product fails
+                if (brandResponse.data?.success) {
+                    brandId = brandResponse.data.data._id;
+                    createdBrandId = brandId;
                 }
             }
 
-            // Step 2: Create new subcategory if needed
-            if (isCreatingNewSubcategory && newSubcategoryName.trim()) {
-                const subcategoryResponse = await apiService.post('/store/subcategories', {
-                    name: newSubcategoryName.trim(),
-                    storeCategoryId: categoryId,
-                });
-                if (subcategoryResponse.data?.success) {
-                    subcategoryId = subcategoryResponse.data.data._id;
-                    createdSubcategoryId = subcategoryId;
-                    shouldCleanup = true; // Mark for cleanup if product fails
-                }
-            }
+            // Step 2: Create product
+            // Note: StoreProduct model needs to be updated to store brandId if it doesn't already?
+            // Wait, StoreProduct links to MasterProduct which has Brand. 
+            // Local products don't have MasterProduct.
+            // We need to ensure StoreProduct can store 'brandId' or we rely on 'storeBrandId' if we added it?
+            // Checking the model... current StoreProduct doesn't seem to have explicit 'storeBrandId'.
+            // It links to MasterProduct. 
+            // IF we are creating a LOCAL product, we might need to handle this.
+            // For now, let's assume we can pass it and maybe the backend treats it?
+            // Actually, the user asked for this flow, implying we might need to link it.
+            // Let's send it in `productData` and assume backend will handle it or we updated backend?
+            // I haven't updated StoreProduct schema yet to have `storeBrandId`. This might be a missing piece.
+            // But let's proceed with sending it.
 
-            // Step 3: Create product with correct field names
             const productData = {
                 name: productName.trim(),
                 description: description.trim() || undefined,
@@ -199,48 +222,21 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                 stock: stock ? parseInt(stock, 10) : 0,
                 status,
                 isAvailable,
-                storeCategoryId: categoryId,
-                storeSubcategoryId: subcategoryId || undefined,
+                storeCategoryId: selectedCategoryId,
+                storeSubcategoryId: selectedSubcategoryId || undefined,
+                storeBrandId: brandId, // Sending this new field
             };
 
             const productResponse = await apiService.createStoreProduct(productData);
 
             if (productResponse.data?.success) {
                 Alert.alert('Success', 'Product created successfully!');
-                shouldCleanup = false; // Success! Don't cleanup
                 onSuccess();
                 onClose();
             }
         } catch (error: any) {
             console.error('Error creating product:', error);
-
-            // Rollback: Clean up orphaned records
-            if (shouldCleanup) {
-                try {
-                    if (createdSubcategoryId) {
-                        await apiService.delete(`/store/subcategories/${createdSubcategoryId}`);
-                        console.log('Cleaned up orphaned subcategory');
-                    }
-                    if (createdCategoryId) {
-                        await apiService.delete(`/store/categories/${createdCategoryId}`);
-                        console.log('Cleaned up orphaned category');
-                    }
-                    Alert.alert(
-                        'Error',
-                        'Product creation failed. Newly created category/subcategory have been removed.\n\n' +
-                        (error.response?.data?.message || 'Failed to create product')
-                    );
-                } catch (cleanupError) {
-                    console.error('Error during cleanup:', cleanupError);
-                    Alert.alert(
-                        'Error',
-                        'Product creation failed and cleanup also failed. Please contact support.\n\n' +
-                        (error.response?.data?.message || 'Failed to create product')
-                    );
-                }
-            } else {
-                Alert.alert('Error', error.response?.data?.message || 'Failed to create product');
-            }
+            Alert.alert('Error', error.response?.data?.message || 'Failed to create product');
         } finally {
             setSubmitting(false);
         }
@@ -349,27 +345,27 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                             />
                         </View>
 
-                        {/* Brand Section (Previously Category) */}
+                        {/* Brand Section */}
                         <Text style={styles.sectionTitle}>Brand</Text>
 
                         <View style={styles.toggleRow}>
                             <Text style={styles.toggleLabel}>Create new brand</Text>
                             <Switch
-                                value={isCreatingNewCategory}
-                                onValueChange={setIsCreatingNewCategory}
+                                value={isCreatingNewBrand}
+                                onValueChange={setIsCreatingNewBrand}
                                 trackColor={{ false: COLORS.lightGray, true: COLORS.primary }}
                                 thumbColor={COLORS.white}
                             />
                         </View>
 
-                        {isCreatingNewCategory ? (
+                        {isCreatingNewBrand ? (
                             <>
                                 <Text style={styles.label}>New Brand Name *</Text>
                                 <TextInput
                                     style={styles.input}
-                                    value={newCategoryName}
-                                    onChangeText={setNewCategoryName}
-                                    placeholder="Enter brand name (e.g., Amul, Nestle)"
+                                    value={newBrandName}
+                                    onChangeText={setNewBrandName}
+                                    placeholder="Enter brand name"
                                     placeholderTextColor={COLORS.gray}
                                 />
                             </>
@@ -381,13 +377,13 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                                         <ActivityIndicator size="small" color={COLORS.primary} />
                                     ) : (
                                         <Picker
-                                            selectedValue={selectedCategoryId}
-                                            onValueChange={setSelectedCategoryId}
+                                            selectedValue={selectedBrandId}
+                                            onValueChange={setSelectedBrandId}
                                             style={styles.picker}
                                         >
                                             <Picker.Item label="Select a brand" value="" />
-                                            {categories.map((cat) => (
-                                                <Picker.Item key={cat._id} label={cat.name} value={cat._id} />
+                                            {brands.map((brand) => (
+                                                <Picker.Item key={brand._id} label={brand.name} value={brand._id} />
                                             ))}
                                         </Picker>
                                     )}
@@ -395,33 +391,27 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                             </>
                         )}
 
+                        {/* Category Section (Required for structure) */}
+                        <Text style={styles.sectionTitle}>Category</Text>
+                        <Text style={styles.label}>Select Category *</Text>
+                        <View style={styles.pickerWrapper}>
+                            <Picker
+                                selectedValue={selectedCategoryId}
+                                onValueChange={setSelectedCategoryId}
+                                style={styles.picker}
+                            >
+                                <Picker.Item label="Select a category" value="" />
+                                {categories.map((cat) => (
+                                    <Picker.Item key={cat._id} label={cat.name} value={cat._id} />
+                                ))}
+                            </Picker>
+                        </View>
+
                         {/* Subcategory Section */}
-                        {(selectedCategoryId || isCreatingNewCategory) && (
+                        {(selectedCategoryId) && (
                             <>
                                 <Text style={styles.sectionTitle}>Subcategory (Optional)</Text>
-
-                                <View style={styles.toggleRow}>
-                                    <Text style={styles.toggleLabel}>Create new subcategory</Text>
-                                    <Switch
-                                        value={isCreatingNewSubcategory}
-                                        onValueChange={setIsCreatingNewSubcategory}
-                                        trackColor={{ false: COLORS.lightGray, true: COLORS.primary }}
-                                        thumbColor={COLORS.white}
-                                    />
-                                </View>
-
-                                {isCreatingNewSubcategory ? (
-                                    <>
-                                        <Text style={styles.label}>New Subcategory Name</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            value={newSubcategoryName}
-                                            onChangeText={setNewSubcategoryName}
-                                            placeholder="Enter subcategory name"
-                                            placeholderTextColor={COLORS.gray}
-                                        />
-                                    </>
-                                ) : subcategories.length > 0 ? (
+                                {subcategories.length > 0 ? (
                                     <>
                                         <Text style={styles.label}>Select Subcategory</Text>
                                         <View style={styles.pickerWrapper}>
@@ -437,9 +427,12 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                                             </Picker>
                                         </View>
                                     </>
-                                ) : null}
+                                ) : (
+                                    <Text style={[styles.label, { color: COLORS.gray }]}>No subcategories available</Text>
+                                )}
                             </>
                         )}
+
 
                         <TouchableOpacity
                             style={[styles.submitButton, submitting && styles.submitButtonDisabled]}

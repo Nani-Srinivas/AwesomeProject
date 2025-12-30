@@ -38,6 +38,8 @@ export const storeRoutes = async (fastify, options) => {
     preHandler: [verifyToken]
   }, updateSelectedProducts);
 
+
+
   fastify.get('/store/categories', {
     preHandler: [verifyToken]
   }, getStoreCategories);
