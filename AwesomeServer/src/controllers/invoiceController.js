@@ -387,7 +387,7 @@ export const getInvoice = async (request, reply) => {
 
     // Fetch customer details
     const customer = await Customer.findById(customerId)
-      .select("name address phone deliveryCost")
+      .select("name address phone deliveryCost requiredProduct")
       .lean();
     if (!customer) {
       return reply.code(404).send({ message: "Customer not found." });
@@ -456,12 +456,29 @@ export const getInvoice = async (request, reply) => {
       productsMap.forEach((quantity, productId) => {
         const productInfo = productMap.get(productId);
         if (productInfo) {
-          const itemTotal = quantity * productInfo.sellingPrice;
+          // Check for special pricing for this product
+          console.log(`Checking price for Product: ${productId}, Name: ${productInfo.name}`);
+          console.log('Customer Required Products:', JSON.stringify(customer.requiredProduct));
+
+          const specialPriceEntry = customer.requiredProduct?.find(
+            (rp) => {
+              const rpId = rp.product.toString();
+              const isMatch = rpId === productId;
+              console.log(`Comparing ${rpId} === ${productId}: ${isMatch}, SpecialPrice: ${rp.specialPrice}`);
+              return isMatch && rp.specialPrice != null;
+            }
+          );
+          const finalPrice = specialPriceEntry ? specialPriceEntry.specialPrice : productInfo.sellingPrice;
+          console.log(`Final Price Used: ${finalPrice} (Standard: ${productInfo.sellingPrice})`);
+
+          const itemTotal = quantity * finalPrice;
           dateTotal += itemTotal;
           products.push({
             name: productInfo.name,
             quantity: quantity,
-            price: productInfo.sellingPrice,
+            price: finalPrice,
+            originalPrice: productInfo.sellingPrice, // Optional: for tracking
+            isSpecialPrice: !!specialPriceEntry, // Optional: for tracking
             itemTotal: itemTotal,
           });
         }
@@ -1481,7 +1498,7 @@ export const generateInvoice = async (request, reply) => {
     // 👤 Fetch Customer
     // ------------------------------
     const customer = await Customer.findById(customerId)
-      .select("name address phone deliveryCost")
+      .select("name address phone deliveryCost requiredProduct")
       .lean();
 
     if (!customer) {
@@ -1554,12 +1571,20 @@ export const generateInvoice = async (request, reply) => {
         const productInfo = productMap.get(productId);
         if (!productInfo) continue;
 
-        const itemTotal = (quantity || 0) * (productInfo.sellingPrice || 0);
+        // Check for special pricing
+        const specialPriceEntry = customer.requiredProduct?.find(
+          (rp) => rp.product.toString() === productId && rp.specialPrice != null
+        );
+        const finalPrice = specialPriceEntry ? specialPriceEntry.specialPrice : productInfo.sellingPrice; // Use sellingPrice, assuming that's what is in storeProducts
+
+        const itemTotal = (quantity || 0) * (finalPrice || 0);
         dateTotal += itemTotal;
         products.push({
           name: productInfo.name,
           quantity,
-          price: productInfo.sellingPrice,
+          price: finalPrice,
+          originalPrice: productInfo.sellingPrice,
+          isSpecialPrice: !!specialPriceEntry,
           itemTotal: itemTotal.toFixed(2),
         });
       }

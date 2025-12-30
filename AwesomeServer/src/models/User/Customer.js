@@ -7,6 +7,7 @@ const customerSchema = new mongoose.Schema({
   requiredProduct: [{
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'StoreProduct' },
     quantity: { type: Number, required: true },
+    specialPrice: { type: Number } // Optional override price
   }],
   deliveryCost: { type: Number },
   createdBy: {

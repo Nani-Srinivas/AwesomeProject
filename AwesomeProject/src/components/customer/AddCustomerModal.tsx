@@ -61,13 +61,24 @@ export const AddCustomerModal = ({ isVisible, onClose, onSave, isSaving, areas, 
   }, [isVisible, slideAnim, areas]);
 
   const handleProductsSelected = useCallback((products: any[]) => {
-    const productsWithQuantity = products.map(p => ({ product: p, quantity: 1 }));
+    const productsWithQuantity = products.map(p => ({
+      product: p,
+      quantity: 1,
+      specialPrice: p.sellingPrice // Default to current selling price
+    }));
     setRequiredProducts(productsWithQuantity);
   }, []);
 
   const handleQuantityChange = (text: string, index: number) => {
     const newProducts = [...requiredProducts];
-    newProducts[index].quantity = text; // Allow string to support decimals during editing
+    newProducts[index].quantity = text;
+    setRequiredProducts(newProducts);
+  };
+
+  const handlePriceChange = (text: string, index: number) => {
+    const newProducts = [...requiredProducts];
+    // If text is empty, we might want to revert to default, but here we just store what user types
+    newProducts[index].specialPrice = text;
     setRequiredProducts(newProducts);
   };
 
@@ -86,7 +97,11 @@ export const AddCustomerModal = ({ isVisible, onClose, onSave, isSaving, areas, 
         deliveryCost: Number(deliveryCost) || 0,
         advanceAmount: Number(advanceAmount) || 0,
         isSubscribed,
-        requiredProduct: requiredProducts.map(p => ({ product: p.product._id, quantity: parseFloat(String(p.quantity)) || 0 })),
+        requiredProduct: requiredProducts.map(p => ({
+          product: p.product._id,
+          quantity: parseFloat(String(p.quantity)) || 0,
+          specialPrice: p.specialPrice !== undefined && p.specialPrice !== '' ? parseFloat(String(p.specialPrice)) : p.product.sellingPrice
+        })),
         area: selectedArea,
       });
     }
@@ -130,8 +145,24 @@ export const AddCustomerModal = ({ isVisible, onClose, onSave, isSaving, areas, 
                   ListFooterComponent={renderListFooter}
                   renderItem={({ item, index }) => (
                     <View style={styles.productItem}>
-                      <Text style={styles.productName}>{item.product.name}</Text>
-                      <TextInput style={styles.quantityInput} value={String(item.quantity)} onChangeText={(text) => handleQuantityChange(text, index)} keyboardType="decimal-pad" />
+                      <View style={{ flex: 1, marginRight: 10 }}>
+                        <Text style={styles.productName}>{item.product.name}</Text>
+                        <Text style={styles.productSubtext}>Std Price: ₹{item.product.sellingPrice}</Text>
+                      </View>
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Qty</Text>
+                        <TextInput style={styles.quantityInput} value={String(item.quantity)} onChangeText={(text) => handleQuantityChange(text, index)} keyboardType="decimal-pad" />
+                      </View>
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Price</Text>
+                        <TextInput
+                          style={styles.priceInput}
+                          value={item.specialPrice !== undefined ? String(item.specialPrice) : String(item.product.sellingPrice)}
+                          onChangeText={(text) => handlePriceChange(text, index)}
+                          keyboardType="decimal-pad"
+                          placeholder={String(item.product.sellingPrice)}
+                        />
+                      </View>
                       <TouchableOpacity onPress={() => handleRemoveProduct(index)}>
                         <Feather name="x-circle" size={22} color={COLORS.danger} />
                       </TouchableOpacity>
@@ -160,8 +191,12 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: COLORS.white, width: '100%', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, maxHeight: height * 0.9 },
   innerContent: { paddingTop: 20, paddingBottom: 40 },
   productItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.lightGrey },
-  productName: { flex: 1 },
-  quantityInput: { width: 50, textAlign: 'center', borderColor: COLORS.grey, borderWidth: 1, borderRadius: 5, paddingVertical: 5, marginHorizontal: 10 },
+  productName: { fontSize: 14, fontWeight: '500', color: COLORS.text, marginBottom: 2 },
+  productSubtext: { fontSize: 10, color: COLORS.grey },
+  inputGroup: { alignItems: 'center', marginHorizontal: 5 },
+  inputLabel: { fontSize: 10, color: COLORS.grey, marginBottom: 2 },
+  quantityInput: { width: 50, textAlign: 'center', borderColor: COLORS.grey, borderWidth: 1, borderRadius: 5, paddingVertical: 5, color: COLORS.text },
+  priceInput: { width: 60, textAlign: 'center', borderColor: COLORS.grey, borderWidth: 1, borderRadius: 5, paddingVertical: 5, color: COLORS.text },
   emptyListText: { textAlign: 'center', padding: 20, color: COLORS.grey },
   switchContainer: {
     flexDirection: 'row',
