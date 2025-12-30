@@ -436,7 +436,7 @@ export const getInvoice = async (request, reply) => {
     const storeProducts = await StoreProduct.find({
       _id: { $in: Array.from(allProductIds) },
     })
-      .select("name price")
+      .select("name sellingPrice")
       .lean();
 
     const productMap = new Map(storeProducts.map((p) => [p._id.toString(), p]));
@@ -456,12 +456,12 @@ export const getInvoice = async (request, reply) => {
       productsMap.forEach((quantity, productId) => {
         const productInfo = productMap.get(productId);
         if (productInfo) {
-          const itemTotal = quantity * productInfo.price;
+          const itemTotal = quantity * productInfo.sellingPrice;
           dateTotal += itemTotal;
           products.push({
             name: productInfo.name,
             quantity: quantity,
-            price: productInfo.price,
+            price: productInfo.sellingPrice,
             itemTotal: itemTotal,
           });
         }
@@ -490,9 +490,8 @@ export const getInvoice = async (request, reply) => {
       },
       customer: {
         name: customer.name,
-        address: `${customer.address?.FlatNo || ""}, ${
-          customer.address?.Apartment || ""
-        }, ${customer.address?.city || ""}`,
+        address: `${customer.address?.FlatNo || ""}, ${customer.address?.Apartment || ""
+          }, ${customer.address?.city || ""}`,
         phone: customer.phone,
       },
       items: invoiceItems,
@@ -677,9 +676,9 @@ import cloudinary from "../config/cloudinary.js";
 //       );
 //       uploadStream.end(pdfBuffer);
 //     });
-    
 
-    
+
+
 
 //     // --- Save invoice metadata in MongoDB ---
 //     const invoiceDoc = await Invoice.create({
@@ -1383,15 +1382,32 @@ export const generateInvoice = async (request, reply) => {
     // ⚠️ Prevent overlapping invoices
     // ------------------------------
     const customerObjectId = new mongoose.Types.ObjectId(customerId);
+    let overlappingInvoice = null;
+    let legacyInvoices = [];
 
-    // 1️⃣ Direct overlap check using fromDate/toDate
-    const overlappingInvoice = await Invoice.findOne({
-      customerId: customerObjectId,
-      $and: [
-        { fromDate: { $lte: endDate } },
-        { toDate: { $gte: startDate } },
-      ],
-    }).lean();
+    try {
+      // 1️⃣ Direct overlap check using fromDate/toDate
+      overlappingInvoice = await Invoice.findOne({
+        customerId: customerObjectId,
+        $and: [
+          { fromDate: { $lte: endDate } },
+          { toDate: { $gte: startDate } },
+        ],
+      }).lean();
+
+      // 2️⃣ Fallback: check for legacy period-based invoices
+      legacyInvoices = await Invoice.find({
+        customerId: customerObjectId,
+        period: { $exists: true, $ne: null },
+      })
+        .select("period billNo cloudinary")
+        .lean();
+
+    } catch (err) {
+      // Ignore "table/view does not exist" errors (ORA-00942) or similar
+      // This happens if the Invoice collection hasn't been created yet.
+      console.warn("Invoice collection check failed (likely first run):", err.message);
+    }
 
     if (overlappingInvoice) {
       return reply.code(409).send({
@@ -1406,14 +1422,6 @@ export const generateInvoice = async (request, reply) => {
         },
       });
     }
-
-    // 2️⃣ Fallback: check for legacy period-based invoices (e.g., "October 2025")
-    const legacyInvoices = await Invoice.find({
-      customerId: customerObjectId,
-      period: { $exists: true, $ne: null },
-    })
-      .select("period billNo cloudinary")
-      .lean();
 
     for (const inv of legacyInvoices) {
       const p = (inv.period || "").trim();
@@ -1524,8 +1532,8 @@ export const generateInvoice = async (request, reply) => {
 
     const storeProducts = allProductIds.length
       ? await StoreProduct.find({ _id: { $in: allProductIds } })
-          .select("name price")
-          .lean()
+        .select("name sellingPrice")
+        .lean()
       : [];
 
     const productMap = new Map(storeProducts.map((p) => [String(p._id), p]));
@@ -1546,12 +1554,12 @@ export const generateInvoice = async (request, reply) => {
         const productInfo = productMap.get(productId);
         if (!productInfo) continue;
 
-        const itemTotal = (quantity || 0) * (productInfo.price || 0);
+        const itemTotal = (quantity || 0) * (productInfo.sellingPrice || 0);
         dateTotal += itemTotal;
         products.push({
           name: productInfo.name,
           quantity,
-          price: productInfo.price,
+          price: productInfo.sellingPrice,
           itemTotal: itemTotal.toFixed(2),
         });
       }
@@ -1578,9 +1586,8 @@ export const generateInvoice = async (request, reply) => {
       },
       customer: {
         name: customer.name,
-        address: `${customer.address?.FlatNo || ""} ${customer.address?.Apartment || ""} ${
-          customer.address?.city || ""
-        }`.trim(),
+        address: `${customer.address?.FlatNo || ""} ${customer.address?.Apartment || ""} ${customer.address?.city || ""
+          }`.trim(),
         phone: customer.phone,
       },
       items: invoiceItems,
@@ -1615,7 +1622,7 @@ export const generateInvoice = async (request, reply) => {
     const totalAmount = parseFloat(invoiceData.grandTotal);
     const paidAmount = 0; // Initially no payment
     const dueAmount = totalAmount; // Full amount due initially
-    
+
     let invoiceStatus = "Generated";
     if (dueAmount === 0) {
       invoiceStatus = "Paid";
@@ -1656,13 +1663,13 @@ export const generateInvoice = async (request, reply) => {
     // ------------------------------
     const invoiceCustomer = await Customer.findById(customerId);
     const creditBalance = invoiceCustomer.creditBalance || 0;
-    
+
     // Apply credit balance to the new invoice if possible
     if (creditBalance > 0) {
       // Calculate adjusted due amount after applying credit
       const adjustedDue = Math.max(0, totalAmount - creditBalance);
       const remainingCredit = Math.max(0, creditBalance - totalAmount);
-      
+
       // Update the invoice with the adjusted payment values
       if (adjustedDue === 0) {
         // Full invoice paid by credit
@@ -1680,7 +1687,7 @@ export const generateInvoice = async (request, reply) => {
           status: 'Partially Paid'
         });
       }
-      
+
       // Update customer's remaining credit balance
       await Customer.findByIdAndUpdate(customerId, {
         lastBillPeriod: normalizedPeriod,
@@ -1804,11 +1811,11 @@ export const regenerateInvoice = async (request, reply) => {
       regenerateBody = { customerId, from, to, generatedBy };
     } else if (fromDate && toDate) {
       // Use fromDate and toDate if available
-      regenerateBody = { 
-        customerId, 
+      regenerateBody = {
+        customerId,
         from: new Date(fromDate).toISOString().split('T')[0],
         to: new Date(toDate).toISOString().split('T')[0],
-        generatedBy 
+        generatedBy
       };
     } else {
       // This is a monthly period (e.g. "October 2025")
@@ -1819,16 +1826,16 @@ export const regenerateInvoice = async (request, reply) => {
 
     // Temporarily store the original request body to restore later
     const originalBody = { ...request.body };
-    
+
     // Set the body for the regeneration
     request.body = regenerateBody;
-    
+
     // Call generate invoice internally
     const result = await generateInvoice(request, reply);
-    
+
     // Restore the original request body
     request.body = originalBody;
-    
+
     return result;
 
   } catch (error) {
@@ -1866,9 +1873,9 @@ export const deleteInvoice = async (request, reply) => {
     // Delete from database
     await Invoice.findByIdAndDelete(invoiceId);
 
-    return reply.code(200).send({ 
+    return reply.code(200).send({
       message: "Invoice deleted successfully",
-      deletedInvoiceId: invoiceId 
+      deletedInvoiceId: invoiceId
     });
   } catch (error) {
     console.error("Error deleting invoice:", error);
@@ -1886,9 +1893,9 @@ function escapeHtml(str = "") {
 }
 
 function money(val) {
-  return Number(val).toLocaleString("en-IN", { 
-    style: "currency", 
-    currency: "INR" 
+  return Number(val).toLocaleString("en-IN", {
+    style: "currency",
+    currency: "INR"
   });
 }
 
@@ -1899,8 +1906,8 @@ function buildHtmlFromInvoiceData(data) {
         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">${escapeHtml(i.date)}</td>
         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">
           ${i.products
-            .map(p => `${escapeHtml(p.name)} (${p.quantity} × ${money(p.price)})`)
-            .join("<br/>")}
+        .map(p => `${escapeHtml(p.name)} (${p.quantity} × ${money(p.price)})`)
+        .join("<br/>")}
         </td>
         <td style="vertical-align:top;padding:8px;border:1px solid #ddd">${money(i.total)}</td>
       </tr>`)

@@ -41,10 +41,10 @@ const InvoiceSchema = new mongoose.Schema({
   totalAmount: { type: Number, required: true }, // Amount to be paid
   paidAmount: { type: Number, default: 0 }, // Amount that has been paid
   dueAmount: { type: Number, required: true }, // Outstanding amount
-  status: { 
-    type: String, 
-    enum: ['Draft', 'Generated', 'Sent', 'Paid', 'Partially Paid', 'Overdue'], 
-    default: 'Generated' 
+  status: {
+    type: String,
+    enum: ['Draft', 'Generated', 'Sent', 'Paid', 'Partially Paid', 'Overdue'],
+    default: 'Generated'
   },
   dueDate: Date, // When payment is due
   paidDate: Date, // When payment was made
@@ -59,7 +59,7 @@ const InvoiceSchema = new mongoose.Schema({
   generatedBy: { type: String }, // optional (user id / system)
 }, { timestamps: true });
 
-InvoiceSchema.index({ customerId: 1, period: 1 }, { unique: true });
+// InvoiceSchema.index({ customerId: 1, period: 1 }, { unique: true });
 
 const Invoice = mongoose.connection.models.Invoice || mongoose.model('Invoice', InvoiceSchema);
 export default Invoice;

@@ -41,6 +41,8 @@ import rateLimit from '@fastify/rate-limit';
 import { registerRoutes } from "./src/routes/index.js";
 import { admin, buildAdminRouter } from './src/config/setup.js';
 
+
+
 const start = async () => {
   await connectDB(process.env.MONGO_URI);
   const app = fastify();
@@ -93,6 +95,7 @@ const start = async () => {
       );
     }
   });
+
 };
 
 start();

@@ -38,7 +38,9 @@ export const getAllCategories = async (req, reply) => {
 export const getProductsByCategoryId = async (req, reply) => {
   const { categoryId } = req.params;
   try {
-    const products = await MasterProduct.find({ category: categoryId })
+    const products = await MasterProduct.find({
+      $or: [{ category: categoryId }, { legacyCategoryId: categoryId }]
+    })
       .select("-category")
       .exec();
     return reply.send({
@@ -60,18 +62,50 @@ export const getMasterProductsByCategories = async (req, reply) => {
 
     const categoryIdArray = categoryIds.split(',');
 
-    const products = await MasterProduct.find({ category: { $in: categoryIdArray } })
+    const products = await MasterProduct.find({
+      $or: [
+        { category: { $in: categoryIdArray } },
+        { legacyCategoryId: { $in: categoryIdArray } }
+      ]
+    })
       .populate('category') // Populate category details
-      .populate('subcategory'); // Populate subcategory details
+      .populate('subcategory') // Populate subcategory details
+      .populate('legacyCategoryId') // Populate legacy for fallback grouping
+      .populate('legacySubCategoryId');
 
     // Group products by category for the client
     const categorizedProducts = categoryIdArray.map(catId => {
-      const categoryProducts = products.filter(product => product.category._id.toString() === catId);
-      const uniqueSubcategories = [...new Set(categoryProducts.map(p => p.subcategory._id.toString()))]
-        .map(subId => categoryProducts.find(p => p.subcategory._id.toString() === subId)?.subcategory);
+      // Find products matching this catId (either as category or legacyCategoryId)
+      const categoryProducts = products.filter(product =>
+        product.category?._id?.toString() === catId ||
+        product.legacyCategoryId?._id?.toString() === catId
+      );
+
+      const uniqueSubcategories = [...new Set(categoryProducts.map(p =>
+        p.subcategory?._id?.toString() || p.legacySubCategoryId?._id?.toString()
+      ))]
+        .map(subId => categoryProducts.find(p =>
+          p.subcategory?._id?.toString() === subId ||
+          p.legacySubCategoryId?._id?.toString() === subId
+        )?.subcategory || categoryProducts.find(p =>
+          p.legacySubCategoryId?._id?.toString() === subId
+        )?.legacySubCategoryId);
+
+      // Determine which category object to return (Legacy or Real) based on what matched the query
+      // If the query was for a legacy ID, return the legacy category object.
+      const representativeProduct = categoryProducts[0];
+      let categoryObj = { _id: catId, name: 'Unknown' };
+
+      if (representativeProduct) {
+        if (representativeProduct.category?._id?.toString() === catId) {
+          categoryObj = representativeProduct.category;
+        } else if (representativeProduct.legacyCategoryId?._id?.toString() === catId) {
+          categoryObj = representativeProduct.legacyCategoryId;
+        }
+      }
 
       return {
-        category: categoryProducts[0]?.category || { _id: catId, name: 'Unknown' }, // Fallback if no products in category
+        category: categoryObj,
         subcategories: uniqueSubcategories.filter(Boolean), // Remove undefined
         products: categoryProducts.map(({ _id, name, basePrice, images }) => ({ _id, name, basePrice, images })),
       };
@@ -327,7 +361,7 @@ export const getStoreProductsByVendor = async (req, reply) => {
     const categoryIds = storeCategories.map(category => category._id);
 
     // Find products that belong to these categories
-    const products = await StoreProduct.find({ 
+    const products = await StoreProduct.find({
       storeId: store._id,
       storeCategoryId: { $in: categoryIds }
     })

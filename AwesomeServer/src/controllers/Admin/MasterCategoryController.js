@@ -632,6 +632,7 @@
 import Category from "../../models/Product/Category.js";
 import Subcategory from "../../models/Product/Subcategory.js";
 import MasterProduct from "../../models/Product/MasterProduct.js";
+import Brand from "../../models/Product/Brand.js";
 
 // ================= Master Categories =================
 
@@ -769,6 +770,41 @@ export const getMasterSubcategories = async (req, reply) => {
   }
 };
 
+// ✅ Get subcategories filtered by brand IDs (for onboarding)
+export const getSubcategoriesByBrands = async (req, reply) => {
+  console.log("getSubcategoriesByBrands function called with:", req.query);
+  console.log("User:", req.user);
+  console.log("req:", req.query);
+  try {
+    const { brandIds } = req.query;
+
+    if (!brandIds) {
+      return reply.status(400).send({ message: 'brandIds query parameter is required' });
+    }
+
+    const brandIdArray = brandIds.split(',');
+
+    // Find all products with these brandIds
+    const products = await MasterProduct.find({
+      brandId: { $in: brandIdArray }
+    }).distinct('subcategory');
+
+    // Get subcategory details
+    const subcategories = await Subcategory.find({
+      _id: { $in: products }
+    }).populate('categoryId');
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Subcategories fetched successfully',
+      data: subcategories,
+    });
+  } catch (error) {
+    console.error('Error fetching subcategories by brands:', error);
+    return reply.status(500).send({ message: 'Internal server error' });
+  }
+};
+
 // ✅ Create master subcategory (Admin only)
 export const createMasterSubcategory = async (req, reply) => {
   try {
@@ -879,10 +915,30 @@ export const deleteMasterSubcategory = async (req, reply) => {
 
 // ================= Master Products =================
 
-// ✅ Get all master products
+// ✅ Get all master products (with optional filters)
 export const getMasterProducts = async (req, reply) => {
   try {
-    const masterProducts = await MasterProduct.find({});
+    const { brandIds, subcategoryIds } = req.query;
+
+    const query = {};
+
+    // Filter by brandIds if provided
+    if (brandIds) {
+      const brandIdArray = brandIds.split(',');
+      query.brandId = { $in: brandIdArray };
+    }
+
+    // Filter by subcategoryIds if provided  
+    if (subcategoryIds) {
+      const subcategoryIdArray = subcategoryIds.split(',');
+      query.subcategory = { $in: subcategoryIdArray };
+    }
+
+    const masterProducts = await MasterProduct.find(query)
+      .populate('brandId')
+      .populate('category')
+      .populate('subcategory');
+
     return reply.status(200).send({
       success: true,
       message: 'Master products fetched successfully',
@@ -895,22 +951,67 @@ export const getMasterProducts = async (req, reply) => {
 };
 
 // ✅ Create master product (Admin only)
+// ✅ Create master product (Admin only)
 export const createMasterProduct = async (req, reply) => {
   try {
-    const { name, description, basePrice, category, subcategory, images } = req.body;
+    const { name, description, basePrice, category, subcategory, images, brandId } = req.body;
 
     if (!req.user?.id || req.user?.role !== 'Admin') {
       return reply.status(401).send({ message: 'Unauthorized: Only Admin can create master products.' });
     }
 
-    const categoryExists = await Category.findById(category);
+    let finalCategory = category;
+    let finalSubcategory = subcategory;
+    let finalBrandId = brandId || null;
+    let finalLegacyCategoryId = null;
+    let finalLegacySubCategoryId = null;
+
+    // Backward Compatibility Logic
+    if (category) {
+      const catDoc = await Category.findById(category);
+      if (catDoc && catDoc.type === 'brand_legacy') {
+        // Input category is actually a Legacy Brand
+        finalLegacyCategoryId = category; // Preserve old ID
+
+        // Resolve Brand
+        const brand = await Brand.findOne({ name: catDoc.name });
+        if (brand) finalBrandId = brand._id;
+
+        // Default to 'Dairy' category for MVP (or handle mapping if needed)
+        const dairy = await Category.findOne({ name: 'Dairy', type: 'product_category' });
+        if (dairy) finalCategory = dairy._id;
+
+        // Resolve Subcategory
+        if (subcategory) {
+          finalLegacySubCategoryId = subcategory;
+          const subDoc = await Subcategory.findById(subcategory);
+          if (subDoc) {
+            // Find global equivalent
+            const globalSub = await Subcategory.findOne({
+              name: subDoc.name,
+              categoryId: dairy._id,
+              type: 'global_subcategory'
+            });
+            if (globalSub) finalSubcategory = globalSub._id;
+          }
+        }
+      }
+    }
+
+    // Validation
+    const categoryExists = await Category.findById(finalCategory);
     if (!categoryExists) {
       return reply.status(400).send({ message: 'Invalid category provided.' });
     }
 
-    if (subcategory) {
-      const subcategoryExists = await Subcategory.findById(subcategory);
-      if (!subcategoryExists || String(subcategoryExists.categoryId) !== String(category)) {
+    if (finalBrandId) {
+      const brandExists = await Brand.findById(finalBrandId);
+      if (!brandExists) return reply.status(400).send({ message: 'Invalid brandId provided.' });
+    }
+
+    if (finalSubcategory) {
+      const subcategoryExists = await Subcategory.findById(finalSubcategory);
+      if (!subcategoryExists || String(subcategoryExists.categoryId) !== String(finalCategory)) {
         return reply.status(400).send({ message: 'Invalid subcategory provided or it does not belong to the specified category.' });
       }
     }
@@ -924,8 +1025,11 @@ export const createMasterProduct = async (req, reply) => {
       name,
       description,
       basePrice,
-      category,
-      subcategory: subcategory || null,
+      brandId: finalBrandId,
+      category: finalCategory,
+      subcategory: finalSubcategory || null,
+      legacyCategoryId: finalLegacyCategoryId,
+      legacySubCategoryId: finalLegacySubCategoryId,
       images: images || [],
       createdBy: req.user.id,
       createdByModel: req.user.role,

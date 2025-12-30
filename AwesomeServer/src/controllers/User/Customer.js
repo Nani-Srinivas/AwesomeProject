@@ -14,9 +14,19 @@ export const getCustomers = async (req, reply) => {
     const store = await Store.findOne({ ownerId: createdBy });
     if (!store) return reply.status(404).send({ message: 'Store not found' });
 
-    const customers = await Customer.find({ store: store._id })
+    // Build query object
+    const query = { store: store._id };
+
+    // Check for apartment filter in query params
+    const { apartment } = req.query;
+    if (apartment) {
+      // Using regex for case-insensitive partial match
+      query['address.Apartment'] = { $regex: apartment, $options: 'i' };
+    }
+
+    const customers = await Customer.find(query)
       .populate('area')
-            .populate({
+      .populate({
         path: 'requiredProduct.product',
         model: 'StoreProduct', // this tells Mongoose which model to use
         populate: {
@@ -44,6 +54,8 @@ export const getCustomers = async (req, reply) => {
 
 // ✅ Get customers by area
 export const getCustomersByArea = async (req, reply) => {
+  console.log("getCustomersByArea API is Called");
+  console.log("req.params", req.params);
   try {
     const customers = await Customer.find({ area: req.params.areaId }).populate({
       path: 'requiredProduct.product',

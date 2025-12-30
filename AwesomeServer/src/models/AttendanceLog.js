@@ -103,9 +103,9 @@ const AttendanceLogSchema = new mongoose.Schema(
 );
 
 // ✅ Unique index: one record per business day per area per store
-AttendanceLogSchema.index(
-  { businessDate: 1, areaId: 1, storeId: 1 },
-  { unique: true, sparse: true }
-);
+// AttendanceLogSchema.index(
+//   { businessDate: 1, areaId: 1, storeId: 1 },
+//   { unique: true, sparse: true }
+// );
 
 export const AttendanceLog = mongoose.model('AttendanceLog', AttendanceLogSchema);

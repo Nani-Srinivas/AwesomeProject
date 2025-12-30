@@ -5,6 +5,7 @@ import * as AdminJSMongoose from "@adminjs/mongoose";
 import * as Models from "../models/User/index.js";
 import { Customer, StoreManager, DeliveryPartner, Admin } from "../models/User/index.js";
 import Area from "../models/Delivery/Area.js";
+import Brand from "../models/Product/Brand.js";
 import Category from "../models/Product/Category.js";
 import Subcategory from "../models/Product/Subcategory.js";
 import MasterProduct from "../models/Product/MasterProduct.js";
@@ -137,25 +138,58 @@ export const admin = new AdminJS({
     },
     // Product Models
     {
-      resource: Category,
+      resource: Brand,
       options: {
-        listProperties: ["name", "description", "createdByModel", "createdAt"],
-        filterProperties: ["name", "createdByModel"],
+        listProperties: ["name", "_id", "createdAt"],
+        filterProperties: ["name"],
         properties: {
-          createdBy: {
-            isVisible: false
-          },
-          createdByModel: {
-            isVisible: false
-          }
+          createdBy: { isVisible: false },
+          createdByModel: { isVisible: false }
         },
         actions: {
           new: {
             before: async (request, context) => {
-              console.log('Current Admin:', context.currentAdmin); // Debug
               const currentUser = context.currentAdmin;
               request.payload.createdBy = currentUser._id;
               request.payload.createdByModel = currentUser.roles[0];
+              return request;
+            }
+          }
+        }
+      },
+    },
+    {
+      resource: Category,
+      options: {
+        listProperties: ["name", "description", "createdAt"],
+        filterProperties: ["name"],
+        editProperties: ["name", "description", "imageUrl"],
+        newProperties: ["name", "description", "imageUrl"],
+        properties: {
+          name: {
+            description: 'Product category name (e.g., Dairy, Beverages, Snacks)'
+          },
+          description: {
+            description: 'Brief description of this category'
+          },
+          imageUrl: {
+            description: 'Optional: URL to category image'
+          },
+          // Hide internal fields
+          createdBy: { isVisible: false },
+          createdByModel: { isVisible: false },
+          type: { isVisible: false },
+          isDeprecated: { isVisible: false }
+        },
+        actions: {
+          new: {
+            before: async (request, context) => {
+              const currentUser = context.currentAdmin;
+              request.payload.createdBy = currentUser._id;
+              request.payload.createdByModel = currentUser.roles[0];
+              // Auto-set as product_category
+              request.payload.type = 'product_category';
+              request.payload.isDeprecated = false;
               return request;
             }
           }
@@ -165,23 +199,32 @@ export const admin = new AdminJS({
     {
       resource: Subcategory,
       options: {
-        listProperties: ["name", "categoryId", "createdByModel", "createdAt"],
-        filterProperties: ["name", "categoryId", "createdByModel"],
+        listProperties: ["name", "categoryId", "createdAt"],
+        filterProperties: ["name", "categoryId"],
+        editProperties: ["name", "categoryId"],
+        newProperties: ["name", "categoryId"],
         properties: {
-          createdBy: {
-            isVisible: false
+          name: {
+            description: 'Subcategory name (e.g., Milk, Juice)'
           },
-          createdByModel: {
-            isVisible: false
-          }
+          categoryId: {
+            description: 'Select the parent category (Dairy, Beverages, etc.)'
+          },
+          // Hide internal fields
+          createdBy: { isVisible: false },
+          createdByModel: { isVisible: false },
+          type: { isVisible: false },
+          isDeprecated: { isVisible: false }
         },
         actions: {
           new: {
             before: async (request, context) => {
-              console.log('Current Admin:', context.currentAdmin); // Debug
               const currentUser = context.currentAdmin;
               request.payload.createdBy = currentUser._id;
               request.payload.createdByModel = currentUser.roles[0];
+              // Auto-set as global_subcategory
+              request.payload.type = 'global_subcategory';
+              request.payload.isDeprecated = false;
               return request;
             }
           }
@@ -191,20 +234,28 @@ export const admin = new AdminJS({
     {
       resource: MasterProduct,
       options: {
-        listProperties: ["name", "description", "category", "subcategory", "createdByModel", "createdAt"],
-        filterProperties: ["name", "category"],
+        listProperties: ["name", "brandId", "category", "subcategory", "basePrice", "createdAt"],
+        filterProperties: ["name", "brandId", "category"],
         properties: {
-          createdBy: {
-            isVisible: false
+          createdBy: { isVisible: false },
+          createdByModel: { isVisible: false },
+          // Hide legacy fields from UI (used internally for backward compat)
+          legacyCategoryId: { isVisible: false },
+          legacySubCategoryId: { isVisible: false },
+          // Add descriptions for clarity
+          brandId: {
+            description: 'Select the product brand (e.g., Amul, Nestle)'
           },
-          createdByModel: {
-            isVisible: false
+          category: {
+            description: 'Select the product category (e.g., Dairy, Beverages)'
+          },
+          subcategory: {
+            description: 'Select the subcategory (e.g., Milk, Yogurt)'
           }
         },
         actions: {
           new: {
             before: async (request, context) => {
-              console.log('Current Admin:', context.currentAdmin); // Debug
               const currentUser = context.currentAdmin;
               request.payload.createdBy = currentUser._id;
               request.payload.createdByModel = currentUser.roles[0];

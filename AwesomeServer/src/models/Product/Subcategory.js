@@ -8,6 +8,15 @@ const SubcategorySchema = new Schema({
     ref: 'Category',
     required: true
   },
+  type: {
+    type: String,
+    enum: ['global_subcategory', 'brand_legacy'],
+    default: 'global_subcategory'
+  },
+  isDeprecated: {
+    type: Boolean,
+    default: false
+  },
   createdBy: {
     type: Schema.Types.ObjectId,
     refPath: 'createdByModel',

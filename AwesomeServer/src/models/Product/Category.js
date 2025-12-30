@@ -8,6 +8,15 @@ const CategorySchema = new Schema({
     unique: true,
     index: true,
   },
+  type: {
+    type: String,
+    enum: ['product_category', 'brand_legacy'],
+    default: 'product_category'
+  },
+  isDeprecated: {
+    type: Boolean,
+    default: false
+  },
   description: String,
   imageUrl: String,
   createdBy: { type: Schema.Types.ObjectId, refPath: 'createdByModel', required: true },
