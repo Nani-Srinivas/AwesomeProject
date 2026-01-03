@@ -445,8 +445,8 @@ export const getAttendance = async (request, reply) => {
   try {
     const { areaId, date } = request.query;
 
-    if (!areaId || !date) {
-      return reply.code(400).send({ success: false, message: 'areaId and date are required query parameters.' });
+    if (!date) {
+      return reply.code(400).send({ success: false, message: 'date query parameter is required.' });
     }
 
     // ✅ Get Store ID
@@ -455,8 +455,13 @@ export const getAttendance = async (request, reply) => {
       return reply.code(401).send({ message: 'Authentication required' });
     }
 
+    const query = { date: new Date(date), storeId };
+    if (areaId) {
+      query.areaId = areaId;
+    }
+
     // Filter by storeId as well
-    const attendanceRecords = await AttendanceLog.find({ areaId, date: new Date(date), storeId })
+    const attendanceRecords = await AttendanceLog.find(query)
       .populate('customerId', 'name') // Populate customer name
       .populate('products.productId', 'name'); // Populate product name
 

@@ -1,77 +1,140 @@
-import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Text } from 'react-native';
-import CustomSafeAreaView from '../../components/global/CustomSafeAreaView';
-import CustomText from '../../components/ui/CustomText';
-import CustomButton from '../../components/ui/CustomButton';
-import { Colors, Fonts } from '../../utils/Constants';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import React, { useEffect, useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    Modal,
+    ScrollView,
+} from 'react-native';
+import { CalendarProvider, ExpandableCalendar } from 'react-native-calendars';
 import Feather from 'react-native-vector-icons/Feather';
-import { RFValue } from 'react-native-responsive-fontsize';
-import { ExpandableCalendar, CalendarProvider } from 'react-native-calendars';
+import dayjs from 'dayjs';
+import { apiService } from '../../services/apiService';
+import { COLORS } from '../../constants/colors';
+import { Button } from '../../components/common/Button';
 
-// Mock Data (Replace with API later)
-const MOCK_AREAS = [
-    { id: '1', name: 'Rajeev Nagar' },
-    { id: '2', name: 'Sai Sadan' },
-    { id: '3', name: 'Green Valley' },
-];
+interface Area {
+    _id: string;
+    name: string;
+    totalSubscribedItems: number;
+}
 
-const MOCK_SUBSCRIPTIONS = [
-    { id: '1', areaId: '1', product: 'Full Cream Milk 500ml', qty: 2, customer: 'Flat 101' },
-    { id: '2', areaId: '1', product: 'Full Cream Milk 500ml', qty: 1, customer: 'Flat 102' },
-    { id: '3', areaId: '1', product: 'Curd 500ml', qty: 1, customer: 'Flat 102' },
-    { id: '4', areaId: '1', product: 'Bread', qty: 1, customer: 'Flat 204' },
-    { id: '5', areaId: '2', product: 'Full Cream Milk 500ml', qty: 5, customer: 'Flat 303' },
-];
+interface AreaDispatchState {
+    totalDispatched: string;
+    returnedExpression: string;
+    returnedQuantity: number;
+}
 
-export const DispatchSummaryScreen = ({ navigation }: any) => {
-    const [selectedArea, setSelectedArea] = useState(MOCK_AREAS[0]);
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+export const DispatchSummaryScreen = () => {
+    const [selectedDate, setSelectedDate] = useState(
+        dayjs().startOf('month').format('YYYY-MM-DD')
+    );
 
-    // Aggregate Data Logic
-    const dispatchSummary = useMemo(() => {
-        const areaSubs = MOCK_SUBSCRIPTIONS.filter(sub => sub.areaId === selectedArea.id);
-        const summary: Record<string, number> = {};
+    const [areas, setAreas] = useState<Area[]>([]);
+    const [dispatchData, setDispatchData] = useState<
+        Record<string, AreaDispatchState>
+    >({});
+    const [infoAreaId, setInfoAreaId] = useState<string | null>(null);
 
-        areaSubs.forEach(sub => {
-            if (summary[sub.product]) {
-                summary[sub.product] += sub.qty;
-            } else {
-                summary[sub.product] = sub.qty;
-            }
-        });
+    /* -----------------------------
+       FETCH AREAS
+    ----------------------------- */
+    useEffect(() => {
+        const fetchAreas = async () => {
+            const res = await apiService.get('/delivery/area');
+            const list: Area[] = res.data.data || [];
 
-        return Object.entries(summary).map(([name, total]) => ({ name, total }));
-    }, [selectedArea]);
+            const initial: Record<string, AreaDispatchState> = {};
+            list.forEach(area => {
+                initial[area._id] = {
+                    totalDispatched: String(area.totalSubscribedItems || 0),
+                    returnedExpression: '',
+                    returnedQuantity: 0,
+                };
+            });
 
-    const goToNextMonth = () => {
-        const newDate = new Date(selectedDate);
-        newDate.setMonth(newDate.getMonth() + 1);
-        setSelectedDate(newDate.toISOString().split('T')[0]);
+            setAreas(list);
+            setDispatchData(initial);
+        };
+
+        fetchAreas();
+    }, []);
+
+    /* -----------------------------
+       HELPERS
+    ----------------------------- */
+    const calculateReturned = (expression: string) => {
+        try {
+            const sanitized = expression.replace(/[^0-9+\-]/g, '');
+            if (!sanitized) return 0;
+
+            return sanitized
+                .split('+')
+                .reduce((sum, part) => {
+                    const nums = part.split('-').map(n => parseInt(n || '0', 10));
+                    return sum + nums.reduce((a, b) => a - b);
+                }, 0);
+        } catch {
+            return 0;
+        }
     };
 
-    const goToPreviousMonth = () => {
-        const newDate = new Date(selectedDate);
-        newDate.setMonth(newDate.getMonth() - 1);
-        setSelectedDate(newDate.toISOString().split('T')[0]);
+    const updateExpression = (areaId: string, value: string) => {
+        setDispatchData(prev => ({
+            ...prev,
+            [areaId]: {
+                ...prev[areaId],
+                returnedExpression: value,
+                returnedQuantity: calculateReturned(value),
+            },
+        }));
     };
 
-    const renderCustomHeader = (date: any) => {
-        const header = date.toString('MMMM yyyy');
-        const [month, year] = header.split(' ');
+    /* -----------------------------
+       TRUE INTERNAL CALENDAR HEADER
+       (THIS FIXES YOUR ISSUE)
+    ----------------------------- */
+    const renderCalendarHeader = (date: any) => {
+        const monthLabel = dayjs(date).format('MMMM YYYY');
 
         return (
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Feather name="calendar" size={24} color="#1E73B8" />
-                    <Text style={styles.monthText}>{`${month} ${year}`}</Text>
+            <View style={styles.calendarHeaderWrapper}>
+                {/* LEFT CORNER */}
+                <View style={styles.calendarLeft}>
+                    <Feather name="calendar" size={16} color="#333" />
+                    <Text style={styles.calendarMonthText}>
+                        {monthLabel}
+                    </Text>
                 </View>
-                <View style={styles.headerRight}>
-                    <TouchableOpacity onPress={goToPreviousMonth}>
-                        <Feather name="chevron-left" size={24} color="#1E73B8" />
+
+                {/* RIGHT CORNER */}
+                <View style={styles.calendarRight}>
+                    <TouchableOpacity
+                        onPress={() =>
+                            setSelectedDate(prev =>
+                                dayjs(prev)
+                                    .subtract(1, 'month')
+                                    .startOf('month')
+                                    .format('YYYY-MM-DD')
+                            )
+                        }
+                    >
+                        <Feather name="chevron-left" size={22} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={goToNextMonth}>
-                        <Feather name="chevron-right" size={24} color="#1E73B8" />
+
+                    <TouchableOpacity
+                        onPress={() =>
+                            setSelectedDate(prev =>
+                                dayjs(prev)
+                                    .add(1, 'month')
+                                    .startOf('month')
+                                    .format('YYYY-MM-DD')
+                            )
+                        }
+                    >
+                        <Feather name="chevron-right" size={22} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -79,224 +142,226 @@ export const DispatchSummaryScreen = ({ navigation }: any) => {
     };
 
     return (
-        <CustomSafeAreaView>
-            <CalendarProvider date={selectedDate} onDateChanged={setSelectedDate}>
+        <View style={styles.container}>
+            <CalendarProvider
+                date={selectedDate}
+                onDateChanged={setSelectedDate}
+            >
                 <ExpandableCalendar
-                    renderHeader={renderCustomHeader}
                     hideArrows
+                    disablePan
+                    renderHeader={renderCalendarHeader}
+                    firstDay={1}
                     markedDates={{
-                        [selectedDate]: { selected: true, selectedColor: Colors.primary },
-                    }}
-                    theme={{
-                        selectedDayBackgroundColor: Colors.primary,
-                        todayTextColor: Colors.primary,
-                        arrowColor: Colors.primary,
+                        [selectedDate]: {
+                            selected: true,
+                            selectedColor: COLORS.primary,
+                        },
                     }}
                 />
 
-                {/* Controls */}
-                <View style={styles.controls}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.areaScroll}>
-                        {MOCK_AREAS.map(area => (
-                            <TouchableOpacity
-                                key={area.id}
-                                style={[
-                                    styles.areaChip,
-                                    selectedArea.id === area.id && styles.areaChipActive
-                                ]}
-                                onPress={() => setSelectedArea(area)}
-                            >
-                                <CustomText
-                                    style={[
-                                        styles.areaText,
-                                        selectedArea.id === area.id && styles.areaTextActive
-                                    ]}
-                                    fontFamily={selectedArea.id === area.id ? Fonts.Bold : Fonts.Regular}
-                                >
+                <ScrollView>
+                    {areas.map(area => {
+                        const state = dispatchData[area._id];
+                        if (!state) return null;
+
+                        const actualGiven =
+                            Number(state.totalDispatched || 0) +
+                            state.returnedQuantity;
+
+                        return (
+                            <View key={area._id} style={styles.areaCard}>
+                                <Text style={styles.areaTitle}>
                                     {area.name}
-                                </CustomText>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
+                                </Text>
 
-                {/* Summary Cards */}
-                <ScrollView contentContainerStyle={styles.content}>
-                    <View style={styles.summaryHeader}>
-                        <CustomText variant="h5" fontFamily={Fonts.SemiBold}>
-                            Packing List
-                        </CustomText>
-                        <View style={styles.totalBadge}>
-                            <CustomText variant="h6" style={{ color: Colors.primary }} fontFamily={Fonts.Bold}>
-                                {dispatchSummary.reduce((acc, item) => acc + item.total, 0)} Items
-                            </CustomText>
-                        </View>
-                    </View>
+                                <View style={styles.row}>
+                                    <View style={styles.field}>
+                                        <Text style={styles.label}>Given</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            keyboardType="numeric"
+                                            value={state.totalDispatched}
+                                            onChangeText={val =>
+                                                setDispatchData(prev => ({
+                                                    ...prev,
+                                                    [area._id]: {
+                                                        ...state,
+                                                        totalDispatched: val,
+                                                    },
+                                                }))
+                                            }
+                                        />
+                                    </View>
 
-                    {dispatchSummary.length === 0 ? (
-                        <View style={styles.emptyState}>
-                            <Icon name="basket-off-outline" size={64} color="#ccc" />
-                            <CustomText style={{ marginTop: 16, color: '#999' }} variant="h5">No items to dispatch</CustomText>
-                        </View>
-                    ) : (
-                        dispatchSummary.map((item, index) => (
-                            <View key={index} style={styles.card}>
-                                <View style={styles.cardIcon}>
-                                    <Icon name="package-variant-closed" size={24} color={Colors.primary} />
-                                </View>
-                                <View style={styles.cardContent}>
-                                    <CustomText variant="h5" fontFamily={Fonts.Medium} style={styles.productName}>{item.name}</CustomText>
-                                    <CustomText variant="h8" style={styles.unitText}>Unit: Pcs</CustomText>
-                                </View>
-                                <View style={styles.cardCount}>
-                                    <CustomText variant="h3" fontFamily={Fonts.Bold} style={{ color: Colors.primary }}>
-                                        {item.total}
-                                    </CustomText>
+                                    <View style={styles.field}>
+                                        <Text style={styles.label}>+ / -</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            value={state.returnedExpression}
+                                            onChangeText={val =>
+                                                updateExpression(area._id, val)
+                                            }
+                                        />
+                                    </View>
+
+                                    <View style={styles.field}>
+                                        <Text style={styles.label}>Remaining</Text>
+                                        <Text style={styles.value}>
+                                            {actualGiven}
+                                        </Text>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        style={styles.infoBtn}
+                                        onPress={() => setInfoAreaId(area._id)}
+                                    >
+                                        <Feather name="info" size={16} color="#fff" />
+                                    </TouchableOpacity>
                                 </View>
                             </View>
-                        ))
-                    )}
-                </ScrollView>
+                        );
+                    })}
 
-                {/* Action Button */}
-                <View style={styles.footer}>
-                    <CustomButton
-                        title="Confirm Dispatch"
-                        onPress={() => alert('Dispatch Confirmed!')}
-                        loading={false}
-                        disabled={dispatchSummary.length === 0}
-                    />
-                </View>
+                    <View style={{ padding: 16 }}>
+                        <Button title="Submit Dispatch Summary" />
+                    </View>
+                </ScrollView>
             </CalendarProvider>
-        </CustomSafeAreaView>
+
+            {/* INFO MODAL */}
+            <Modal transparent visible={!!infoAreaId}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        {infoAreaId && (
+                            <>
+                                <Text style={styles.modalTitle}>
+                                    {areas.find(a => a._id === infoAreaId)?.name}
+                                </Text>
+
+                                <Text>Total Given: {dispatchData[infoAreaId]?.totalDispatched}</Text>
+                                <Text>Adjustments: {dispatchData[infoAreaId]?.returnedQuantity}</Text>
+                                <Text style={{ fontWeight: 'bold' }}>
+                                    Actual Given:{' '}
+                                    {Number(dispatchData[infoAreaId]?.totalDispatched || 0) +
+                                        (dispatchData[infoAreaId]?.returnedQuantity || 0)}
+                                </Text>
+                            </>
+                        )}
+
+                        <Button title="Close" onPress={() => setInfoAreaId(null)} />
+                    </View>
+                </View>
+            </Modal>
+        </View>
     );
 };
 
+/* -----------------------------
+   STYLES (CRITICAL PART)
+----------------------------- */
 const styles = StyleSheet.create({
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        padding: 16,
-        alignItems: 'center',
-        backgroundColor: '#fff', // Ensure background is white
-    },
-    headerLeft: {
-        flex: 1,
+    container: { flex: 1, backgroundColor: '#fff' },
+
+    /* 🔥 CALENDAR HEADER – HARD CORNERS */
+    calendarHeaderWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-    },
-    headerRight: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-    },
-    monthText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginLeft: 8,
-        color: '#333', // Explicit color
-    },
-    controls: {
-        padding: 16,
-        backgroundColor: '#fff',
-        marginBottom: 8,
-    },
-    areaScroll: {
-        flexDirection: 'row',
-    },
-    areaChip: {
-        paddingHorizontal: 20,
+        justifyContent: 'space-between', // ← THIS IS THE KEY
+        paddingHorizontal: 16,
         paddingVertical: 10,
-        borderRadius: 25,
-        backgroundColor: '#F5F6FA',
-        marginRight: 12,
+    },
+
+    calendarLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    calendarRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+
+    calendarMonthText: {
+        marginLeft: 8,
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+
+    areaCard: {
+        marginHorizontal: 16,
+        marginTop: 12,
+        padding: 10,
+        borderRadius: 8,
         borderWidth: 1,
-        borderColor: '#F5F6FA',
+        borderColor: '#e0e0e0',
+        backgroundColor: '#fff',
     },
-    areaChipActive: {
-        backgroundColor: '#E3F2FD',
-        borderColor: Colors.primary,
+
+    areaTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 6,
     },
-    areaText: {
+
+    row: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 8,
+    },
+
+    field: { flex: 1 },
+
+    label: {
+        fontSize: 10,
         color: '#666',
-        fontSize: RFValue(12),
+        marginBottom: 2,
     },
-    areaTextActive: {
-        color: Colors.primary,
-    },
-    content: {
-        padding: 16,
-        paddingBottom: 100,
-    },
-    summaryHeader: {
-        marginBottom: 20,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    totalBadge: {
-        backgroundColor: '#E3F2FD',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-    },
-    card: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 3,
+
+    input: {
         borderWidth: 1,
-        borderColor: '#f0f0f0',
+        borderColor: '#ddd',
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 4,
+        fontSize: 13,
     },
-    cardIcon: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: '#F5F6FA',
+
+    value: {
+        height: 32,
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: COLORS.primary,
+    },
+
+    infoBtn: {
+        width: 32,
+        height: 32,
+        backgroundColor: '#6c757d',
+        borderRadius: 6,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
     },
-    cardContent: {
+
+    modalOverlay: {
         flex: 1,
-    },
-    productName: {
-        color: Colors.text,
-        marginBottom: 4,
-    },
-    unitText: {
-        color: '#999',
-    },
-    cardCount: {
-        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
-        minWidth: 60,
-        backgroundColor: '#F5F6FA',
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 12,
-    },
-    emptyState: {
         alignItems: 'center',
-        marginTop: 80,
     },
-    footer: {
-        padding: 16,
+
+    modalBox: {
         backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        padding: 20,
+        borderRadius: 10,
+        width: '80%',
+    },
+
+    modalTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 10,
     },
 });

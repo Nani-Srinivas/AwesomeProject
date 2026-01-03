@@ -6,5 +6,5 @@ export const attendanceRoutes = async (fastify) => {
   fastify.get('/attendance', { preHandler: [verifyToken] }, getAttendance);    // Add preHandler
   // fastify.get('/', { preHandler: [verifyToken] }, checkAttendanceExists);    // Add preHandler
   // fastify.get('/:date/:areaId', { preHandler: [verifyToken] }, getAttendanceByDate);    // Add preHandler
-    //fastify.put('/:attendanceId', { preHandler: [verifyToken] }, updateAttendance);    // Add preHandler
+  //fastify.put('/:attendanceId', { preHandler: [verifyToken] }, updateAttendance);    // Add preHandler
 };

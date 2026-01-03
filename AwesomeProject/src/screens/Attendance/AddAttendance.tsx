@@ -1231,9 +1231,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     backgroundColor: COLORS.white,
   },
-  listContentContainer: {
-    paddingHorizontal: 16,
-  },
   emptyStateContainer: {
     flex: 1,
     justifyContent: 'center',
