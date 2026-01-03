@@ -599,15 +599,13 @@ export const AddAttendance = () => {
     if (balance !== 0) {
       Alert.alert(
         'Stock Mismatch',
-        `The stock does not match!\n\nGiven: ${totalDispatched || 0}\nDelivered: ${totalDelivered}\nReturned: ${returnedQuantity}\n\nBalance: ${balance}\n\nDo you want to submit anyway?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Submit Anyway', onPress: () => submitData(payload) }
-        ]
+        `The stock does not match!\n\nGiven: ${totalDispatched || 0}\nDelivered: ${totalDelivered}\nReturned: ${returnedQuantity}\n\nBalance: ${balance}\n\nPlease adjust the delivered quantities until the balance is 0.`,
+        [{ text: 'OK', style: 'cancel' }]
       );
-    } else {
-      submitData(payload);
+      return;
     }
+
+    submitData(payload);
   };
 
   const submitData = async (payload) => {
@@ -707,9 +705,10 @@ export const AddAttendance = () => {
         <View style={styles.topInputGroup}>
           <Text style={styles.topLabel}>Total Given</Text>
           <TextInput
-            style={styles.topInput}
+            style={[styles.topInput, { backgroundColor: '#f0f0f0', color: '#666' }]}
             value={totalDispatched}
-            onChangeText={setTotalDispatched}
+            // onChangeText={setTotalDispatched} // Read-only from Store
+            editable={false}
             placeholder="0"
             placeholderTextColor="#999"
           />
@@ -717,9 +716,10 @@ export const AddAttendance = () => {
         <View style={[styles.topInputGroup, { flex: 1.5 }]}>
           <Text style={styles.topLabel}>Adjustments (+/-)</Text>
           <TextInput
-            style={styles.topInput}
+            style={[styles.topInput, { backgroundColor: '#f0f0f0', color: '#666' }]}
             value={returnedExpression}
-            onChangeText={setReturnedExpression}
+            // onChangeText={setReturnedExpression} // Read-only from Store
+            editable={false}
             placeholder="e.g. +3 or -5"
             placeholderTextColor="#999"
           />
@@ -925,11 +925,22 @@ export const AddAttendance = () => {
 
           {customers.length > 0 && (
             <View style={styles.fixedFooter}>
+              {balance !== 0 && (
+                <Text style={{
+                  color: 'red',
+                  textAlign: 'center',
+                  marginBottom: 8,
+                  fontWeight: 'bold'
+                }}>
+                  Balance ({balance}) must be 0 to submit.
+                </Text>
+              )}
               <Button
                 title={isLoading ? 'Submitting...' : 'Submit Attendance'}
                 onPress={handleSubmit}
                 loading={isLoading}
-                disabled={isLoading}
+                disabled={isLoading || balance !== 0}
+                style={{ opacity: (isLoading || balance !== 0) ? 0.5 : 1 }}
               />
             </View>
           )}

@@ -27,16 +27,18 @@ interface AreaDispatchState {
     returnedQuantity: number;
 }
 
+import { useAttendanceStore } from '../../store/attendanceStore';
+
 export const DispatchSummaryScreen = () => {
     const [selectedDate, setSelectedDate] = useState(
         dayjs().startOf('month').format('YYYY-MM-DD')
     );
 
     const [areas, setAreas] = useState<Area[]>([]);
-    const [dispatchData, setDispatchData] = useState<
-        Record<string, AreaDispatchState>
-    >({});
     const [infoAreaId, setInfoAreaId] = useState<string | null>(null);
+
+    // STORE
+    const { drafts, setDraft } = useAttendanceStore();
 
     /* -----------------------------
        FETCH AREAS
@@ -45,20 +47,8 @@ export const DispatchSummaryScreen = () => {
         const fetchAreas = async () => {
             const res = await apiService.get('/delivery/area');
             const list: Area[] = res.data.data || [];
-
-            const initial: Record<string, AreaDispatchState> = {};
-            list.forEach(area => {
-                initial[area._id] = {
-                    totalDispatched: String(area.totalSubscribedItems || 0),
-                    returnedExpression: '',
-                    returnedQuantity: 0,
-                };
-            });
-
             setAreas(list);
-            setDispatchData(initial);
         };
-
         fetchAreas();
     }, []);
 
@@ -81,15 +71,12 @@ export const DispatchSummaryScreen = () => {
         }
     };
 
-    const updateExpression = (areaId: string, value: string) => {
-        setDispatchData(prev => ({
-            ...prev,
-            [areaId]: {
-                ...prev[areaId],
-                returnedExpression: value,
-                returnedQuantity: calculateReturned(value),
-            },
-        }));
+    const handleUpdateGiven = (areaId: string, value: string) => {
+        setDraft(selectedDate, areaId, { totalDispatched: value });
+    };
+
+    const handleUpdateExpression = (areaId: string, value: string) => {
+        setDraft(selectedDate, areaId, { returnedExpression: value });
     };
 
     /* -----------------------------
@@ -162,12 +149,21 @@ export const DispatchSummaryScreen = () => {
 
                 <ScrollView>
                     {areas.map(area => {
-                        const state = dispatchData[area._id];
-                        if (!state) return null;
+                        // GET DRAFT FROM STORE
+                        const draftKey = `${selectedDate}_${area._id}`;
+                        const draft = drafts[draftKey] || {};
+
+                        const totalDispatched = draft.totalDispatched !== undefined
+                            ? draft.totalDispatched
+                            : String(area.totalSubscribedItems || 0);
+
+                        const returnedExpression = draft.returnedExpression || '';
+
+                        const returnedQuantity = calculateReturned(returnedExpression);
 
                         const actualGiven =
-                            Number(state.totalDispatched || 0) +
-                            state.returnedQuantity;
+                            Number(totalDispatched || 0) +
+                            returnedQuantity;
 
                         return (
                             <View key={area._id} style={styles.areaCard}>
@@ -181,16 +177,8 @@ export const DispatchSummaryScreen = () => {
                                         <TextInput
                                             style={styles.input}
                                             keyboardType="numeric"
-                                            value={state.totalDispatched}
-                                            onChangeText={val =>
-                                                setDispatchData(prev => ({
-                                                    ...prev,
-                                                    [area._id]: {
-                                                        ...state,
-                                                        totalDispatched: val,
-                                                    },
-                                                }))
-                                            }
+                                            value={totalDispatched}
+                                            onChangeText={val => handleUpdateGiven(area._id, val)}
                                         />
                                     </View>
 
@@ -198,10 +186,8 @@ export const DispatchSummaryScreen = () => {
                                         <Text style={styles.label}>+ / -</Text>
                                         <TextInput
                                             style={styles.input}
-                                            value={state.returnedExpression}
-                                            onChangeText={val =>
-                                                updateExpression(area._id, val)
-                                            }
+                                            value={returnedExpression}
+                                            onChangeText={val => handleUpdateExpression(area._id, val)}
                                         />
                                     </View>
 
@@ -223,9 +209,7 @@ export const DispatchSummaryScreen = () => {
                         );
                     })}
 
-                    <View style={{ padding: 16 }}>
-                        <Button title="Submit Dispatch Summary" />
-                    </View>
+
                 </ScrollView>
             </CalendarProvider>
 
@@ -233,21 +217,28 @@ export const DispatchSummaryScreen = () => {
             <Modal transparent visible={!!infoAreaId}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalBox}>
-                        {infoAreaId && (
-                            <>
-                                <Text style={styles.modalTitle}>
-                                    {areas.find(a => a._id === infoAreaId)?.name}
-                                </Text>
+                        {infoAreaId && (() => {
+                            const draftKey = `${selectedDate}_${infoAreaId}`;
+                            const draft = drafts[draftKey] || {};
+                            const totalDispatched = draft.totalDispatched || '0';
+                            const returnedExpr = draft.returnedExpression || '';
+                            const retQty = calculateReturned(returnedExpr);
 
-                                <Text>Total Given: {dispatchData[infoAreaId]?.totalDispatched}</Text>
-                                <Text>Adjustments: {dispatchData[infoAreaId]?.returnedQuantity}</Text>
-                                <Text style={{ fontWeight: 'bold' }}>
-                                    Actual Given:{' '}
-                                    {Number(dispatchData[infoAreaId]?.totalDispatched || 0) +
-                                        (dispatchData[infoAreaId]?.returnedQuantity || 0)}
-                                </Text>
-                            </>
-                        )}
+                            return (
+                                <>
+                                    <Text style={styles.modalTitle}>
+                                        {areas.find(a => a._id === infoAreaId)?.name}
+                                    </Text>
+
+                                    <Text>Total Given: {totalDispatched}</Text>
+                                    <Text>Adjustments: {retQty}</Text>
+                                    <Text style={{ fontWeight: 'bold' }}>
+                                        Actual Given:{' '}
+                                        {Number(totalDispatched || 0) + retQty}
+                                    </Text>
+                                </>
+                            );
+                        })()}
 
                         <Button title="Close" onPress={() => setInfoAreaId(null)} />
                     </View>
