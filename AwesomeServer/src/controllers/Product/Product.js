@@ -616,28 +616,25 @@ export const getStoreProductsByVendorBrands = async (req, reply) => {
 
     // Find store brands assigned to this vendor
     const storeBrands = await StoreBrand.find({ vendorId: vendorId, storeId: store._id });
+    const storeBrandIds = storeBrands.map(brand => brand._id.toString());
 
-    // Get the IDs of the master brands
-    const masterBrandIds = storeBrands.map(brand => brand.masterBrandId.toString());
+    console.log(`Found ${storeBrands.length} brands for vendor ${vendorId}`);
+    console.log('StoreBrand IDs:', storeBrandIds);
 
-    // Find products that belong to these brands
+    // Query products directly by storeBrandId
+    // This works for BOTH onboarding products and manually created products
     const products = await StoreProduct.find({
-      storeId: store._id
+      storeId: store._id,
+      storeBrandId: { $in: storeBrandIds }
     })
       .populate('masterProductId')
       .populate('storeCategoryId')
-      .populate('storeSubcategoryId');
+      .populate('storeSubcategoryId')
+      .populate('storeBrandId');
 
-    // Filter products whose master product belongs to one of the assigned brands
-    const filteredProducts = products.filter(sp => {
-      const masterProduct = sp.masterProductId;
-      if (!masterProduct || !masterProduct.brandId) return false;
+    console.log(`Found ${products.length} products matching vendor brands`);
 
-      // Check if the master product's brand ID is in our allowed list
-      return masterBrandIds.includes(masterProduct.brandId.toString());
-    });
-
-    return reply.status(200).send({ success: true, data: filteredProducts });
+    return reply.status(200).send({ success: true, data: products });
   } catch (error) {
     console.error('Error fetching store products by vendor:', error);
     return reply.status(500).send({ message: 'Internal server error' });

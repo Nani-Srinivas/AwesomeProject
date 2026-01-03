@@ -260,7 +260,7 @@ export const submitAttendance = async (request, reply) => {
   try {
     console.log('🟢 Server received attendance submission:', JSON.stringify(request.body, null, 2));
 
-    const { date, areaId, attendance } = request.body;
+    const { date, areaId, attendance, totalDispatched, returnedItems } = request.body;
 
     // ✅ Get Store ID
     const storeId = await getStoreId(request);
@@ -407,6 +407,8 @@ export const submitAttendance = async (request, reply) => {
       date: startOfDay,
       businessDate: getBusinessDate(),
       areaId: new mongoose.Types.ObjectId(areaId),
+      totalDispatched: totalDispatched || 0,
+      returnedItems: returnedItems || { quantity: 0, expression: '' },
       attendance: attendance.map(({ customerId, products }) => ({
         customerId: new mongoose.Types.ObjectId(customerId),
         products: products.map(p => ({
@@ -468,7 +470,7 @@ export const getAttendance = async (request, reply) => {
 export const updateAttendance = async (request, reply) => {
   try {
     const { attendanceId } = request.params;
-    const { date, areaId, attendance } = request.body;
+    const { date, areaId, attendance, totalDispatched, returnedItems } = request.body;
 
     if (!attendanceId) {
       return reply.code(400).send({ success: false, message: 'Attendance ID is required.' });
@@ -544,7 +546,13 @@ export const updateAttendance = async (request, reply) => {
 
     const updatedAttendance = await AttendanceLog.findByIdAndUpdate(
       attendanceId,
-      { date: requestDate, areaId, attendance: attendance.map(({ customerId, products }) => ({ customerId, products })) },
+      {
+        date: requestDate,
+        areaId,
+        attendance: attendance.map(({ customerId, products }) => ({ customerId, products })),
+        totalDispatched: totalDispatched || 0,
+        returnedItems: returnedItems || { quantity: 0, expression: '' }
+      },
       { new: true, runValidators: true }
     );
 

@@ -68,6 +68,14 @@ const AttendanceLogSchema = new mongoose.Schema(
       ref: 'Area',
       required: true,
     },
+    totalDispatched: {
+      type: Number,
+      default: 0
+    },
+    returnedItems: {
+      quantity: { type: Number, default: 0 },
+      expression: { type: String, default: '' }
+    },
     // ✅ Single nested array for all customers visited on this day in this area
     attendance: [
       {

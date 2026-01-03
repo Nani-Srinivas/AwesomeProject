@@ -159,6 +159,15 @@ export const importCatalog = async (req, reply) => {
     }
     console.log(`Processed ${masterBrands.length} StoreBrands.`);
 
+    // 1.6 Create storeBrandsMap for product mapping
+    console.log('Creating storeBrandsMap for product linking...');
+    const createdStoreBrands = await StoreBrand.find({ storeId });
+    const storeBrandsMap = new Map();
+    createdStoreBrands.forEach(sb => {
+      storeBrandsMap.set(sb.masterBrandId.toString(), sb);
+    });
+    console.log(`Created storeBrandsMap with ${storeBrandsMap.size} brands.`);
+
     // 2. Create StoreSubcategories (for selected products)
     console.log('Creating StoreSubcategories...');
     // const selectedMasterProductIds = productsWithPricing.map(p => p.masterProductId); // Already defined above
@@ -192,10 +201,14 @@ export const importCatalog = async (req, reply) => {
       const parentStoreCategory = storeCategoriesMap.get(masterProd.category.toString());
       const parentStoreSubcategory = masterProd.subcategory ? storeSubcategoriesMap.get(masterProd.subcategory._id.toString()) : null;
 
+      // Lookup StoreBrand using masterProduct's brandId
+      const parentStoreBrand = masterProd.brandId ? storeBrandsMap.get(masterProd.brandId.toString()) : null;
+
       if (parentStoreCategory) {
         const newStoreProduct = new StoreProduct({
           storeId,
           masterProductId: masterProd._id,
+          storeBrandId: parentStoreBrand ? parentStoreBrand._id : null, // Set storeBrandId
           name: masterProd.name,
           description: masterProd.description,
           costPrice: pricingInfo ? pricingInfo.costPrice : 0,
