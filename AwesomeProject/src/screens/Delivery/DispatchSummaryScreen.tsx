@@ -57,14 +57,18 @@ export const DispatchSummaryScreen = () => {
     ----------------------------- */
     const calculateReturned = (expression: string) => {
         try {
-            const sanitized = expression.replace(/[^0-9+\-]/g, '');
+            const sanitized = expression.replace(/[^0-9+\-.]/g, ''); // Allow .
             if (!sanitized) return 0;
 
             return sanitized
                 .split('+')
                 .reduce((sum, part) => {
-                    const nums = part.split('-').map(n => parseInt(n || '0', 10));
-                    return sum + nums.reduce((a, b) => a - b);
+                    const nums = part.split('-').map(n => parseFloat(n || '0')); // Use parseFloat
+                    // Hande simple numbers or subtraction chains
+                    if (nums.length === 0) return sum;
+                    const first = nums[0];
+                    const rest = nums.slice(1);
+                    return sum + (rest.length > 0 ? rest.reduce((a, b) => a - b, first) : first);
                 }, 0);
         } catch {
             return 0;

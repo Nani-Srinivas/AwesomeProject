@@ -100,13 +100,13 @@ export const AddAttendance = () => {
     const parseExpression = (expr: string) => {
       if (!expr) return 0;
       try {
-        const sanitized = expr.replace(/[^0-9+\-]/g, '');
+        const sanitized = expr.replace(/[^0-9+\-.]/g, ''); // Allow .
         if (!sanitized) return 0;
         const result = sanitized.split('+').reduce((acc, part) => {
           const subParts = part.split('-');
-          let subSum = parseInt(subParts[0] || '0', 10);
+          let subSum = parseFloat(subParts[0] || '0');
           for (let i = 1; i < subParts.length; i++) {
-            subSum -= parseInt(subParts[i] || '0', 10);
+            subSum -= parseFloat(subParts[i] || '0');
           }
           return acc + subSum;
         }, 0);
@@ -124,13 +124,13 @@ export const AddAttendance = () => {
     const expr = totalDispatched;
     if (!expr) return 0;
     try {
-      const sanitized = expr.replace(/[^0-9+\-]/g, '');
+      const sanitized = expr.replace(/[^0-9+\-.]/g, '');
       if (!sanitized) return 0;
       const result = sanitized.split('+').reduce((acc, part) => {
         const subParts = part.split('-');
-        let subSum = parseInt(subParts[0] || '0', 10);
+        let subSum = parseFloat(subParts[0] || '0');
         for (let i = 1; i < subParts.length; i++) {
-          subSum -= parseInt(subParts[i] || '0', 10);
+          subSum -= parseFloat(subParts[i] || '0');
         }
         return acc + subSum;
       }, 0);
