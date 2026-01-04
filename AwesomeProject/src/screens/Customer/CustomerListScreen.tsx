@@ -11,6 +11,7 @@ import * as DocumentPicker from '@react-native-documents/picker';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { FlatList } from 'react-native';
+import { useAttendanceStore } from '../../store/attendanceStore';
 
 
 const getStatusStyle = (status: string) => {
@@ -95,6 +96,9 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   // Custom Order for Sections
   const [orderedSectionTitles, setOrderedSectionTitles] = useState<string[]>([]);
   const [isUserOrdered, setIsUserOrdered] = useState(false);
+
+  // Apartment order persistence
+  const { setApartmentOrder, getApartmentOrder } = useAttendanceStore();
 
 
   // Debounce search input
@@ -192,16 +196,24 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
 
   // Sync orderedSectionTitles with data when filters/search change, unless user has dragged
   useEffect(() => {
-    // If user hasn't manually reordered, or if the list of keys has changed (e.g. filtering), reset/update order
-    // For simplicity/robustness with filtering, we regenerate the default sort when data changes.
-    // Reordering usually only valid within a stable filtered view anyway.
+    // Try loading saved order for this area
+    const savedOrder = getApartmentOrder(selectedArea);
+
     const titles = Object.keys(sectionsData).sort((a, b) => {
       if (a === 'Other') return 1;
       if (b === 'Other') return -1;
       return a.localeCompare(b);
     });
-    setOrderedSectionTitles(titles);
-  }, [sectionsData]); // Depend on the grouped data object
+
+    // If we have a saved order AND it contains all current apartments, use it
+    if (savedOrder && titles.every(t => savedOrder.includes(t))) {
+      // Filter saved order to only include current apartments
+      setOrderedSectionTitles(savedOrder.filter(t => titles.includes(t)));
+    } else {
+      // Otherwise use default alphabetical sort
+      setOrderedSectionTitles(titles);
+    }
+  }, [sectionsData, selectedArea, getApartmentOrder]); // Depend on the grouped data object and selected area
 
   const toggleAllSections = () => {
     const newExpandedState = !areAllExpanded;
@@ -518,6 +530,8 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
           onDragEnd={({ data }) => {
             setOrderedSectionTitles(data);
             setIsUserOrdered(true);
+            // Persist apartment order to store
+            setApartmentOrder(selectedArea, data);
           }}
           keyExtractor={(item) => item}
           renderItem={renderItem}

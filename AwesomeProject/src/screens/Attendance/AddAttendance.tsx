@@ -46,7 +46,7 @@ interface Product {
     price?: number; // Price might be optional
   };
   quantity: number;
-  status?: 'delivered' | 'not_delivered' | 'skipped' | 'out_of_stock'; // Status is often added later
+  status?: 'delivered' | 'not_delivered'; // Status is often added later
   _id?: string; // For requiredProduct array items
 }
 
@@ -147,7 +147,7 @@ export const AddAttendance = () => {
     Object.values(attendance).forEach(customerAttendance => {
       Object.values(customerAttendance).forEach((prod: any) => {
         if (prod.status === 'delivered') {
-          total += (parseInt(prod.quantity, 10) || 0);
+          total += (parseFloat(prod.quantity) || 0);
         }
       });
     });
@@ -157,7 +157,7 @@ export const AddAttendance = () => {
   const balance = (totalGivenQuantity + returnedQuantity) - totalDelivered;
 
   // --- Persistence Logic ---
-  const { setDraft, getDraft, clearDraft } = useAttendanceStore();
+  const { setDraft, getDraft, clearDraft, setApartmentOrder, getApartmentOrder } = useAttendanceStore();
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
 
   // Load Draft
@@ -261,21 +261,36 @@ export const AddAttendance = () => {
           setCustomers(sortedCustomers);
 
           // ✅ Group customers into sections by apartment
-          const sections: { title: string; data: Customer[] }[] = [];
-          let currentApartment = '';
-          let currentSection: Customer[] = [];
-
-          sortedCustomers.forEach((customer, index) => {
+          const sectionsMap: { [apartment: string]: Customer[] } = {};
+          sortedCustomers.forEach((customer) => {
             const apartment = customer.address?.Apartment || 'No Apartment Info';
-            if (apartment !== currentApartment) {
-              if (currentSection.length > 0) sections.push({ title: currentApartment, data: currentSection });
-              currentApartment = apartment;
-              currentSection = [customer];
-            } else {
-              currentSection.push(customer);
+            if (!sectionsMap[apartment]) {
+              sectionsMap[apartment] = [];
             }
-            if (index === sortedCustomers.length - 1) sections.push({ title: currentApartment, data: currentSection });
+            sectionsMap[apartment].push(customer);
           });
+
+          // Get saved order or use default alphabetical sort
+          const savedOrder = getApartmentOrder(selectedArea);
+          const apartments = Object.keys(sectionsMap);
+
+          let orderedApartments: string[];
+          if (savedOrder && apartments.every(apt => savedOrder.includes(apt))) {
+            // Use saved order, filtering to only current apartments
+            orderedApartments = savedOrder.filter(apt => apartments.includes(apt));
+          } else {
+            // Default alphabetical order, with 'No Apartment Info' at the end
+            orderedApartments = apartments.sort((a, b) => {
+              if (a === 'No Apartment Info') return 1;
+              if (b === 'No Apartment Info') return -1;
+              return a.localeCompare(b);
+            });
+          }
+
+          const sections: { title: string; data: Customer[] }[] = orderedApartments.map(apt => ({
+            title: apt,
+            data: sectionsMap[apt],
+          }));
 
           setCustomerSections(sections);
 
@@ -444,16 +459,57 @@ export const AddAttendance = () => {
 
 
   const handleProductStatusChange = (customerId, productId, newStatus) => {
-    setAttendance(prev => ({
-      ...prev,
-      [customerId]: {
-        ...prev[customerId],
-        [productId]: {
-          ...prev[customerId]?.[productId],
+    console.log('handleProductStatusChange called', { customerId, productId, newStatus });
+
+    const startUpdate = () => {
+      console.log('startUpdate executed - updating state');
+      setAttendance(prev => {
+        const currentProductState = prev[customerId]?.[productId] || {};
+
+        const updatedProduct = {
+          ...currentProductState,
           status: newStatus,
-        },
-      },
-    }));
+        };
+
+        // Reset to 0 if status is not 'delivered'
+        if (newStatus !== 'delivered') {
+          updatedProduct.quantity = 0;
+        }
+
+        return {
+          ...prev,
+          [customerId]: {
+            ...prev[customerId],
+            [productId]: updatedProduct,
+          },
+        };
+      });
+    };
+
+    // If changing to non-delivered, check if we need confirmation
+    if (newStatus !== 'delivered') {
+      const customerAttendance = attendance[customerId] || {};
+      const productState = customerAttendance[productId] || {};
+
+      // Check current status from state or default to 'delivered'
+      const currentStatus = productState.status || 'delivered';
+      console.log('Checking confirmation', { currentStatus, newStatus });
+
+      if (currentStatus === 'delivered') {
+        console.log('Showing Confirmation Alert');
+        Alert.alert(
+          "Clear Quantity?",
+          "Changing status to 'Not Delivered' will set the quantity to 0. Continue?",
+          [
+            { text: "Cancel", style: "cancel", onPress: () => console.log('Alert Cancelled') },
+            { text: "Yes", onPress: startUpdate }
+          ]
+        );
+        return;
+      }
+    }
+
+    startUpdate();
   };
 
   const handleProductQuantityChange = (customerId, productId, newQuantity) => {
@@ -718,8 +774,8 @@ export const AddAttendance = () => {
 
       {/* Top Row Inputs (Given | Returns | Info) */}
       <View style={styles.topInputRow}>
-        <View style={styles.topInputGroup}>
-          <Text style={styles.topLabel}>Total Given</Text>
+        <View style={[styles.topInputGroup, { flex: 1 }]}>
+          <Text style={styles.topLabel}>Given</Text>
           <TextInput
             style={[styles.topInput, { backgroundColor: '#f0f0f0', color: '#666' }]}
             value={totalDispatched}
@@ -729,8 +785,8 @@ export const AddAttendance = () => {
             placeholderTextColor="#999"
           />
         </View>
-        <View style={[styles.topInputGroup, { flex: 1.5 }]}>
-          <Text style={styles.topLabel}>Adjustments (+/-)</Text>
+        <View style={[styles.topInputGroup, { flex: 1 }]}>
+          <Text style={styles.topLabel}>Adj (+/-)</Text>
           <TextInput
             style={[styles.topInput, { backgroundColor: '#f0f0f0', color: '#666' }]}
             value={returnedExpression}
@@ -738,6 +794,14 @@ export const AddAttendance = () => {
             editable={false}
             placeholder="e.g. +3 or -5"
             placeholderTextColor="#999"
+          />
+        </View>
+        <View style={[styles.topInputGroup, { flex: 1 }]}>
+          <Text style={[styles.topLabel, { color: COLORS.primary }]}>Delivered</Text>
+          <TextInput
+            style={[styles.topInput, { backgroundColor: '#e8f5e9', color: COLORS.primary, fontWeight: 'bold', textAlign: 'center', borderColor: COLORS.primary }]}
+            value={String(totalDelivered)}
+            editable={false}
           />
         </View>
         <TouchableOpacity
@@ -754,6 +818,19 @@ export const AddAttendance = () => {
   const renderItem = useCallback(({ item: section, drag, isActive }: { item: { title: string; data: Customer[] }, drag: () => void, isActive: boolean }) => {
     const isExpanded = expandedSections[section.title] !== false; // Default true
 
+    // Calculate total delivered for this section
+    let sectionDeliveredTotal = 0;
+    section.data.forEach(cust => {
+      const custAttendance = attendance[cust._id];
+      if (custAttendance) {
+        Object.values(custAttendance).forEach((prod: any) => {
+          if (prod.status === 'delivered') {
+            sectionDeliveredTotal += (parseFloat(String(prod.quantity)) || 0);
+          }
+        });
+      }
+    });
+
     return (
       <ScaleDecorator>
         <View style={[styles.sectionContainer, isActive && styles.activeSection]}>
@@ -767,8 +844,8 @@ export const AddAttendance = () => {
               onPress={() => toggleSectionExpansion(section.title)}
             >
               <Text style={styles.sectionHeaderText}>
-                {section.title}
-                <Text style={styles.sectionCount}> ({section.data.length})</Text>
+                {section.title.length > 15 ? `${section.title.substring(0, 15)}...` : section.title}
+                <Text style={styles.sectionCount}> (Flats: {section.data.length} | Qty: {Number(sectionDeliveredTotal.toFixed(2))})</Text>
               </Text>
               <Feather
                 name={isExpanded ? "chevron-up" : "chevron-down"}
@@ -808,6 +885,11 @@ export const AddAttendance = () => {
 
   const handleSectionDragEnd = ({ data }: { data: { title: string; data: Customer[] }[] }) => {
     setCustomerSections(data);
+    // Persist the new apartment order
+    if (selectedArea) {
+      const newOrder = data.map(section => section.title);
+      setApartmentOrder(selectedArea, newOrder);
+    }
   };
 
 
@@ -848,6 +930,7 @@ export const AddAttendance = () => {
 
           <DraggableFlatList
             data={customerSections}
+            extraData={attendance} // Ensure re-render on attendance change
             onDragEnd={handleSectionDragEnd}
             keyExtractor={(item) => item.title}
             stickyHeaderIndices={[]}

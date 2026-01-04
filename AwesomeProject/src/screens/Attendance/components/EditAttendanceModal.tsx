@@ -199,6 +199,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
+  Alert,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../../constants/colors';
@@ -207,12 +208,12 @@ const { height } = Dimensions.get('window');
 
 const statusConfig = {
   delivered: { label: 'Delivered', color: COLORS.success },
-  skipped: { label: 'Skipped', color: COLORS.warning },
-  out_of_stock: { label: 'Out of Stock', color: COLORS.error },
+  // skipped: { label: 'Skipped', color: COLORS.warning },
+  // out_of_stock: { label: 'Out of Stock', color: COLORS.error },
   not_delivered: { label: 'Not Delivered', color: COLORS.grey },
 };
 
-const statusCycle = ['delivered', 'skipped', 'out_of_stock', 'not_delivered'];
+const statusCycle = ['delivered', 'not_delivered'];
 
 interface EditAttendanceBottomSheetProps {
   isVisible: boolean;
@@ -229,7 +230,7 @@ export const EditAttendanceBottomSheet: React.FC<EditAttendanceBottomSheetProps>
   onSave,
   currentAttendance,
 }) => {
-  const [editedProducts, setEditedProducts] = useState([]);
+  const [editedProducts, setEditedProducts] = useState<any[]>([]);
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
@@ -267,9 +268,56 @@ export const EditAttendanceBottomSheet: React.FC<EditAttendanceBottomSheetProps>
   };
 
   const handleStatusChange = (productId: string, newStatus: string) => {
-    setEditedProducts(prev =>
-      prev.map(p => (p.product._id === productId ? { ...p, status: newStatus } : p))
-    );
+    const updatedProductsIfConfirmed = (products: any[]) => products.map(p => {
+      if (p.product._id === productId) {
+        let newQuantity = p.quantity;
+        let newCachedQuantity = p.cachedQuantity;
+
+        if (newStatus !== 'delivered') {
+          // Going to non-delivered
+          newQuantity = 0;
+          // Cache the previous quantity if we haven't already
+          newCachedQuantity = p.cachedQuantity ?? p.quantity;
+        } else {
+          // Going back to delivered
+          if (newCachedQuantity !== undefined) {
+            newQuantity = newCachedQuantity;
+            newCachedQuantity = undefined;
+          }
+        }
+
+        return {
+          ...p,
+          status: newStatus,
+          quantity: newQuantity,
+          cachedQuantity: newCachedQuantity,
+        };
+      }
+      return p;
+    });
+
+    if (newStatus !== 'delivered') {
+      const product = editedProducts.find(p => p.product._id === productId);
+      // Check if currently delivered and has quantity > 0
+      if (product && (product.status === 'delivered' || !product.status) && product.quantity > 0) {
+        Alert.alert(
+          "Clear Quantity?",
+          "Changing status to 'Not Delivered' will set the quantity to 0. Continue?",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Yes", onPress: () => {
+                setEditedProducts(prev => updatedProductsIfConfirmed(prev));
+              }
+            }
+          ]
+        );
+        return;
+      }
+    }
+
+    // Default update if no confirmation needed (or restoring to delivered)
+    setEditedProducts(prev => updatedProductsIfConfirmed(prev));
   };
 
   const handleIncrement = (productId: string) => {

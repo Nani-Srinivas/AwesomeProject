@@ -24,11 +24,14 @@ interface AttendanceDraft {
 
 interface AttendanceStore {
     drafts: Record<string, AttendanceDraft>; // Key: `${date}_${areaId}`
+    apartmentOrders: Record<string, string[]>; // Key: areaId, Value: ordered apartment names
 
     // Actions
     setDraft: (date: string, areaId: string, draft: Partial<AttendanceDraft>) => void;
     getDraft: (date: string, areaId: string) => AttendanceDraft | undefined;
     clearDraft: (date: string, areaId: string) => void;
+    setApartmentOrder: (areaId: string, order: string[]) => void;
+    getApartmentOrder: (areaId: string) => string[] | undefined;
 }
 
 // Custom storage wrapper for MMKV to work with Zustand persist
@@ -49,6 +52,7 @@ export const useAttendanceStore = create<AttendanceStore>()(
     persist(
         (set, get) => ({
             drafts: {},
+            apartmentOrders: {},
 
             setDraft: (date, areaId, draft) => {
                 const key = `${date}_${areaId}`;
@@ -76,6 +80,19 @@ export const useAttendanceStore = create<AttendanceStore>()(
                     delete newDrafts[key];
                     return { drafts: newDrafts };
                 });
+            },
+
+            setApartmentOrder: (areaId, order) => {
+                set((state) => ({
+                    apartmentOrders: {
+                        ...state.apartmentOrders,
+                        [areaId]: order,
+                    },
+                }));
+            },
+
+            getApartmentOrder: (areaId) => {
+                return get().apartmentOrders[areaId];
             },
         }),
         {
