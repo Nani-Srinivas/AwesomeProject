@@ -26,6 +26,7 @@ interface Vendor {
     city?: string;
     state?: string;
   };
+  payableAmount?: number;
 }
 
 const VendorSelectionScreen = () => {
@@ -59,9 +60,7 @@ const VendorSelectionScreen = () => {
   };
 
   const handleVendorSelect = (vendor: Vendor) => {
-    // Navigate to AddStock screen, vendor info can be accessed from state/api
-    // For now, just navigate to the AddStock screen
-    navigation.navigate('AddStock', {}); 
+    navigation.navigate('AddStock', { vendorId: vendor._id });
   };
 
   const renderVendor = ({ item }: { item: Vendor }) => (
@@ -70,7 +69,14 @@ const VendorSelectionScreen = () => {
       onPress={() => handleVendorSelect(item)}
     >
       <View style={styles.vendorInfo}>
-        <Text style={styles.vendorName}>{item.name}</Text>
+        <View style={styles.vendorHeaderRow}>
+          <Text style={styles.vendorName}>{item.name}</Text>
+          {item.payableAmount && item.payableAmount > 0 ? (
+            <View style={styles.dueBadge}>
+              <Text style={styles.dueText}>Due: ₹{item.payableAmount.toFixed(2)}</Text>
+            </View>
+          ) : null}
+        </View>
         <Text style={styles.vendorPhone}>Phone: {item.phone}</Text>
         {item.email && <Text style={styles.vendorEmail}>{item.email}</Text>}
         {item.address && (
@@ -83,7 +89,7 @@ const VendorSelectionScreen = () => {
     </TouchableOpacity>
   );
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -164,15 +170,33 @@ const styles = StyleSheet.create({
   vendorInfo: {
     flex: 1,
   },
+  vendorHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   vendorName: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
   },
+  dueBadge: {
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  dueText: {
+    fontSize: 12,
+    color: COLORS.error,
+    fontWeight: '600',
+  },
   vendorPhone: {
     fontSize: 14,
     color: COLORS.grey,
-    marginTop: 4,
+    marginTop: 2,
   },
   vendorEmail: {
     fontSize: 13,

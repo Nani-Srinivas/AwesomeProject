@@ -131,15 +131,43 @@ export const createInventoryReceipt = async (req, reply) => {
 
     await inventoryReceipt.save();
 
-    // Update the vendor's payable amount after creating the receipt
-    vendor.payableAmount = (vendor.payableAmount || 0) + totalAmount;
-    if (paymentStatus === 'paid') {
+    await inventoryReceipt.save();
+
+    // 4. Handle Initial Payment (Create VendorPayment record)
+    if (amountPaid > 0) {
+      const { default: VendorPayment } = await import('../../models/Finance/VendorPayment.js');
+
+      const paymentRecord = new VendorPayment({
+        vendorId,
+        amount: amountPaid,
+        method: paymentMethod || 'cash',
+        transactionId,
+        notes: notes ? `Initial payment for Receipt #${receiptNumber}. ${notes}` : `Initial payment for Receipt #${receiptNumber}`,
+        createdBy: receivedBy,
+        paymentDate: receivedDate,
+        appliedToReceipts: [{
+          receiptId: inventoryReceipt._id,
+          amountApplied: amountPaid
+        }]
+      });
+
+      await paymentRecord.save();
+    }
+
+    // 5. Update Vendor Payable Amount (Account for the payment)
+    // The debt increases by the UNPAID amount (total - paid)
+    const outstandingAmount = totalAmount - (amountPaid || 0);
+    vendor.payableAmount = (vendor.payableAmount || 0) + outstandingAmount;
+
+    // Update Vendor Status
+    if (vendor.payableAmount <= 0) {
       vendor.paymentStatus = 'paid';
-    } else if (paymentStatus === 'partial' || (paymentStatus === 'pending' && amountPaid > 0)) {
-      vendor.paymentStatus = 'partial';
+      vendor.payableAmount = 0; // Ensure no negative dust
     } else {
+      // If they owe money, it is pending
       vendor.paymentStatus = 'pending';
     }
+
     await vendor.save();
 
     return reply.code(201).send({

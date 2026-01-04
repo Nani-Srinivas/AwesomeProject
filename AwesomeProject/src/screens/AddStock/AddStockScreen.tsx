@@ -533,6 +533,15 @@ export function AddStockScreen({ route, navigation }: any) {
                 <Text style={styles.infoLabel}>Date:</Text>
                 <Text style={styles.infoValue}>{selectedDate}</Text>
               </View>
+              {vendor?.payableAmount > 0 && (
+                <View style={styles.infoRow}>
+                  <Feather name="alert-circle" size={18} color={COLORS.error} />
+                  <Text style={[styles.infoLabel, { color: COLORS.error }]}>Current Due:</Text>
+                  <Text style={[styles.infoValue, { color: COLORS.error, fontWeight: 'bold' }]}>
+                    ₹{vendor.payableAmount.toFixed(2)}
+                  </Text>
+                </View>
+              )}
             </View>
           ) : (
             /* EXISTING RECEIPT - Card Style */
@@ -678,7 +687,7 @@ export function AddStockScreen({ route, navigation }: any) {
 
                   {billInfo.paymentStatus === 'partial' && (
                     <View style={styles.billRow}>
-                      <Text style={styles.billLabel}>Amount Paid</Text>
+                      <Text style={styles.billLabel}>Amount Paid Now</Text>
                       <TextInput
                         style={[styles.billInput, !isEditing && styles.disabledInput]}
                         value={String(billInfo.amountPaid)}
@@ -726,7 +735,7 @@ export function AddStockScreen({ route, navigation }: any) {
 
                   {billInfo.paymentStatus !== 'paid' && (
                     <View style={styles.billRow}>
-                      <Text style={styles.billLabel}>Due Amount</Text>
+                      <Text style={styles.billLabel}>Remaining Balance</Text>
                       <Text style={styles.billValue}>
                         ₹{Math.max(0,
                           inventoryItems.reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0) -

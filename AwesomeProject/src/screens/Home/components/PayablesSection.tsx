@@ -16,7 +16,9 @@ if (Platform.OS === 'android') {
 interface VendorPayable {
     id: string;
     name: string;
-    amount: number;
+    amount: number; // This is the outstanding amount (Bill - Paid)
+    totalBillAmount: number; // New: Total value of bills today
+    totalPaidAmount: number; // New: Total amount paid today
     status: 'overdue' | 'pending' | 'paid';
     days: number;
     receipts: any[];
@@ -30,6 +32,7 @@ export const PayablesSection = () => {
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState<string>('');
     const [expandedVendors, setExpandedVendors] = useState<{ [key: string]: boolean }>({});
+    const [dailyStats, setDailyStats] = useState({ totalBills: 0, totalPaid: 0, totalPending: 0 });
 
     const { user } = useUserStore();
 
@@ -61,6 +64,10 @@ export const PayablesSection = () => {
             const receiptsResponse = await apiService.get('/inventory/receipts');
             const allReceipts = receiptsResponse.data.data || [];
 
+            let globalTotalBills = 0;
+            let globalTotalPaid = 0;
+            let globalTotalPending = 0;
+
             // Calculate payables for each vendor
             const calculatedPayables: VendorPayable[] = allVendors.map((vendor: any) => {
                 // Filter receipts for this vendor AND today's date only
@@ -73,11 +80,14 @@ export const PayablesSection = () => {
                     return receiptDate >= todayStart && receiptDate <= todayEnd;
                 });
 
-                // Calculate total payable (Total Amount - Amount Paid)
-                const totalPayable = vendorReceipts.reduce((sum: number, receipt: any) => {
-                    const amount = (receipt.totalAmount || 0) - (receipt.amountPaid || 0);
-                    return sum + (amount > 0 ? amount : 0);
-                }, 0);
+                // Calculate totals for this vendor
+                const vTotalBill = vendorReceipts.reduce((sum: number, r: any) => sum + (r.totalAmount || 0), 0);
+                const vTotalPaid = vendorReceipts.reduce((sum: number, r: any) => sum + (r.amountPaid || 0), 0);
+                const vTotalPending = vTotalBill - vTotalPaid; // OR use logic: sum + (amount > 0 ? amount : 0)
+
+                globalTotalBills += vTotalBill;
+                globalTotalPaid += vTotalPaid;
+                globalTotalPending += vTotalPending;
 
                 // Find latest receipt date (should be today)
                 let lastDate = '';
@@ -90,31 +100,37 @@ export const PayablesSection = () => {
                 }
 
                 // Determine status
-                const status = totalPayable > 0 ? 'pending' : 'paid';
+                const status = vTotalPending > 0 ? 'pending' : 'paid';
 
                 return {
                     id: vendor._id,
                     name: vendor.name,
-                    amount: totalPayable,
+                    amount: vTotalPending,
+                    totalBillAmount: vTotalBill,
+                    totalPaidAmount: vTotalPaid,
                     status: status,
                     days: 0,
                     receipts: vendorReceipts,
                     lastDate: lastDate
                 };
-            });
+            }).filter(v => v.receipts.length > 0); // Only show vendors with activity today
 
             // Sort by amount descending
             calculatedPayables.sort((a, b) => b.amount - a.amount);
 
             setVendors(calculatedPayables);
+            setDailyStats({
+                totalBills: globalTotalBills,
+                totalPaid: globalTotalPaid,
+                totalPending: globalTotalPending
+            });
+
         } catch (error) {
             console.error('Error fetching payables data:', error);
         } finally {
             setLoading(false);
         }
     };
-
-    const totalOutstanding = vendors.reduce((sum, v) => sum + v.amount, 0);
 
     const toggleVendorExpand = (vendorId: string) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -139,16 +155,21 @@ export const PayablesSection = () => {
                 <View style={styles.titleContainer}>
                     <View style={styles.titleIndicator} />
                     <View>
-                        <Text style={styles.sectionTitle}>Payables</Text>
+                        <Text style={styles.sectionTitle}>Today's Bills</Text>
                         {currentDate ? (
                             <Text style={styles.headerDateText}>{currentDate}</Text>
                         ) : null}
                     </View>
                 </View>
                 <View style={styles.headerRight}>
-                    <Text style={styles.totalSummary}>
-                        Total: <Text style={styles.totalAmount}>₹ {totalOutstanding.toLocaleString()}</Text>
-                    </Text>
+                    <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Bills:</Text>
+                        <Text style={styles.totalValue}>₹{dailyStats.totalBills.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Paid:</Text>
+                        <Text style={[styles.totalValue, { color: '#4CAF50' }]}>₹{dailyStats.totalPaid.toLocaleString()}</Text>
+                    </View>
                 </View>
             </View>
 
@@ -161,27 +182,40 @@ export const PayablesSection = () => {
                             index === vendors.length - 1 && styles.lastVendorAccordion
                         ]}>
                             {/* Vendor Header */}
-                            <TouchableOpacity
-                                onPress={() => toggleVendorExpand(vendor.id)}
-                                activeOpacity={0.7}
-                                style={styles.vendorHeader}
-                            >
-                                <View style={styles.vendorHeaderLeft}>
+                            <View style={styles.vendorHeader}>
+                                <TouchableOpacity
+                                    style={styles.vendorHeaderLeft}
+                                    onPress={() => navigation.navigate('VendorDetails', { vendorId: vendor.id })}
+                                >
                                     <Text style={styles.vendorName}>{vendor.name}</Text>
                                     {vendor.lastDate ? (
                                         <Text style={styles.vendorDate}>{vendor.lastDate}</Text>
                                     ) : null}
-                                </View>
-                                <View style={styles.vendorHeaderRight}>
-                                    <Text style={styles.vendorAmount}>₹ {vendor.amount.toLocaleString()}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.vendorHeaderRight}
+                                    onPress={() => toggleVendorExpand(vendor.id)}
+                                >
+                                    <View style={{ alignItems: 'flex-end' }}>
+                                        <Text style={[styles.vendorAmount, vendor.status === 'paid' && { color: '#4CAF50' }]}>
+                                            {vendor.status === 'paid'
+                                                ? `Paid ₹${vendor.totalPaidAmount.toLocaleString()}`
+                                                : `Due ₹${vendor.amount.toLocaleString()}`}
+                                        </Text>
+                                        {vendor.status !== 'paid' && vendor.totalPaidAmount > 0 && (
+                                            <Text style={styles.partialPaidText}>
+                                                (Paid ₹{vendor.totalPaidAmount.toLocaleString()})
+                                            </Text>
+                                        )}
+                                    </View>
                                     <Feather
                                         name={expandedVendors[vendor.id] ? "chevron-up" : "chevron-down"}
                                         size={18}
                                         color="#666"
                                         style={styles.chevronIcon}
                                     />
-                                </View>
-                            </TouchableOpacity>
+                                </TouchableOpacity>
+                            </View>
 
                             {/* Vendor Expanded Content - Product List */}
                             {expandedVendors[vendor.id] && (
@@ -278,14 +312,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    totalSummary: {
-        fontSize: 14,
-        color: '#666666',
-        marginRight: 8,
+    totalRow: {
+        marginLeft: 12,
+        alignItems: 'flex-end',
     },
-    totalAmount: {
+    totalLabel: {
+        fontSize: 10,
+        color: '#888',
+        marginBottom: 2,
+    },
+    totalValue: {
+        fontSize: 14,
         fontWeight: 'bold',
-        color: '#1C1C1C',
+        color: '#333',
     },
     loadingContainer: {
         paddingVertical: 20,
@@ -329,7 +368,13 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '700',
         color: '#1E73B8',
-        marginRight: 8,
+        textAlign: 'right',
+    },
+    partialPaidText: {
+        fontSize: 10,
+        color: '#4CAF50',
+        textAlign: 'right',
+        marginTop: 2,
     },
     chevronIcon: {
         marginLeft: 4,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, LayoutAnimation, Platform, UIManager, Alert } from 'react-native';
 import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
 import Feather from 'react-native-vector-icons/Feather';
@@ -15,9 +15,9 @@ interface VendorPayable {
   phone: string;
   totalDue: number;
   lastDeliveryDate: string;
-  daysOverdue: number;
+  daysOverdue: number; // Placeholder
   status: 'paid' | 'pending' | 'overdue';
-  recentReceipts: any[];
+  receipts: any[]; // Now we will populate this
 }
 
 const PayablesDashboardScreen = () => {
@@ -25,6 +25,7 @@ const PayablesDashboardScreen = () => {
   const [vendors, setVendors] = useState<VendorPayable[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedVendors, setExpandedVendors] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     loadVendorPayables();
@@ -33,25 +34,68 @@ const PayablesDashboardScreen = () => {
   const loadVendorPayables = async () => {
     try {
       setLoading(true);
-      // Using the vendor API instead of the finance API
-      const response = await apiService.get('/vendors');
 
-      if (response.data.success) {
-        // Transform vendor data to match expected structure for display
-        const transformedVendors = response.data.data.map((vendor: any) => ({
-          ...vendor,
-          _id: vendor._id,
-          name: vendor.name,
-          phone: vendor.phone,
-          totalDue: vendor.payableAmount || 0, // Using the payable amount from our implementation
-          lastDeliveryDate: vendor.updatedAt, // Using updated time as proxy for last delivery
-          daysOverdue: 0, // Placeholder - would need specific overdue logic
-          status: vendor.paymentStatus || 'pending', // Using payment status from our implementation
-          recentReceipts: [] // Placeholder - would need to get receipts data if needed
-        }));
+      const [vendorsResponse, receiptsResponse] = await Promise.all([
+        apiService.get('/vendors'),
+        apiService.get('/inventory/receipts')
+      ]);
+
+      if (vendorsResponse.data.success && receiptsResponse.data.success) {
+        const allVendors = vendorsResponse.data.data;
+        const allReceipts = receiptsResponse.data.data;
+
+        // Group pending receipts by vendor
+        const vendorMap = new Map();
+
+        allReceipts.forEach((receipt: any) => {
+          // We want all pending bills regardless of date
+          const isPending = receipt.paymentStatus !== 'paid';
+          // Also include if amountPaid < totalAmount just to be sure, though status should cover it
+          const dueAmount = (receipt.totalAmount || 0) - (receipt.amountPaid || 0);
+
+          if (isPending && dueAmount > 0) {
+            const vendorId = receipt.vendorId?._id || receipt.vendorId;
+            if (!vendorId) return;
+
+            if (!vendorMap.has(vendorId)) {
+              vendorMap.set(vendorId, []);
+            }
+            vendorMap.get(vendorId).push(receipt);
+          }
+        });
+
+        // Current Payables logic: Only show vendors with pending amount
+        const transformedVendors = allVendors
+          .map((vendor: any) => {
+            const pendingReceipts = vendorMap.get(vendor._id) || [];
+            // Sort receipts by date (oldest first? or newest?) User usually wants to see oldest pending first?
+            // Let's sort oldest first for "days overdue" context
+            pendingReceipts.sort((a: any, b: any) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
+
+            const totalDue = pendingReceipts.reduce((sum: number, r: any) => sum + (r.totalAmount - (r.amountPaid || 0)), 0);
+
+            let lastDeliveryDate = '-';
+            if (pendingReceipts.length > 0) {
+              lastDeliveryDate = new Date(pendingReceipts[pendingReceipts.length - 1].receivedDate).toLocaleDateString();
+            } else if (vendor.updatedAt) {
+              lastDeliveryDate = new Date(vendor.updatedAt).toLocaleDateString();
+            }
+
+            return {
+              _id: vendor._id,
+              name: vendor.name,
+              phone: vendor.phone,
+              totalDue: totalDue, // Calculated from actual pending receipts
+              lastDeliveryDate: lastDeliveryDate,
+              daysOverdue: 0, // Logic for this can be added later
+              status: totalDue > 0 ? 'pending' : 'paid',
+              receipts: pendingReceipts
+            };
+          })
+          .filter((v: any) => v.totalDue > 0) // Only filter those with dues? Or show all? User said "see all pending...". Usually Payables screen shows who you OWE.
+          .sort((a: any, b: any) => b.totalDue - a.totalDue); // Sort by highest due
+
         setVendors(transformedVendors);
-      } else {
-        console.error('Failed to load vendor payables:', response.data.message);
       }
     } catch (error) {
       console.error('Error loading vendor payables:', error);
@@ -66,53 +110,79 @@ const PayablesDashboardScreen = () => {
     setRefreshing(false);
   };
 
+  const toggleExpand = (vendorId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedVendors(prev => ({ ...prev, [vendorId]: !prev[vendorId] }));
+  };
+
   const getVendorStatusStyle = (status: string) => {
     switch (status) {
-      case 'paid':
-        return { color: COLORS.success, backgroundColor: 'rgba(76, 175, 80, 0.1)' };
-      case 'overdue':
-        return { color: COLORS.error, backgroundColor: 'rgba(244, 67, 54, 0.1)' };
-      case 'pending':
-        return { color: COLORS.warning, backgroundColor: 'rgba(255, 152, 0, 0.1)' };
-      default:
-        return { color: COLORS.primary, backgroundColor: 'rgba(33, 150, 243, 0.1)' };
+      case 'paid': return { color: COLORS.success, backgroundColor: 'rgba(76, 175, 80, 0.1)' };
+      case 'overdue': return { color: COLORS.error, backgroundColor: 'rgba(244, 67, 54, 0.1)' };
+      case 'pending': return { color: COLORS.warning, backgroundColor: 'rgba(255, 152, 0, 0.1)' };
+      default: return { color: COLORS.primary, backgroundColor: 'rgba(33, 150, 243, 0.1)' };
     }
   };
 
   const renderVendor = ({ item }: { item: VendorPayable }) => (
-    <TouchableOpacity 
-      style={styles.vendorCard} 
-      onPress={() => handleVendorPress(item)}
-    >
-      <View style={[styles.statusBorder, { backgroundColor: getVendorStatusStyle(item.status).color }]} />
-      <View style={styles.cardContent}>
-        <Text style={styles.vendorName}>{item.name}</Text>
-        <Text style={styles.vendorInfo}>Vendor ID | {item._id}</Text>
-        <Text style={styles.vendorInfo}>Contact: {item.phone}</Text>
-        <Text style={styles.vendorInfo}>Last Delivery: {item.lastDeliveryDate}</Text>
-        {item.daysOverdue > 0 && (
-          <Text style={styles.overdueText}>{item.daysOverdue} days overdue</Text>
-        )}
-      </View>
-      <View style={[styles.statusBadge, { backgroundColor: getVendorStatusStyle(item.status).backgroundColor }]}>
-        <Text style={[styles.statusText, { color: getVendorStatusStyle(item.status).color }]}>
-          {item.status.toUpperCase()}
-        </Text>
-      </View>
-      <View style={styles.vendorAmountContainer}>
-        <Text style={styles.vendorAmount}>₹{item.totalDue?.toFixed(2) || '0.00'}</Text>
-        <TouchableOpacity style={styles.payButton}>
-          <Feather name="arrow-right" size={16} color={COLORS.white} />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+    <View style={styles.vendorCard}>
+      <TouchableOpacity
+        style={styles.vendorCardHeader}
+        onPress={() => toggleExpand(item._id)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.statusBorder, { backgroundColor: getVendorStatusStyle(item.status).color }]} />
+        <View style={styles.cardContent}>
+          <Text style={styles.vendorName}>{item.name}</Text>
+          <Text style={styles.vendorInfo}>Cnt: {item.phone}</Text>
+          <Text style={styles.vendorInfo}>Due: ₹{item.totalDue.toFixed(2)}</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <View style={[styles.statusBadge, { backgroundColor: getVendorStatusStyle(item.status).backgroundColor }]}>
+            <Text style={[styles.statusText, { color: getVendorStatusStyle(item.status).color }]}>
+              {item.status.toUpperCase()}
+            </Text>
+          </View>
+          <Feather
+            name={expandedVendors[item._id] ? "chevron-up" : "chevron-down"}
+            size={24}
+            color={COLORS.grey}
+            style={{ marginTop: 8 }}
+          />
+        </View>
+      </TouchableOpacity>
+
+      {/* Expanded Content: List of Pending Bills */}
+      {expandedVendors[item._id] && (
+        <View style={styles.expandedContent}>
+          <View style={styles.divider} />
+          <Text style={styles.expandedTitle}>Pending Bills:</Text>
+          {item.receipts.map((receipt, index) => (
+            <View key={receipt._id} style={styles.billRow}>
+              <View>
+                <Text style={styles.billDate}>{new Date(receipt.receivedDate).toLocaleDateString()}</Text>
+                <Text style={styles.billId}>#{receipt.receiptNumber}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.billAmount}>Total: ₹{receipt.totalAmount.toFixed(2)}</Text>
+                <Text style={styles.billDue}>Due: ₹{(receipt.totalAmount - (receipt.amountPaid || 0)).toFixed(2)}</Text>
+              </View>
+            </View>
+          ))}
+
+          <TouchableOpacity
+            style={styles.payButtonFull}
+            onPress={() => navigation.navigate('VendorDetails', { vendorId: item._id })}
+          >
+            <Text style={styles.payButtonText}>View Details & Pay</Text>
+            <Feather name="arrow-right" size={16} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
   );
 
-  const handleVendorPress = (vendor: VendorPayable) => {
-    navigation.navigate('VendorDetails', { vendorId: vendor._id });
-  };
-
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -139,7 +209,8 @@ const PayablesDashboardScreen = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No vendors with payables found</Text>
+            <Text style={styles.emptyText}>No pending payables found.</Text>
+            <Text style={styles.emptySubtext}>All vendors are paid up!</Text>
           </View>
         }
       />
@@ -156,12 +227,14 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#1C1C1C',
-    marginBottom: 4,
   },
   totalAmount: {
     fontSize: 16,
@@ -171,75 +244,113 @@ const styles = StyleSheet.create({
   vendorCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    flexDirection: 'row',
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-    position: 'relative',
+    overflow: 'hidden',
+  },
+  vendorCardHeader: {
+    flexDirection: 'row',
+    padding: 16,
+    alignItems: 'center',
   },
   statusBorder: {
-    width: 3,
-    borderTopLeftRadius: 3,
-    borderBottomLeftRadius: 3,
-    marginRight: 16,
+    width: 4,
+    height: '100%',
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
   },
   cardContent: {
     flex: 1,
+    paddingLeft: 8,
   },
   vendorName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1C1C1C',
-    marginRight: 80, // Make space for the badge
   },
   vendorInfo: {
     fontSize: 13,
     color: '#6B6B6B',
-    marginTop: 4,
+    marginTop: 2,
   },
-  overdueText: {
-    fontSize: 12,
-    color: COLORS.error,
-    marginTop: 4,
-    fontWeight: '600',
+  headerRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
   statusBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderTopRightRadius: 12,
-    borderBottomLeftRadius: 12,
-    borderTopLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginBottom: 8,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  vendorAmountContainer: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginTop: 30,
+  expandedContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#FAFAFA',
   },
-  vendorAmount: {
+  divider: {
+    height: 1,
+    backgroundColor: '#EEEEEE',
+    marginBottom: 12,
+  },
+  expandedTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
     marginBottom: 8,
   },
-  payButton: {
+  billRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  billDate: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  billId: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  billAmount: {
+    fontSize: 14,
+    color: '#333',
+  },
+  billDue: {
+    fontSize: 14,
+    color: COLORS.error,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  payButtonFull: {
+    flexDirection: 'row',
     backgroundColor: COLORS.primary,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    padding: 12,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
+  },
+  payButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    marginRight: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -251,265 +362,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    marginTop: 50,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
     color: '#999',
+    marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
     color: '#999',
-    marginTop: 8,
     textAlign: 'center',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    backgroundColor: COLORS.primary,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    right: 30,
-    bottom: 30,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGrey,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  modalContent: {
-    padding: 16,
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  modalButton: {
-    backgroundColor: COLORS.primary,
-    padding: 16,
-    margin: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  section: {
-    backgroundColor: COLORS.white,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  textArea: {
-    height: 60,
-    textAlignVertical: 'top',
-  },
-  formRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  halfInput: {
-    width: '48%',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primary,
-    padding: 12,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  productSelector: {
-    maxHeight: 150,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  productOption: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  productOptionText: {
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  productOptionPrice: {
-    fontSize: 16,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  inventoryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  itemDetails: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  itemNotes: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 2,
-    fontStyle: 'italic',
-  },
-  itemActions: {
-    alignItems: 'flex-end',
-  },
-  itemTotal: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  removeButton: {
-    padding: 4,
-  },
-  totalContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  totalAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  radioGroup: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  radioButton: {
-    flex: 1,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    alignItems: 'center',
-    borderRadius: 8,
-    marginHorizontal: 4,
-  },
-  radioButtonSelected: {
-    backgroundColor: 'rgba(98, 0, 238, 0.1)',
-    borderColor: COLORS.primary,
-  },
-  radioText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  radioTextSelected: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  pendingAmountContainer: {
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  pendingAmountText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.error,
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.success,
-    padding: 16,
-    borderRadius: 8,
-  },
-  saveButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
   },
 });
 

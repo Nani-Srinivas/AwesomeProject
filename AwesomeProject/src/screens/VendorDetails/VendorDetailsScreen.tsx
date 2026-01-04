@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Modal, TouchableWithoutFeedback, Animated, Dimensions, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { apiService } from '../../services/apiService';
-import { Vendor } from '../../types/Vendor';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { NativeStackNavigationProp, RouteProp } from '@react-navigation/native-stack';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/types';
 import { COLORS } from '../../constants/colors';
 import Feather from 'react-native-vector-icons/Feather';
@@ -34,23 +33,12 @@ interface VendorDetails {
   payableAmount: number;
   paymentStatus: 'paid' | 'partial' | 'pending';
   assignedCategories?: string[]; // This is now part of the vendor model
-  createdAt: string;
-  updatedAt: string;
 }
 
 interface InventoryReceipt {
   _id: string;
   receiptNumber: string;
   receivedDate: string;
-  items: Array<{
-    storeProductId: {
-      name: string;
-    };
-    receivedQuantity: number;
-    unitPrice: number;
-    batchNumber?: string;
-    expiryDate?: string;
-  }>;
   totalAmount: number;
   paymentStatus: 'paid' | 'partial' | 'pending';
   amountPaid: number;
@@ -59,7 +47,8 @@ interface InventoryReceipt {
 interface PaymentRecord {
   _id: string;
   amount: number;
-  date: string;
+  date: string; // or paymentDate
+  paymentDate?: string;
   method: string;
   transactionId?: string;
   notes?: string;
@@ -69,7 +58,7 @@ const VendorDetailsScreen = () => {
   const navigation = useNavigation<VendorDetailsScreenNavigationProp>();
   const route = useRoute<VendorDetailsScreenRouteProp>();
   const { vendorId } = route.params;
-  
+
   const [vendor, setVendor] = useState<VendorDetails | null>(null);
   const [inventoryReceipts, setInventoryReceipts] = useState<InventoryReceipt[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -79,45 +68,29 @@ const VendorDetailsScreen = () => {
   const loadVendorDetails = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch vendor details
       const vendorResponse = await apiService.get(`/vendors/${vendorId}`);
       if (vendorResponse.data.success) {
         setVendor(vendorResponse.data.data);
       }
-      
+
       // Fetch related inventory receipts for this store
       const receiptResponse = await apiService.get(`/inventory/receipts`);
       if (receiptResponse.data.success) {
         // Filter receipts for this vendor
         const vendorReceipts = receiptResponse.data.data.filter(
-          (receipt: any) => receipt.vendorId && receipt.vendorId._id === vendorId
+          (receipt: any) => receipt.vendorId && (receipt.vendorId._id === vendorId || receipt.vendorId === vendorId)
         );
         setInventoryReceipts(vendorReceipts);
       }
-      
+
       // Fetch payment records for this vendor
-      // This might require a specific endpoint or we can simulate it with a placeholder
-      // For now, we'll use a placeholder
-      const samplePayments: PaymentRecord[] = [
-        {
-          _id: 'pay1',
-          amount: 15000,
-          date: '2025-01-15',
-          method: 'Bank Transfer',
-          transactionId: 'TXN001',
-          notes: 'Payment for January delivery'
-        },
-        {
-          _id: 'pay2',
-          amount: 12500,
-          date: '2025-02-15',
-          method: 'Cash',
-          notes: 'February installment'
-        }
-      ];
-      setPayments(samplePayments);
-      
+      const paymentResponse = await apiService.get(`/vendors/${vendorId}/payments`);
+      if (paymentResponse.data.success) {
+        setPayments(paymentResponse.data.data);
+      }
+
     } catch (error) {
       console.error('Error loading vendor details:', error);
       Alert.alert('Error', 'Failed to load vendor details');
@@ -137,17 +110,17 @@ const VendorDetailsScreen = () => {
   };
 
   const handleMakePayment = () => {
-    // Navigate to payment screen
-    navigation.navigate('RecordPaymentToVendor', { vendorId: vendor._id });
+    if (vendor?._id) {
+      navigation.navigate('RecordPaymentToVendor', { vendorId: vendor._id });
+    }
   };
 
   const handleEditVendor = () => {
     // Navigate to edit vendor screen
     Alert.alert('Edit', `Navigate to edit vendor screen for: ${vendor?.name}`);
-    // In a real app: navigation.navigate('EditVendor', { vendorId: vendor._id });
   };
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -167,6 +140,11 @@ const VendorDetailsScreen = () => {
     );
   }
 
+  // Calculate total outstanding from receipts to cross-verify (optional, but helper for debugging)
+  const calculateOutstanding = () => {
+    return inventoryReceipts.reduce((acc, r) => acc + (r.totalAmount - (r.amountPaid || 0)), 0);
+  };
+
   return (
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       {/* Vendor Header */}
@@ -174,15 +152,15 @@ const VendorDetailsScreen = () => {
         <View style={styles.headerContent}>
           <Text style={styles.vendorName}>{vendor.name}</Text>
           <Text style={styles.vendorId}>ID: {vendor._id}</Text>
-          <View style={[styles.statusBadge, { 
-            backgroundColor: 
+          <View style={[styles.statusBadge, {
+            backgroundColor:
               vendor.status === 'active' ? 'rgba(76, 175, 80, 0.1)' :
-              vendor.status === 'inactive' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(244, 67, 54, 0.1)'
+                vendor.status === 'inactive' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(244, 67, 54, 0.1)'
           }]}>
             <Text style={[styles.statusText, {
-              color: 
+              color:
                 vendor.status === 'active' ? COLORS.success :
-                vendor.status === 'inactive' ? COLORS.warning : COLORS.error
+                  vendor.status === 'inactive' ? COLORS.warning : COLORS.error
             }]}>
               {vendor.status.toUpperCase()}
             </Text>
@@ -193,18 +171,21 @@ const VendorDetailsScreen = () => {
       {/* Payable Amount Card */}
       <View style={styles.payableCard}>
         <View style={styles.payableInfo}>
-          <Text style={styles.payableLabel}>Current Payable</Text>
+          <Text style={styles.payableLabel}>Current Outstanding Due</Text>
           <Text style={styles.payableAmount}>₹{vendor.payableAmount?.toFixed(2) || '0.00'}</Text>
+          {vendor.payableAmount > 0 && (
+            <Text style={styles.verifiedDueText}>(Verified from {inventoryReceipts.length} bills)</Text>
+          )}
         </View>
-        <View style={[styles.paymentStatusBadge, { 
-          backgroundColor: 
+        <View style={[styles.paymentStatusBadge, {
+          backgroundColor:
             vendor.paymentStatus === 'paid' ? 'rgba(76, 175, 80, 0.1)' :
-            vendor.paymentStatus === 'partial' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(244, 67, 54, 0.1)'
+              vendor.paymentStatus === 'partial' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(244, 67, 54, 0.1)'
         }]}>
           <Text style={[styles.statusText, {
-            color: 
+            color:
               vendor.paymentStatus === 'paid' ? COLORS.success :
-              vendor.paymentStatus === 'partial' ? COLORS.warning : COLORS.error
+                vendor.paymentStatus === 'partial' ? COLORS.warning : COLORS.error
           }]}>
             {vendor.paymentStatus?.toUpperCase()}
           </Text>
@@ -213,73 +194,58 @@ const VendorDetailsScreen = () => {
 
       {/* Action Buttons */}
       <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleMakePayment}>
-          <Feather name="dollar-sign" size={20} color={COLORS.white} />
-          <Text style={styles.actionButtonText}>Make Payment</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.secondaryButton]} 
+        {vendor.payableAmount > 0 ? (
+          <TouchableOpacity style={styles.actionButton} onPress={handleMakePayment}>
+            <Feather name="dollar-sign" size={20} color={COLORS.white} />
+            <Text style={styles.actionButtonText}>Pay Remaining Amount</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.actionButton, { backgroundColor: COLORS.success }]}>
+            <Feather name="check" size={20} color={COLORS.white} />
+            <Text style={styles.actionButtonText}>Fully Paid</Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.secondaryButton]}
           onPress={handleEditVendor}
         >
           <Feather name="edit" size={20} color={COLORS.primary} />
-          <Text style={[styles.actionButtonText, { color: COLORS.primary }]}>Edit Vendor</Text>
+          <Text style={[styles.actionButtonText, { color: COLORS.primary }]}>Edit</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Vendor Details Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contact Information</Text>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Phone</Text>
-          <Text style={styles.detailValue}>{vendor.phone}</Text>
-        </View>
-        {vendor.email && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Email</Text>
-            <Text style={styles.detailValue}>{vendor.email}</Text>
-          </View>
-        )}
-        {vendor.address && (
-          <>
-            <Text style={styles.detailLabel}>Address</Text>
-            {vendor.address.street && <Text style={styles.detailValue}>{vendor.address.street}</Text>}
-            <Text style={styles.detailValue}>
-              {vendor.address.city}, {vendor.address.state} {vendor.address.zip}
-            </Text>
-            {vendor.address.country && <Text style={styles.detailValue}>{vendor.address.country}</Text>}
-          </>
-        )}
-        {vendor.contactPerson && (
-          <>
-            <Text style={styles.detailLabel}>Contact Person</Text>
-            {vendor.contactPerson.name && <Text style={styles.detailValue}>{vendor.contactPerson.name}</Text>}
-            {vendor.contactPerson.phone && <Text style={styles.detailValue}>{vendor.contactPerson.phone}</Text>}
-            {vendor.contactPerson.email && <Text style={styles.detailValue}>{vendor.contactPerson.email}</Text>}
-          </>
-        )}
-      </View>
-
-      {/* Assigned Categories */}
-      {vendor.assignedCategories && vendor.assignedCategories.length > 0 && (
+      {/* Outstanding Bills Breakdown */}
+      {inventoryReceipts.some(r => r.paymentStatus !== 'paid') && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Assigned Categories</Text>
-          {vendor.assignedCategories.map((categoryId, index) => (
-            <View key={index} style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Category {index + 1}</Text>
-              <Text style={styles.detailValue}>{categoryId.toString()}</Text>
-            </View>
-          ))}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Outstanding Bills</Text>
+          </View>
+          {inventoryReceipts
+            .filter(r => r.paymentStatus !== 'paid')
+            .map((receipt) => (
+              <View key={receipt._id} style={styles.receiptCard}>
+                <View style={styles.receiptHeader}>
+                  <Text style={styles.receiptNumber}>{receipt.receiptNumber}</Text>
+                  <Text style={styles.receiptDate}>{new Date(receipt.receivedDate).toLocaleDateString()}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Total: ₹{receipt.totalAmount.toFixed(2)}</Text>
+                  <Text style={[styles.detailValue, { color: COLORS.error, fontWeight: 'bold' }]}>
+                    Due: ₹{(receipt.totalAmount - (receipt.amountPaid || 0)).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            ))}
         </View>
       )}
+
 
       {/* Recent Inventory Receipts */}
       {inventoryReceipts.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Inventory Receipts</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>All Receipts</Text>
           </View>
           {inventoryReceipts.slice(0, 3).map((receipt) => (
             <View key={receipt._id} style={styles.receiptCard}>
@@ -289,7 +255,7 @@ const VendorDetailsScreen = () => {
               </View>
               <Text style={styles.receiptTotal}>Total: ₹{receipt.totalAmount?.toFixed(2) || '0.00'}</Text>
               <Text style={styles.receiptStatus}>
-                Payment: {receipt.paymentStatus?.toUpperCase()} (Paid: ₹{receipt.amountPaid?.toFixed(2) || '0.00'})
+                {receipt.paymentStatus?.toUpperCase()} • Paid: ₹{receipt.amountPaid?.toFixed(2) || '0.00'}
               </Text>
             </View>
           ))}
@@ -297,31 +263,38 @@ const VendorDetailsScreen = () => {
       )}
 
       {/* Payment History */}
-      {payments.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Payment History</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          {payments.slice(0, 3).map((payment) => (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Payment History</Text>
+        </View>
+        {payments.length > 0 ? (
+          payments.map((payment) => (
             <View key={payment._id} style={styles.paymentCard}>
               <View style={styles.paymentHeader}>
-                <Text style={styles.paymentAmount}>₹{payment.amount.toFixed(2)}</Text>
-                <Text style={styles.paymentDate}>{new Date(payment.date).toLocaleDateString()}</Text>
+                <Text style={styles.paymentAmount}>Paid ₹{payment.amount.toFixed(2)}</Text>
+                <Text style={styles.paymentDate}>
+                  {new Date(payment.date || payment.paymentDate || new Date()).toLocaleDateString()}
+                </Text>
               </View>
-              <Text style={styles.paymentMethod}>Method: {payment.method}</Text>
-              {payment.transactionId && (
-                <Text style={styles.paymentId}>Transaction: {payment.transactionId}</Text>
-              )}
+              <Text style={styles.paymentMethod}>{payment.method} {payment.transactionId ? `• ${payment.transactionId}` : ''}</Text>
               {payment.notes && (
-                <Text style={styles.paymentNotes}>Note: {payment.notes}</Text>
+                <Text style={styles.paymentNotes}>{payment.notes}</Text>
               )}
             </View>
-          ))}
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No payments recorded yet.</Text>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Contact Information</Text>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Phone</Text>
+          <Text style={styles.detailValue}>{vendor.phone}</Text>
         </View>
-      )}
+      </View>
+
     </ScrollView>
   );
 };
@@ -407,6 +380,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
   },
+  verifiedDueText: {
+    fontSize: 10,
+    color: COLORS.grey,
+    marginTop: 2,
+  },
   paymentStatusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -434,7 +412,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: COLORS.white,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
   },
@@ -530,15 +508,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.text,
   },
-  paymentId: {
-    fontSize: 12,
-    color: COLORS.grey,
-  },
   paymentNotes: {
     fontSize: 12,
     color: COLORS.grey,
     fontStyle: 'italic',
   },
+  emptyText: {
+    color: COLORS.grey,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 10,
+  }
 });
 
 export default VendorDetailsScreen;
