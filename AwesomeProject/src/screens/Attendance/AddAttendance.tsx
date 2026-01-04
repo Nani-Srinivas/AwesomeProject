@@ -75,6 +75,7 @@ export const AddAttendance = () => {
   const [customerSections, setCustomerSections] = useState<{ title: string; data: Customer[] }[]>([]);
   const [attendance, setAttendance] = useState<AttendanceState>({});
   const [expandedSections, setExpandedSections] = useState<{ [apartment: string]: boolean }>({});
+  const [areAllExpanded, setAreAllExpanded] = useState(true);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddExtraProductModalVisible, setIsAddExtraProductModalVisible] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -423,16 +424,24 @@ export const AddAttendance = () => {
     }));
   };
 
-  const handleDragEnd = (apartmentTitle: string, reorderedData: Customer[]) => {
-    // Update the section with new order
-    setCustomerSections(prev =>
-      prev.map(section =>
-        section.title === apartmentTitle
-          ? { ...section, data: reorderedData }
-          : section
-      )
-    );
+  const toggleAllSections = () => {
+    const newExpandedState = !areAllExpanded;
+    setAreAllExpanded(newExpandedState);
+
+    if (newExpandedState) {
+      // Expand All -> Clear specific false overrides
+      setExpandedSections({});
+    } else {
+      // Collapse All -> Set all current sections to false
+      const collapsedState: { [apartment: string]: boolean } = {};
+      customerSections.forEach(section => {
+        collapsedState[section.title] = false;
+      });
+      setExpandedSections(collapsedState);
+    }
   };
+
+
 
   const handleProductStatusChange = (customerId, productId, newStatus) => {
     setAttendance(prev => ({
@@ -694,6 +703,13 @@ export const AddAttendance = () => {
             ))}
           </Picker>
         </View>
+        <TouchableOpacity style={styles.toggleButton} onPress={toggleAllSections}>
+          <Feather
+            name={areAllExpanded ? "chevrons-up" : "chevrons-down"}
+            size={24}
+            color={COLORS.primary}
+          />
+        </TouchableOpacity>
         <View style={styles.totalEmployeesContainer}>
           <Text style={styles.totalEmployeesLabel}>Total Customers</Text>
           <Text style={styles.totalEmployeesCount}>{customers.length}</Text>
@@ -734,73 +750,66 @@ export const AddAttendance = () => {
     </>
   );
 
-  // Flatten data for DraggableFlatList
-  const flatData = useMemo(() => {
-    const data: any[] = [];
+  // Render Item for DraggableFlatList (SECTION BASED)
+  const renderItem = useCallback(({ item: section, drag, isActive }: { item: { title: string; data: Customer[] }, drag: () => void, isActive: boolean }) => {
+    const isExpanded = expandedSections[section.title] !== false; // Default true
 
-    // Add Global Header (formerly ListHeaderComponent)
-    data.push({
-      type: 'global_header',
-      key: 'global_header_inputs',
-    });
+    return (
+      <ScaleDecorator>
+        <View style={[styles.sectionContainer, isActive && styles.activeSection]}>
+          <View style={styles.sectionHeaderRow}>
+            <TouchableOpacity onLongPress={drag} disabled={isActive} style={styles.dragHandle}>
+              <Feather name="menu" size={24} color="#aaa" />
+            </TouchableOpacity>
 
-    customerSections.forEach(section => {
-      // Add Header
-      data.push({
-        type: 'header',
-        key: `header-${section.title}`,
-        title: section.title,
-        data: section.data
-      });
+            <TouchableOpacity
+              style={styles.sectionHeaderContent}
+              onPress={() => toggleSectionExpansion(section.title)}
+            >
+              <Text style={styles.sectionHeaderText}>
+                {section.title}
+                <Text style={styles.sectionCount}> ({section.data.length})</Text>
+              </Text>
+              <Feather
+                name={isExpanded ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#6B6B6B"
+              />
+            </TouchableOpacity>
+          </View>
 
-      // Add Customers (if expanded)
-      if (expandedSections[section.title]) {
-        section.data.forEach(customer => {
-          data.push({
-            type: 'customer',
-            key: customer._id,
-            data: customer,
-            sectionTitle: section.title
-          });
-        });
-      }
-    });
-    return data;
-  }, [customerSections, expandedSections]);
+          {isExpanded && (
+            <View>
+              {section.data.map((customer: Customer) => (
+                <CustomerAttendanceItem
+                  key={customer._id}
+                  customer={customer}
+                  isExpanded={true}
+                  onToggleExpansion={null}
+                  attendance={attendance[customer._id] || {}}
+                  onProductStatusChange={(productId: string, newStatus: string) =>
+                    handleProductStatusChange(customer._id, productId, newStatus)
+                  }
+                  onProductQuantityChange={(productId: string, newQuantity: number) =>
+                    handleProductQuantityChange(customer._id, productId, newQuantity)
+                  }
+                  onAdd={() => openAddExtraProductModal(customer)}
+                  onEdit={() => openEditModal(customer)}
+                  isPastDate={selectedDate < new Date().toISOString().split('T')[0]}
+                  flatNumber={customer.address?.FlatNo}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScaleDecorator>
+    );
+  }, [expandedSections, attendance, handleProductStatusChange, handleProductQuantityChange, selectedDate, areas]);
 
-  // Calculate sticky header indices
-  // logic remains same: only 'header' type sticks. 'global_header' does NOT stick.
-  const stickyHeaderIndices = useMemo(() => {
-    return flatData
-      .map((item, index) => (item.type === 'header' ? index : null))
-      .filter(item => item !== null) as number[];
-  }, [flatData]);
-
-  const handleFlatListDragEnd = ({ data }: { data: any[] }) => {
-    // Filter out global header before processing sections
-    const listData = data.filter(item => item.type !== 'global_header');
-
-    const newSectionsMap: { [key: string]: Customer[] } = {};
-    const newSectionOrder: string[] = [];
-    let currentSectionTitle = '';
-
-    listData.forEach(item => {
-      if (item.type === 'header') {
-        currentSectionTitle = item.title;
-        newSectionOrder.push(currentSectionTitle);
-        newSectionsMap[currentSectionTitle] = [];
-      } else if (item.type === 'customer' && currentSectionTitle) {
-        newSectionsMap[currentSectionTitle].push(item.data);
-      }
-    });
-
-    const newSections = newSectionOrder.map(title => ({
-      title,
-      data: newSectionsMap[title]
-    }));
-
-    setCustomerSections(newSections);
+  const handleSectionDragEnd = ({ data }: { data: { title: string; data: Customer[] }[] }) => {
+    setCustomerSections(data);
   };
+
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -838,70 +847,14 @@ export const AddAttendance = () => {
           />
 
           <DraggableFlatList
-            data={flatData}
-            onDragEnd={handleFlatListDragEnd}
-            keyExtractor={(item) => item.key}
-            stickyHeaderIndices={stickyHeaderIndices}
-            // ListHeaderComponent={renderListHeader} // REMOVED
+            data={customerSections}
+            onDragEnd={handleSectionDragEnd}
+            keyExtractor={(item) => item.title}
+            stickyHeaderIndices={[]}
+            ListHeaderComponent={renderListHeader()}
             contentContainerStyle={styles.listContentContainer}
-            renderItem={({ item, drag, isActive }) => {
-              if (item.type === 'global_header') {
-                return renderListHeader();
-              }
-              if (item.type === 'header') {
-                return (
-                  <TouchableOpacity
-                    style={styles.sectionHeader}
-                    onPress={() => toggleSectionExpansion(item.title)}
-                    disabled={isActive}
-                  >
-                    <Feather
-                      name={expandedSections[item.title] ? 'chevron-down' : 'chevron-right'}
-                      size={24}
-                      color={COLORS.primary}
-                    />
-                    <Text style={styles.sectionHeaderText}>{item.title.toUpperCase()}</Text>
-                  </TouchableOpacity>
-                );
-              }
-
-              return (
-                <ScaleDecorator>
-                  <OpacityDecorator activeOpacity={0.8}>
-                    <View style={[
-                      styles.customerRow,
-                      isActive && { backgroundColor: '#f0f0f0', elevation: 5 }
-                    ]}>
-                      <TouchableOpacity
-                        onLongPress={drag}
-                        style={styles.dragHandle}
-                        disabled={isActive}
-                      >
-                        <Feather name="menu" size={20} color={COLORS.text} />
-                      </TouchableOpacity>
-                      <View style={{ flex: 1 }}>
-                        <CustomerAttendanceItem
-                          customer={item.data}
-                          isExpanded={true}
-                          onToggleExpansion={null}
-                          attendance={attendance[item.data._id] || {}}
-                          onProductStatusChange={(productId, newStatus) =>
-                            handleProductStatusChange(item.data._id, productId, newStatus)
-                          }
-                          onProductQuantityChange={(productId, newQuantity) =>
-                            handleProductQuantityChange(item.data._id, productId, newQuantity)
-                          }
-                          onEdit={() => openEditModal(item.data)}
-                          onAdd={() => openAddExtraProductModal(item.data)}
-                          isPastDate={selectedDate < new Date().toISOString().split('T')[0]}
-                          flatNumber={item.data.address?.FlatNo}
-                        />
-                      </View>
-                    </View>
-                  </OpacityDecorator>
-                </ScaleDecorator>
-              );
-            }}
+            renderItem={renderItem}
+            activationDistance={20}
             ListEmptyComponent={
               areas.length === 0 ? (
                 <EmptyState
@@ -1028,7 +981,60 @@ const styles = StyleSheet.create({
   listContentContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 100, // Space for fixed footer
+    paddingBottom: 300, // Space for fixed footer
+  },
+  sectionContainer: {
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  activeSection: {
+    backgroundColor: '#f9f9f9',
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+    opacity: 0.9,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  dragHandle: {
+    padding: 8,
+    marginRight: 4,
+  },
+  sectionHeaderContent: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 8,
+    paddingVertical: 4,
+  },
+  sectionHeaderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  sectionCount: {
+    fontSize: 14,
+    fontWeight: 'normal',
+    color: '#666',
   },
   header: {
     flexDirection: 'row',
@@ -1070,6 +1076,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: { height: 50, width: '100%' },
+  toggleButton: {
+    padding: 8,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   feedbackContainer: {
     padding: 10,
     marginHorizontal: 16,

@@ -521,7 +521,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
           }}
           keyExtractor={(item) => item}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: 140 }}
           refreshing={isLoading}
           onRefresh={fetchCustomers}
           ListEmptyComponent={
