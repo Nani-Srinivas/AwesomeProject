@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator, Dimensions, TextInput, Modal, Pressable, SectionList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, Pressable } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { EditCustomerModal } from '../../components/customer/EditCustomerModal';
@@ -8,6 +8,10 @@ import { apiService } from '../../services/apiService';
 import { debounce } from 'lodash';
 import { EmptyState } from '../../components/common/EmptyState';
 import * as DocumentPicker from '@react-native-documents/picker';
+import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { FlatList } from 'react-native';
+
 
 const getStatusStyle = (status: string) => {
   switch (status) {
@@ -86,6 +90,12 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
 
   // Track expanded/collapsed state for each apartment section
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [areAllExpanded, setAreAllExpanded] = useState(true);
+
+  // Custom Order for Sections
+  const [orderedSectionTitles, setOrderedSectionTitles] = useState<string[]>([]);
+  const [isUserOrdered, setIsUserOrdered] = useState(false);
+
 
   // Debounce search input
   const debouncedSearch = useCallback(
@@ -135,7 +145,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
     fetchAreas();
   }, []);
 
-  const sections = useMemo(() => {
+  const sectionsData = useMemo(() => {
     let list = customers;
 
     // Filter by Area
@@ -177,47 +187,21 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
       return acc;
     }, {});
 
-    // Sort Sections (Apartment Name)
-    const sortedSectionTitles = Object.keys(grouped).sort((a, b) => {
+    return grouped;
+  }, [selectedArea, selectedPaymentStatus, debouncedSearchQuery, customers]);
+
+  // Sync orderedSectionTitles with data when filters/search change, unless user has dragged
+  useEffect(() => {
+    // If user hasn't manually reordered, or if the list of keys has changed (e.g. filtering), reset/update order
+    // For simplicity/robustness with filtering, we regenerate the default sort when data changes.
+    // Reordering usually only valid within a stable filtered view anyway.
+    const titles = Object.keys(sectionsData).sort((a, b) => {
       if (a === 'Other') return 1;
       if (b === 'Other') return -1;
       return a.localeCompare(b);
     });
-
-    return sortedSectionTitles.map(title => {
-      // Sort Data within Section (Flat No)
-      const sortedData = grouped[title].sort((a: any, b: any) => {
-        const flatA = a.address?.FlatNo || '';
-        const flatB = b.address?.FlatNo || '';
-
-        // Extract numeric part from flat number
-        const numA = parseInt(flatA.replace(/\D/g, '')) || 0;
-        const numB = parseInt(flatB.replace(/\D/g, '')) || 0;
-
-        if (numA !== numB) return numA - numB;
-        return flatA.localeCompare(flatB);
-      });
-
-      // 🟢 Check if section is expanded (default to expanded if undefined currently, but let's toggle)
-      // Actually for better UX, defaulting to expanded is usually nicer unless the list is huge.
-      // Let's implement logic: if undefined, treat as expanded.
-      const isExpanded = expandedSections[title] !== false;
-
-      return {
-        title,
-        data: isExpanded ? sortedData : [] // Hide data if collapsed
-      };
-    });
-  }, [selectedArea, selectedPaymentStatus, debouncedSearchQuery, customers, expandedSections]);
-
-  const toggleSection = (title: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [title]: prev[title] === false ? true : false // Toggle (Default was True/Undefined -> False)
-    }));
-  };
-
-  const [areAllExpanded, setAreAllExpanded] = useState(true);
+    setOrderedSectionTitles(titles);
+  }, [sectionsData]); // Depend on the grouped data object
 
   const toggleAllSections = () => {
     const newExpandedState = !areAllExpanded;
@@ -229,11 +213,18 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
     } else {
       // Collapse All -> Set all current sections to false
       const validationState: Record<string, boolean> = {};
-      sections.forEach(section => {
-        validationState[section.title] = false;
+      Object.keys(sectionsData).forEach(title => {
+        validationState[title] = false;
       });
       setExpandedSections(validationState);
     }
+  };
+
+  const toggleSection = (title: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [title]: prev[title] === false ? true : false // Toggle (Default was True/Undefined -> False)
+    }));
   };
 
   const apartmentsByArea = useMemo(() => {
@@ -396,195 +387,234 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
     }
   };
 
-  if (isLoading) {
-    return <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />;
-  }
-  if (error) {
-    return <View style={styles.container}><Text style={styles.errorText}>{error}</Text></View>;
-  }
+  const renderItem = useCallback(({ item: title, drag, isActive }: RenderItemParams<string>) => {
+    const isExpanded = expandedSections[title] !== false; // Default true
+    const customersInApartment = sectionsData[title] || [];
+
+    const sortedCustomers = customersInApartment.sort((a: any, b: any) => {
+      const flatA = a.address?.FlatNo || '';
+      const flatB = b.address?.FlatNo || '';
+
+      // Extract numeric part from flat number
+      const numA = parseInt(flatA.replace(/\D/g, '')) || 0;
+      const numB = parseInt(flatB.replace(/\D/g, '')) || 0;
+
+      if (numA !== numB) return numA - numB;
+      return flatA.localeCompare(flatB);
+    });
 
 
-
-  return (
-    <View style={styles.container}>
-      {/* 🔍 Search bar & Toggle Row */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchContainer}>
-          <Feather name="search" size={18} color="#6B6B6B" style={{ marginRight: 8 }} />
-          <TextInput
-            placeholder="Search by name, contact, address..."
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            style={styles.searchInput}
-          />
-        </View>
-        <TouchableOpacity style={styles.toggleButton} onPress={toggleAllSections}>
-          <Feather
-            name={areAllExpanded ? "chevrons-up" : "chevrons-down"}
-            size={22}
-            color={COLORS.primary}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Areas and Filter Row */}
-      <View style={styles.filterRow}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={['All', ...areas.map((a: any) => a.name)]}
-          keyExtractor={(item, index) => item + index}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingRight: 16 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.filterTab,
-                selectedArea === item && styles.activeTab
-              ]}
-              onPress={() => setSelectedArea(item)}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  selectedArea === item && styles.activeFilterText
-                ]}
-              >
-                {item} ({areaCounts[item] || 0})
-              </Text>
+    return (
+      <ScaleDecorator>
+        <View style={[styles.sectionContainer, isActive && styles.activeSection]}>
+          <View style={styles.sectionHeaderRow}>
+            <TouchableOpacity onLongPress={drag} disabled={isActive} style={styles.dragHandle}>
+              <Feather name="menu" size={24} color="#aaa" />
             </TouchableOpacity>
-          )}
-        />
 
-        <TouchableOpacity
-          style={styles.filterIconButton}
-          onPress={() => setFilterModalVisible(true)}
-        >
-          <Feather name="filter" size={20} color={selectedPaymentStatus !== 'All' ? COLORS.primary : '#6B6B6B'} />
-          {selectedPaymentStatus !== 'All' && <View style={styles.filterBadge} />}
-        </TouchableOpacity>
-      </View>
-
-      <SectionList
-        sections={sections}
-        renderItem={({ item }) => (
-          <CustomerCard
-            customer={item}
-            onPress={() => handleCustomerPress(item)}
-            onViewBill={(customer) => handleViewBillPress(customer)}
-            onViewHistory={(customer) => handleViewHistoryPress(customer)}
-            onViewPayment={(customer) => handleViewPaymentPress(customer)}
-            onEdit={(customer) => handleEditPress(customer)}
-            onDelete={(customer) => handleDeletePress(customer)}
-          />
-        )}
-        renderSectionHeader={({ section: { title } }) => {
-          const isExpanded = expandedSections[title] !== false; // Default true
-          return (
-            <TouchableOpacity style={styles.sectionHeader} onPress={() => toggleSection(title)}>
-              <Text style={styles.sectionHeaderText}>{title}</Text>
+            <TouchableOpacity style={styles.sectionHeaderContent} onPress={() => toggleSection(title)}>
+              <Text style={styles.sectionHeaderText}>{title} <Text style={{ fontSize: 12, fontWeight: 'normal' }}>({customersInApartment.length})</Text></Text>
               <Feather
                 name={isExpanded ? "chevron-up" : "chevron-down"}
                 size={20}
                 color="#6B6B6B"
               />
             </TouchableOpacity>
-          );
-        }}
-        keyExtractor={(item: any) => item._id}
-        contentContainerStyle={{ paddingBottom: 80 }}
-        onRefresh={fetchCustomers}
-        refreshing={isLoading}
-        ListEmptyComponent={
-          <EmptyState
-            icon="👥"
-            title="No Customers Found"
-            description={
-              selectedArea !== 'All' || selectedPaymentStatus !== 'All'
-                ? "No customers match your selected filters."
-                : "You haven't added any customers yet."
-            }
-            actionLabel={selectedArea !== 'All' || selectedPaymentStatus !== 'All' ? "Clear Filters" : "Add Customer"}
-            onAction={() => {
-              if (selectedArea !== 'All' || selectedPaymentStatus !== 'All') {
-                setSelectedArea('All');
-                setSelectedPaymentStatus('All');
-              } else {
-                setAddModalVisible(true);
-              }
-            }}
-          />
-        }
-      />
+          </View>
 
-      {/* Filter Modal */}
-      <Modal
-        visible={isFilterModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setFilterModalVisible(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setFilterModalVisible(false)}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Filter by Status</Text>
-            {['All', 'Paid', 'Unpaid', 'Partially Paid'].map((status) => (
+          {isExpanded && (
+            <View>
+              {sortedCustomers.map((customer: any) => (
+                <CustomerCard
+                  key={customer._id}
+                  customer={customer}
+                  onPress={() => handleCustomerPress(customer)}
+                  onViewBill={(c) => handleViewBillPress(c)}
+                  onViewHistory={(c) => handleViewHistoryPress(c)}
+                  onViewPayment={(c) => handleViewPaymentPress(c)}
+                  onEdit={(c) => handleEditPress(c)}
+                  onDelete={(c) => handleDeletePress(c)}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScaleDecorator>
+    );
+  }, [sectionsData, expandedSections]);
+
+
+  if (isLoading) {
+    return <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />;
+  }
+
+  if (error) {
+    return <View style={styles.container}><Text style={styles.errorText}>{error}</Text></View>;
+  }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        {/* 🔍 Search bar & Toggle Row */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchContainer}>
+            <Feather name="search" size={18} color="#6B6B6B" style={{ marginRight: 8 }} />
+            <TextInput
+              placeholder="Search by name, contact, address..."
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              style={styles.searchInput}
+            />
+          </View>
+          <TouchableOpacity style={styles.toggleButton} onPress={toggleAllSections}>
+            <Feather
+              name={areAllExpanded ? "chevrons-up" : "chevrons-down"}
+              size={22}
+              color={COLORS.primary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Areas and Filter Row */}
+        <View style={styles.filterRow}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={['All', ...areas.map((a: any) => a.name)]}
+            keyExtractor={(item, index) => item + index}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingRight: 16 }}
+            renderItem={({ item }) => (
               <TouchableOpacity
-                key={status}
                 style={[
-                  styles.modalOption,
-                  selectedPaymentStatus === status && styles.selectedModalOption
+                  styles.filterTab,
+                  selectedArea === item && styles.activeTab
                 ]}
-                onPress={() => {
-                  setSelectedPaymentStatus(status);
-                  setFilterModalVisible(false);
-                }}
+                onPress={() => setSelectedArea(item)}
               >
                 <Text
                   style={[
-                    styles.modalOptionText,
-                    selectedPaymentStatus === status && styles.selectedModalOptionText
+                    styles.filterText,
+                    selectedArea === item && styles.activeFilterText
                   ]}
                 >
-                  {status}
+                  {item} ({areaCounts[item] || 0})
                 </Text>
-                {selectedPaymentStatus === status && (
-                  <Feather name="check" size={20} color={COLORS.primary} />
-                )}
               </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
+            )}
+          />
 
-      {editingCustomer && (
-        <EditCustomerModal
-          isVisible={isEditModalVisible}
-          onClose={() => setEditModalVisible(false)}
-          customer={editingCustomer}
-          onSave={handleSaveCustomer}
+          <TouchableOpacity
+            style={styles.filterIconButton}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <Feather name="filter" size={20} color={selectedPaymentStatus !== 'All' ? COLORS.primary : '#6B6B6B'} />
+            {selectedPaymentStatus !== 'All' && <View style={styles.filterBadge} />}
+          </TouchableOpacity>
+        </View>
+
+        <DraggableFlatList
+          data={orderedSectionTitles}
+          onDragEnd={({ data }) => {
+            setOrderedSectionTitles(data);
+            setIsUserOrdered(true);
+          }}
+          keyExtractor={(item) => item}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingBottom: 80 }}
+          refreshing={isLoading}
+          onRefresh={fetchCustomers}
+          ListEmptyComponent={
+            <EmptyState
+              icon="👥"
+              title="No Customers Found"
+              description={
+                selectedArea !== 'All' || selectedPaymentStatus !== 'All'
+                  ? "No customers match your selected filters."
+                  : "You haven't added any customers yet."
+              }
+              actionLabel={selectedArea !== 'All' || selectedPaymentStatus !== 'All' ? "Clear Filters" : "Add Customer"}
+              onAction={() => {
+                if (selectedArea !== 'All' || selectedPaymentStatus !== 'All') {
+                  setSelectedArea('All');
+                  setSelectedPaymentStatus('All');
+                } else {
+                  setAddModalVisible(true);
+                }
+              }}
+            />
+          }
+        />
+
+        {/* Filter Modal */}
+        <Modal
+          visible={isFilterModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setFilterModalVisible(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setFilterModalVisible(false)}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Filter by Status</Text>
+              {['All', 'Paid', 'Unpaid', 'Partially Paid'].map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.modalOption,
+                    selectedPaymentStatus === status && styles.selectedModalOption
+                  ]}
+                  onPress={() => {
+                    setSelectedPaymentStatus(status);
+                    setFilterModalVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalOptionText,
+                      selectedPaymentStatus === status && styles.selectedModalOptionText
+                    ]}
+                  >
+                    {status}
+                  </Text>
+                  {selectedPaymentStatus === status && (
+                    <Feather name="check" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Modal>
+
+        {editingCustomer && (
+          <EditCustomerModal
+            isVisible={isEditModalVisible}
+            onClose={() => setEditModalVisible(false)}
+            customer={editingCustomer}
+            onSave={handleSaveCustomer}
+            isSaving={isSaving}
+            areas={areas}
+            apartmentsByArea={apartmentsByArea}
+          />
+        )}
+
+        <AddCustomerModal
+          isVisible={isAddModalVisible}
+          onClose={() => setAddModalVisible(false)}
+          onSave={handleAddNewCustomer}
           isSaving={isSaving}
           areas={areas}
           apartmentsByArea={apartmentsByArea}
         />
-      )}
 
-      <AddCustomerModal
-        isVisible={isAddModalVisible}
-        onClose={() => setAddModalVisible(false)}
-        onSave={handleAddNewCustomer}
-        isSaving={isSaving}
-        areas={areas}
-        apartmentsByArea={apartmentsByArea}
-      />
+        <TouchableOpacity style={styles.fabUpload} onPress={handleBulkUpload}>
+          <Feather name="upload-cloud" size={24} color={COLORS.white} />
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.fabUpload} onPress={handleBulkUpload}>
-        <Feather name="upload-cloud" size={24} color={COLORS.white} />
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.fab} onPress={() => setAddModalVisible(true)}>
-        <Feather name="plus" size={24} color={COLORS.white} />
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity style={styles.fab} onPress={() => setAddModalVisible(true)}>
+          <Feather name="plus" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+      </View>
+    </GestureHandlerRootView>
   );
 };
 
@@ -809,13 +839,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sectionHeader: {
-    backgroundColor: '#f8f9fa',
-    paddingVertical: 12,  // Increased padding
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 8,
-    flexDirection: 'row', // Row layout
-    justifyContent: 'space-between', // Space between title and icon
+    // backgroundColor: '#f8f9fa',
+    // paddingVertical: 12,
+    // paddingHorizontal: 16,
+    // marginBottom: 8,
+    // borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   sectionHeaderText: {
@@ -823,5 +853,35 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#495057',
     textTransform: 'uppercase',
+  },
+  sectionContainer: {
+    marginBottom: 10,
+  },
+  activeSection: {
+    backgroundColor: '#f6faff',
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: 8,
+    opacity: 0.9
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    paddingRight: 16,
+    marginBottom: 8,
+  },
+  dragHandle: {
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionHeaderContent: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    alignItems: 'center',
   },
 });
