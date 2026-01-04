@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator, Dimensions, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator, Dimensions, TextInput, Modal, Pressable, SectionList } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../constants/colors';
 import { EditCustomerModal } from '../../components/customer/EditCustomerModal';
@@ -34,7 +34,9 @@ const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill, onViewH
       {customer.address?.FlatNo && (
         <View style={styles.contactRow}>
           <Feather name="home" size={13} color="#6B6B6B" style={{ marginRight: 6 }} />
-          <Text style={styles.customerInfo}>Flat: {customer.address.FlatNo}</Text>
+          <Text style={styles.customerInfo}>
+            {customer.address.FlatNo} {customer.address.Apartment ? `, ${customer.address.Apartment}` : ''}
+          </Text>
         </View>
       )}
 
@@ -68,7 +70,8 @@ const CustomerCard = ({ customer, onPress, onEdit, onDelete, onViewBill, onViewH
 );
 
 export const CustomerListScreen = ({ navigation, route }: { navigation: any, route: any }) => {
-  const [filter, setFilter] = useState(route.params?.filter || 'All');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState(route.params?.filter || 'All');
+  const [selectedArea, setSelectedArea] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [customers, setCustomers] = useState([]);
@@ -79,6 +82,10 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isAddModalVisible, setAddModalVisible] = useState(false);
+  const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+
+  // Track expanded/collapsed state for each apartment section
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   // Debounce search input
   const debouncedSearch = useCallback(
@@ -128,15 +135,25 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
     fetchAreas();
   }, []);
 
-  const filteredCustomers = useMemo(() => {
+  const sections = useMemo(() => {
     let list = customers;
-    if (filter !== 'All') {
+
+    // Filter by Area
+    if (selectedArea !== 'All') {
       list = list.filter((customer: any) => {
-        // Use paymentStatus if available, otherwise use the old Bill field
-        const status = customer.paymentStatus || customer.Bill;
-        return status === filter;
+        return customer.area?.name === selectedArea || customer.area?._id === selectedArea;
       });
     }
+
+    // Filter by Payment Status
+    if (selectedPaymentStatus !== 'All') {
+      list = list.filter((customer: any) => {
+        const status = customer.paymentStatus || customer.Bill;
+        return status === selectedPaymentStatus;
+      });
+    }
+
+    // Search
     if (debouncedSearchQuery.trim() !== '') {
       const q = debouncedSearchQuery.toLowerCase();
       list = list.filter(
@@ -149,15 +166,80 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
           (customer.address?.city && customer.address.city.toLowerCase().includes(q))
       );
     }
-    return list;
-  }, [filter, debouncedSearchQuery, customers]);
+
+    // Grouping Logic
+    const grouped = list.reduce((acc: any, customer: any) => {
+      const apartment = customer.address?.Apartment || 'Other';
+      if (!acc[apartment]) {
+        acc[apartment] = [];
+      }
+      acc[apartment].push(customer);
+      return acc;
+    }, {});
+
+    // Sort Sections (Apartment Name)
+    const sortedSectionTitles = Object.keys(grouped).sort((a, b) => {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.localeCompare(b);
+    });
+
+    return sortedSectionTitles.map(title => {
+      // Sort Data within Section (Flat No)
+      const sortedData = grouped[title].sort((a: any, b: any) => {
+        const flatA = a.address?.FlatNo || '';
+        const flatB = b.address?.FlatNo || '';
+
+        // Extract numeric part from flat number
+        const numA = parseInt(flatA.replace(/\D/g, '')) || 0;
+        const numB = parseInt(flatB.replace(/\D/g, '')) || 0;
+
+        if (numA !== numB) return numA - numB;
+        return flatA.localeCompare(flatB);
+      });
+
+      // 🟢 Check if section is expanded (default to expanded if undefined currently, but let's toggle)
+      // Actually for better UX, defaulting to expanded is usually nicer unless the list is huge.
+      // Let's implement logic: if undefined, treat as expanded.
+      const isExpanded = expandedSections[title] !== false;
+
+      return {
+        title,
+        data: isExpanded ? sortedData : [] // Hide data if collapsed
+      };
+    });
+  }, [selectedArea, selectedPaymentStatus, debouncedSearchQuery, customers, expandedSections]);
+
+  const toggleSection = (title: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [title]: prev[title] === false ? true : false // Toggle (Default was True/Undefined -> False)
+    }));
+  };
+
+  const [areAllExpanded, setAreAllExpanded] = useState(true);
+
+  const toggleAllSections = () => {
+    const newExpandedState = !areAllExpanded;
+    setAreAllExpanded(newExpandedState);
+
+    if (newExpandedState) {
+      // Expand All -> Just clear the specific false overrides
+      setExpandedSections({});
+    } else {
+      // Collapse All -> Set all current sections to false
+      const validationState: Record<string, boolean> = {};
+      sections.forEach(section => {
+        validationState[section.title] = false;
+      });
+      setExpandedSections(validationState);
+    }
+  };
 
   const apartmentsByArea = useMemo(() => {
     const map: Record<string, string[]> = {};
     customers.forEach((c: any) => {
-      const areaId = c.area?._id || 'unknown'; // assuming c.area is populated object or we check how it comes
-      // NOTE: Based on getCustomers controller, 'area' IS populated.
-      // c.area might be null if not assigned
+      const areaId = c.area?._id || 'unknown';
       if (!areaId) return;
 
       const apt = c.address?.Apartment;
@@ -166,9 +248,22 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         if (!map[areaId].includes(apt)) map[areaId].push(apt);
       }
     });
-    // Sort apartments in each area
     Object.keys(map).forEach(key => map[key].sort());
     return map;
+  }, [customers]);
+
+  // Calculate customer counts per area
+  const areaCounts = useMemo(() => {
+    const counts: Record<string, number> = { 'All': customers.length };
+
+    customers.forEach((customer: any) => {
+      const areaName = customer.area?.name;
+      if (areaName) {
+        counts[areaName] = (counts[areaName] || 0) + 1;
+      }
+    });
+
+    return counts;
   }, [customers]);
 
   const handleCustomerPress = (customer: any) => {
@@ -183,7 +278,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   const handleViewBillPress = (customer: any) => {
     navigation.navigate('StatementPeriodSelection', {
       customerId: customer._id,
-      onBillOperationComplete: fetchCustomers  // Pass callback to refresh customer list
+      onBillOperationComplete: fetchCustomers
     });
   };
 
@@ -241,10 +336,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
       'Delete Customer',
       `Are you sure you want to delete ${customer.name}? This action cannot be undone.`,
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -271,25 +363,20 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
       const [result] = await DocumentPicker.pick({
         type: [DocumentPicker.types.allFiles],
       });
-
       if (!result) return;
-
       const file = {
         uri: result.uri,
         type: result.type || 'text/csv',
         name: result.name || 'upload.csv',
       };
-
       const formData = new FormData();
       formData.append('file', file as any);
-
       setIsLoading(true);
       const response = await apiService.post('/admin/bulk-upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-
       if (response.status === 200 || response.status === 201) {
         Alert.alert(
           'Success',
@@ -299,11 +386,8 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
       } else {
         Alert.alert('Upload Failed', 'Server returned an error.');
       }
-
     } catch (err) {
-      if (DocumentPicker.isCancel(err)) {
-        // User cancelled the picker, do nothing
-      } else {
+      if (!DocumentPicker.isCancel(err)) {
         console.error('Bulk Upload Error:', err);
         Alert.alert('Error', 'Failed to upload file.');
       }
@@ -315,40 +399,74 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
   if (isLoading) {
     return <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />;
   }
-
   if (error) {
     return <View style={styles.container}><Text style={styles.errorText}>{error}</Text></View>;
   }
 
+
+
   return (
     <View style={styles.container}>
-      {/* 🔍 Search bar */}
-      <View style={styles.searchContainer}>
-        <Feather name="search" size={18} color="#6B6B6B" style={{ marginRight: 8 }} />
-        <TextInput
-          placeholder="Search by name, contact, address, or ID"
-          value={searchQuery}
-          onChangeText={handleSearchChange}
-          style={styles.searchInput}
-        />
+      {/* 🔍 Search bar & Toggle Row */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchContainer}>
+          <Feather name="search" size={18} color="#6B6B6B" style={{ marginRight: 8 }} />
+          <TextInput
+            placeholder="Search by name, contact, address..."
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            style={styles.searchInput}
+          />
+        </View>
+        <TouchableOpacity style={styles.toggleButton} onPress={toggleAllSections}>
+          <Feather
+            name={areAllExpanded ? "chevrons-up" : "chevrons-down"}
+            size={22}
+            color={COLORS.primary}
+          />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.filterContainer}>
-        <TouchableOpacity style={[styles.filterTab, filter === 'All' && styles.activeTab]} onPress={() => setFilter('All')}>
-          <Text style={[styles.filterText, filter === 'All' && styles.activeFilterText]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterTab, filter === 'Paid' && styles.activeTab]} onPress={() => setFilter('Paid')}>
-          <Text style={[styles.filterText, filter === 'Paid' && styles.activeFilterText]}>Paid</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterTab, filter === 'Unpaid' && styles.activeTab]} onPress={() => setFilter('Unpaid')}>
-          <Text style={[styles.filterText, filter === 'Unpaid' && styles.activeFilterText]}>Unpaid</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterTab, filter === 'Partially Paid' && styles.activeTab]} onPress={() => setFilter('Partially Paid')}>
-          <Text style={[styles.filterText, filter === 'Partially Paid' && styles.activeFilterText]}>Partially Paid</Text>
+      {/* Areas and Filter Row */}
+      <View style={styles.filterRow}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={['All', ...areas.map((a: any) => a.name)]}
+          keyExtractor={(item, index) => item + index}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingRight: 16 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.filterTab,
+                selectedArea === item && styles.activeTab
+              ]}
+              onPress={() => setSelectedArea(item)}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  selectedArea === item && styles.activeFilterText
+                ]}
+              >
+                {item} ({areaCounts[item] || 0})
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+
+        <TouchableOpacity
+          style={styles.filterIconButton}
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <Feather name="filter" size={20} color={selectedPaymentStatus !== 'All' ? COLORS.primary : '#6B6B6B'} />
+          {selectedPaymentStatus !== 'All' && <View style={styles.filterBadge} />}
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={filteredCustomers}
+
+      <SectionList
+        sections={sections}
         renderItem={({ item }) => (
           <CustomerCard
             customer={item}
@@ -360,20 +478,84 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
             onDelete={(customer) => handleDeletePress(customer)}
           />
         )}
+        renderSectionHeader={({ section: { title } }) => {
+          const isExpanded = expandedSections[title] !== false; // Default true
+          return (
+            <TouchableOpacity style={styles.sectionHeader} onPress={() => toggleSection(title)}>
+              <Text style={styles.sectionHeaderText}>{title}</Text>
+              <Feather
+                name={isExpanded ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#6B6B6B"
+              />
+            </TouchableOpacity>
+          );
+        }}
         keyExtractor={(item: any) => item._id}
-        contentContainerStyle={{ paddingBottom: 80 }} // Increased padding for FAB
+        contentContainerStyle={{ paddingBottom: 80 }}
         onRefresh={fetchCustomers}
         refreshing={isLoading}
         ListEmptyComponent={
           <EmptyState
             icon="👥"
-            title="No Customers Yet"
-            description="You haven't added any customers yet. Customers are people who subscribe to regular product deliveries. Add your first customer to get started!"
-            actionLabel="Add Your First Customer"
-            onAction={() => setAddModalVisible(true)}
+            title="No Customers Found"
+            description={
+              selectedArea !== 'All' || selectedPaymentStatus !== 'All'
+                ? "No customers match your selected filters."
+                : "You haven't added any customers yet."
+            }
+            actionLabel={selectedArea !== 'All' || selectedPaymentStatus !== 'All' ? "Clear Filters" : "Add Customer"}
+            onAction={() => {
+              if (selectedArea !== 'All' || selectedPaymentStatus !== 'All') {
+                setSelectedArea('All');
+                setSelectedPaymentStatus('All');
+              } else {
+                setAddModalVisible(true);
+              }
+            }}
           />
         }
       />
+
+      {/* Filter Modal */}
+      <Modal
+        visible={isFilterModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setFilterModalVisible(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Filter by Status</Text>
+            {['All', 'Paid', 'Unpaid', 'Partially Paid'].map((status) => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.modalOption,
+                  selectedPaymentStatus === status && styles.selectedModalOption
+                ]}
+                onPress={() => {
+                  setSelectedPaymentStatus(status);
+                  setFilterModalVisible(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    selectedPaymentStatus === status && styles.selectedModalOptionText
+                  ]}
+                >
+                  {status}
+                </Text>
+                {selectedPaymentStatus === status && (
+                  <Feather name="check" size={20} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
       {editingCustomer && (
         <EditCustomerModal
           isVisible={isEditModalVisible}
@@ -390,7 +572,7 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
         isVisible={isAddModalVisible}
         onClose={() => setAddModalVisible(false)}
         onSave={handleAddNewCustomer}
-        isSaving={isSaving} // We can reuse the isSaving state for now
+        isSaving={isSaving}
         areas={areas}
         apartmentsByArea={apartmentsByArea}
       />
@@ -413,8 +595,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     backgroundColor: '#FFFFFF',
   },
-  filterContainer: {
+  filterRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
   },
   filterTab: {
@@ -432,6 +615,22 @@ const styles = StyleSheet.create({
   },
   activeFilterText: {
     color: '#FFFFFF',
+  },
+  filterIconButton: {
+    padding: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    marginLeft: 8,
+    position: 'relative',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.primary,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -459,7 +658,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1C1C1C',
-    marginRight: 80, // Make space for the badge
+    marginRight: 80,
   },
   contactRow: {
     flexDirection: 'row',
@@ -469,6 +668,7 @@ const styles = StyleSheet.create({
   customerInfo: {
     fontSize: 13,
     color: '#6B6B6B',
+    flexShrink: 1,
   },
   dueAmount: {
     fontSize: 12,
@@ -500,6 +700,11 @@ const styles = StyleSheet.create({
   actionButton: {
     marginLeft: 20,
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -507,7 +712,15 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginBottom: 16,
+    flex: 1,
+    marginRight: 8,
+  },
+  toggleButton: {
+    padding: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchInput: {
     flex: 1,
@@ -533,7 +746,7 @@ const styles = StyleSheet.create({
   fabUpload: {
     position: 'absolute',
     right: 30,
-    bottom: 100, // Positioned above the Add button
+    bottom: 100,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -557,5 +770,58 @@ const styles = StyleSheet.create({
     color: COLORS.danger,
     textAlign: 'center',
     marginTop: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#333',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectedModalOption: {
+    backgroundColor: '#f6faff', // Light highlight
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  selectedModalOptionText: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  sectionHeader: {
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 12,  // Increased padding
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+    flexDirection: 'row', // Row layout
+    justifyContent: 'space-between', // Space between title and icon
+    alignItems: 'center',
+  },
+  sectionHeaderText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#495057',
+    textTransform: 'uppercase',
   },
 });
