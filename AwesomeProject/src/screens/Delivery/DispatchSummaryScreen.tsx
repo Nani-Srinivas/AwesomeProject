@@ -31,7 +31,7 @@ import { useAttendanceStore } from '../../store/attendanceStore';
 
 export const DispatchSummaryScreen = () => {
     const [selectedDate, setSelectedDate] = useState(
-        dayjs().startOf('month').format('YYYY-MM-DD')
+        dayjs().format('YYYY-MM-DD')
     );
 
     const [areas, setAreas] = useState<Area[]>([]);
@@ -163,11 +163,11 @@ export const DispatchSummaryScreen = () => {
 
                         const returnedExpression = draft.returnedExpression || '';
 
+                        // Calculate both fields as expressions
+                        const dispatchedQuantity = calculateReturned(totalDispatched);
                         const returnedQuantity = calculateReturned(returnedExpression);
 
-                        const actualGiven =
-                            Number(totalDispatched || 0) +
-                            returnedQuantity;
+                        const actualGiven = dispatchedQuantity + returnedQuantity;
 
                         return (
                             <View key={area._id} style={styles.areaCard}>
@@ -180,7 +180,6 @@ export const DispatchSummaryScreen = () => {
                                         <Text style={styles.label}>Given</Text>
                                         <TextInput
                                             style={styles.input}
-                                            keyboardType="numeric"
                                             value={totalDispatched}
                                             onChangeText={val => handleUpdateGiven(area._id, val)}
                                         />
@@ -226,6 +225,9 @@ export const DispatchSummaryScreen = () => {
                             const draft = drafts[draftKey] || {};
                             const totalDispatched = draft.totalDispatched || '0';
                             const returnedExpr = draft.returnedExpression || '';
+
+                            // Calculate both as expressions
+                            const dispatchedQty = calculateReturned(totalDispatched);
                             const retQty = calculateReturned(returnedExpr);
 
                             return (
@@ -234,11 +236,11 @@ export const DispatchSummaryScreen = () => {
                                         {areas.find(a => a._id === infoAreaId)?.name}
                                     </Text>
 
-                                    <Text>Total Given: {totalDispatched}</Text>
-                                    <Text>Adjustments: {retQty}</Text>
+                                    <Text>Total Given: {totalDispatched} = {dispatchedQty}</Text>
+                                    <Text>Adjustments: {returnedExpr || '0'} = {retQty}</Text>
                                     <Text style={{ fontWeight: 'bold' }}>
                                         Actual Given:{' '}
-                                        {Number(totalDispatched || 0) + retQty}
+                                        {dispatchedQty + retQty}
                                     </Text>
                                 </>
                             );

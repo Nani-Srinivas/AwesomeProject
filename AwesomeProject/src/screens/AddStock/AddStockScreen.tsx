@@ -210,11 +210,11 @@ export function AddStockScreen({ route, navigation }: any) {
     try {
       // Validate products
       const itemsToSubmit = inventoryItems
-        .filter(item => item.receivedQuantity > 0)
+        .filter(item => parseFloat(String(item.receivedQuantity)) > 0)
         .map(item => ({
           storeProductId: item.productId,
-          receivedQuantity: item.receivedQuantity,
-          unitPrice: item.unitPrice,
+          receivedQuantity: parseFloat(String(item.receivedQuantity)) || 0,
+          unitPrice: parseFloat(String(item.unitPrice)) || 0,
           batchNumber: item.batchNumber,
           expiryDate: item.expiryDate,
         }));
@@ -225,7 +225,7 @@ export function AddStockScreen({ route, navigation }: any) {
       }
 
       setSubmitting(true);
-      const totalAmount = itemsToSubmit.reduce((sum, item) => sum + (item.receivedQuantity * (item.unitPrice || 0)), 0);
+      const totalAmount = itemsToSubmit.reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0);
 
       const response = await apiService.post('/inventory/receipts', {
         vendorId: vendor._id,
@@ -263,8 +263,8 @@ export function AddStockScreen({ route, navigation }: any) {
       setSubmitting(true);
 
       const totalAmount = inventoryItems
-        .filter(item => item.receivedQuantity > 0)
-        .reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0);
+        .filter(item => parseFloat(String(item.receivedQuantity)) > 0)
+        .reduce((sum, item) => sum + (parseFloat(String(item.receivedQuantity)) * parseFloat(String(item.unitPrice))), 0);
 
       const paymentStatus = billInfo.paymentStatus;
       const amountPaid = paymentStatus === 'paid' ? totalAmount :
@@ -297,16 +297,16 @@ export function AddStockScreen({ route, navigation }: any) {
       setSubmitting(true);
 
       const itemsToSubmit = inventoryItems
-        .filter(item => item.receivedQuantity > 0)
+        .filter(item => parseFloat(String(item.receivedQuantity)) > 0)
         .map(item => ({
           storeProductId: item.productId,
-          receivedQuantity: item.receivedQuantity,
-          unitPrice: item.unitPrice,
+          receivedQuantity: parseFloat(String(item.receivedQuantity)) || 0,
+          unitPrice: parseFloat(String(item.unitPrice)) || 0,
           batchNumber: item.batchNumber,
           expiryDate: item.expiryDate,
         }));
 
-      const totalAmount = itemsToSubmit.reduce((sum, item) => sum + (item.receivedQuantity * (item.unitPrice || 0)), 0);
+      const totalAmount = itemsToSubmit.reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0);
 
       const paymentStatus = billInfo.paymentStatus;
       const amountPaid = paymentStatus === 'paid' ? totalAmount :
@@ -345,8 +345,8 @@ export function AddStockScreen({ route, navigation }: any) {
 
   const handleMarkAsPaid = () => {
     const totalAmount = inventoryItems
-      .filter(item => item.receivedQuantity > 0)
-      .reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0);
+      .filter(item => parseFloat(String(item.receivedQuantity)) > 0)
+      .reduce((sum, item) => sum + (parseFloat(String(item.receivedQuantity)) * parseFloat(String(item.unitPrice))), 0);
 
     Alert.alert(
       'Confirm Payment',
@@ -447,18 +447,23 @@ export function AddStockScreen({ route, navigation }: any) {
               inputRefs.current[item._id].price = ref;
             }}
             style={styles.compactInput}
-            value={String(inv.unitPrice ?? item.costPrice ?? 0)}
-            onChangeText={(text) =>
-              updateField(
-                item._id,
-                'unitPrice',
-                parseFloat(text) || item.costPrice || 0
-              )
-            }
+            value={inv.unitPrice === 0 ? '' : String(inv.unitPrice ?? item.costPrice ?? '')}
+            onChangeText={(text) => {
+              // Store raw text during typing to preserve decimal points
+              updateField(item._id, 'unitPrice', text);
+            }}
+            onBlur={() => {
+              // Convert to number on blur
+              const numValue = parseFloat(String(inv.unitPrice)) || item.costPrice || 0;
+              updateField(item._id, 'unitPrice', numValue);
+            }}
             keyboardType="decimal-pad"
             placeholder="CP"
             returnKeyType="next"
             onSubmitEditing={() => {
+              // Convert to number before moving to next field
+              const numValue = parseFloat(String(inv.unitPrice)) || item.costPrice || 0;
+              updateField(item._id, 'unitPrice', numValue);
               // Focus quantity input for this product
               inputRefs.current[item._id]?.qty?.focus();
             }}
@@ -472,14 +477,27 @@ export function AddStockScreen({ route, navigation }: any) {
               inputRefs.current[item._id].qty = ref;
             }}
             style={styles.compactInput}
-            value={String(inv.receivedQuantity ?? 0)}
-            onChangeText={(text) =>
-              updateField(item._id, 'receivedQuantity', parseInt(text) || 0)
-            }
-            keyboardType="numeric"
+            value={inv.receivedQuantity === 0 ? '' : String(inv.receivedQuantity ?? '')}
+            onChangeText={(text) => {
+              // Allow empty string, numbers, and decimal points
+              if (text === '' || text === '.' || text === '0.') {
+                updateField(item._id, 'receivedQuantity', text);
+              } else {
+                updateField(item._id, 'receivedQuantity', text);
+              }
+            }}
+            onBlur={() => {
+              // Parse to number on blur
+              const numValue = parseFloat(String(inv.receivedQuantity)) || 0;
+              updateField(item._id, 'receivedQuantity', numValue);
+            }}
+            keyboardType="decimal-pad"
             placeholder="Qty"
             returnKeyType={nextProduct ? "next" : "done"}
             onSubmitEditing={() => {
+              // Parse to number before moving to next field
+              const numValue = parseFloat(String(inv.receivedQuantity)) || 0;
+              updateField(item._id, 'receivedQuantity', numValue);
               // Focus price input of next product if exists
               if (nextProduct) {
                 inputRefs.current[nextProduct._id]?.price?.focus();
@@ -563,7 +581,7 @@ export function AddStockScreen({ route, navigation }: any) {
                   Date: {existingReceipt?.receivedDate ? new Date(existingReceipt.receivedDate).toLocaleDateString() : selectedDate}
                 </Text>
                 <Text style={styles.receiptMetaText}>
-                  Amount: ₹{inventoryItems.reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0).toFixed(2)}
+                  Amount: ₹{inventoryItems.reduce((sum, item) => sum + (parseFloat(String(item.receivedQuantity)) * parseFloat(String(item.unitPrice))), 0).toFixed(2)}
                 </Text>
               </View>
 
@@ -634,13 +652,15 @@ export function AddStockScreen({ route, navigation }: any) {
                 <View style={styles.summarySection}>
                   <Text style={styles.sectionTitle}>Products Summary</Text>
                   <View style={styles.summaryCard}>
-                    {inventoryItems.filter(item => item.receivedQuantity > 0).map((item) => {
+                    {inventoryItems.filter(item => parseFloat(String(item.receivedQuantity)) > 0).map((item) => {
                       const product = products.find(p => p._id === item.productId);
+                      const qty = parseFloat(String(item.receivedQuantity));
+                      const price = parseFloat(String(item.unitPrice));
                       return (
                         <View key={item.productId} style={styles.summaryRow}>
                           <Text style={styles.summaryProductName}>{product?.name || 'Product'}</Text>
-                          <Text style={styles.summaryQuantity}>{item.receivedQuantity} × ₹{item.unitPrice}</Text>
-                          <Text style={styles.summaryTotal}>₹{(item.receivedQuantity * item.unitPrice).toFixed(2)}</Text>
+                          <Text style={styles.summaryQuantity}>{qty} × ₹{price}</Text>
+                          <Text style={styles.summaryTotal}>₹{(qty * price).toFixed(2)}</Text>
                         </View>
                       );
                     })}
@@ -648,7 +668,7 @@ export function AddStockScreen({ route, navigation }: any) {
                     <View style={styles.summaryRow}>
                       <Text style={styles.summaryTotalLabel}>Total Amount:</Text>
                       <Text style={styles.summaryTotalValue}>
-                        ₹{inventoryItems.reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0).toFixed(2)}
+                        ₹{inventoryItems.reduce((sum, item) => sum + (parseFloat(String(item.receivedQuantity)) * parseFloat(String(item.unitPrice))), 0).toFixed(2)}
                       </Text>
                     </View>
                   </View>
@@ -729,7 +749,7 @@ export function AddStockScreen({ route, navigation }: any) {
                   <View style={styles.billRow}>
                     <Text style={styles.billLabel}>Total Amount</Text>
                     <Text style={styles.billValue}>
-                      ₹{inventoryItems.reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0).toFixed(2)}
+                      ₹{inventoryItems.reduce((sum, item) => sum + (parseFloat(String(item.receivedQuantity)) * parseFloat(String(item.unitPrice))), 0).toFixed(2)}
                     </Text>
                   </View>
 
@@ -738,7 +758,7 @@ export function AddStockScreen({ route, navigation }: any) {
                       <Text style={styles.billLabel}>Remaining Balance</Text>
                       <Text style={styles.billValue}>
                         ₹{Math.max(0,
-                          inventoryItems.reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0) -
+                          inventoryItems.reduce((sum, item) => sum + (parseFloat(String(item.receivedQuantity)) * parseFloat(String(item.unitPrice))), 0) -
                           (billInfo.paymentStatus === 'partial' ? billInfo.amountPaid : 0)
                         ).toFixed(2)}
                       </Text>
