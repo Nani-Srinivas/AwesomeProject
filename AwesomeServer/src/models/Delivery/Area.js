@@ -13,6 +13,10 @@ const AreaSchema = new Schema({
     ref: 'StoreManager',
   },
   totalSubscribedItems: Number,
+  apartmentOrder: {
+    type: [String],
+    default: [],
+  },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

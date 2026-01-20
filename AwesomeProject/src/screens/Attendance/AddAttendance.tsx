@@ -270,8 +270,31 @@ export const AddAttendance = () => {
             sectionsMap[apartment].push(customer);
           });
 
-          // Get saved order or use default alphabetical sort
-          const savedOrder = getApartmentOrder(selectedArea);
+          // Get saved order from backend first, fallback to local storage
+          let savedOrder = null;
+
+          // Try to fetch the order from backend (from Area model)
+          try {
+            const areaResponse = await apiService.get(`/delivery/area`);
+            const areaData = areaResponse.data.data;
+            const currentAreaData = areaData?.find((a: any) => a._id === selectedArea);
+
+            if (currentAreaData?.apartmentOrder && currentAreaData.apartmentOrder.length > 0) {
+              savedOrder = currentAreaData.apartmentOrder;
+              // Also save to local store for offline access
+              setApartmentOrder(selectedArea, savedOrder);
+              console.log('Loaded apartment order from backend:', savedOrder);
+            }
+          } catch (error) {
+            console.log('Could not fetch apartment order from backend, using local:', error);
+          }
+
+          // Fallback to local storage if backend didn't have it
+          if (!savedOrder) {
+            savedOrder = getApartmentOrder(selectedArea);
+            console.log('Using local apartment order:', savedOrder);
+          }
+
           const apartments = Object.keys(sectionsMap);
 
           let orderedApartments: string[];
@@ -883,12 +906,22 @@ export const AddAttendance = () => {
     );
   }, [expandedSections, attendance, handleProductStatusChange, handleProductQuantityChange, selectedDate, areas]);
 
-  const handleSectionDragEnd = ({ data }: { data: { title: string; data: Customer[] }[] }) => {
+  const handleSectionDragEnd = async ({ data }: { data: { title: string; data: Customer[] }[] }) => {
     setCustomerSections(data);
     // Persist the new apartment order
     if (selectedArea) {
       const newOrder = data.map(section => section.title);
+      // Save to local store immediately for instant UI feedback
       setApartmentOrder(selectedArea, newOrder);
+
+      // Save to backend for cross-device sync
+      try {
+        await apiService.saveApartmentOrder(selectedArea, newOrder);
+        console.log('Apartment order saved to backend successfully');
+      } catch (error) {
+        console.error('Failed to save apartment order to backend:', error);
+        // Still keep it in local storage, it will sync next time
+      }
     }
   };
 

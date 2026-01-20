@@ -196,24 +196,52 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
 
   // Sync orderedSectionTitles with data when filters/search change, unless user has dragged
   useEffect(() => {
-    // Try loading saved order for this area
-    const savedOrder = getApartmentOrder(selectedArea);
+    // Load apartment order from backend first, fallback to local storage
+    const loadApartmentOrder = async () => {
+      let savedOrder = null;
 
-    const titles = Object.keys(sectionsData).sort((a, b) => {
-      if (a === 'Other') return 1;
-      if (b === 'Other') return -1;
-      return a.localeCompare(b);
-    });
+      // Try to fetch the order from backend (from Area model)
+      try {
+        const areaResponse = await apiService.get(`/delivery/area`);
+        const areaData = areaResponse.data.data;
+        const currentAreaData = areaData?.find((a: any) => a._id === selectedArea || a.name === selectedArea);
 
-    // If we have a saved order AND it contains all current apartments, use it
-    if (savedOrder && titles.every(t => savedOrder.includes(t))) {
-      // Filter saved order to only include current apartments
-      setOrderedSectionTitles(savedOrder.filter(t => titles.includes(t)));
-    } else {
-      // Otherwise use default alphabetical sort
-      setOrderedSectionTitles(titles);
-    }
-  }, [sectionsData, selectedArea, getApartmentOrder]); // Depend on the grouped data object and selected area
+        if (currentAreaData?.apartmentOrder && currentAreaData.apartmentOrder.length > 0) {
+          savedOrder = currentAreaData.apartmentOrder;
+          // Also save to local store for offline access
+          if (selectedArea !== 'All') {
+            setApartmentOrder(selectedArea, savedOrder);
+          }
+          console.log('Loaded apartment order from backend:', savedOrder);
+        }
+      } catch (error) {
+        console.log('Could not fetch apartment order from backend, using local:', error);
+      }
+
+      // Fallback to local storage if backend didn't have it
+      if (!savedOrder && selectedArea !== 'All') {
+        savedOrder = getApartmentOrder(selectedArea);
+        console.log('Using local apartment order:', savedOrder);
+      }
+
+      const titles = Object.keys(sectionsData).sort((a, b) => {
+        if (a === 'Other') return 1;
+        if (b === 'Other') return -1;
+        return a.localeCompare(b);
+      });
+
+      // If we have a saved order AND it contains all current apartments, use it
+      if (savedOrder && titles.every(t => savedOrder.includes(t))) {
+        // Filter saved order to only include current apartments
+        setOrderedSectionTitles(savedOrder.filter(t => titles.includes(t)));
+      } else {
+        // Otherwise use default alphabetical sort
+        setOrderedSectionTitles(titles);
+      }
+    };
+
+    loadApartmentOrder();
+  }, [sectionsData, selectedArea, getApartmentOrder, setApartmentOrder]); // Depend on the grouped data object and selected area
 
   const toggleAllSections = () => {
     const newExpandedState = !areAllExpanded;
@@ -527,11 +555,20 @@ export const CustomerListScreen = ({ navigation, route }: { navigation: any, rou
 
         <DraggableFlatList
           data={orderedSectionTitles}
-          onDragEnd={({ data }) => {
+          onDragEnd={async ({ data }) => {
             setOrderedSectionTitles(data);
             setIsUserOrdered(true);
-            // Persist apartment order to store
+            // Save to local store immediately for instant UI feedback
             setApartmentOrder(selectedArea, data);
+
+            // Save to backend for cross-device sync
+            try {
+              await apiService.saveApartmentOrder(selectedArea, data);
+              console.log('Apartment order saved to backend successfully');
+            } catch (error) {
+              console.error('Failed to save apartment order to backend:', error);
+              // Still kept in local storage, will sync next time
+            }
           }}
           keyExtractor={(item) => item}
           renderItem={renderItem}

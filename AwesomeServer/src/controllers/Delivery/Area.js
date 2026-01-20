@@ -248,3 +248,57 @@ export const deleteArea = async (req, reply) => {
     });
   }
 };
+
+export const updateApartmentOrder = async (req, reply) => {
+  console.log("Update Apartment Order is Called");
+  try {
+    const areaId = req.params.id;
+    const { apartmentOrder } = req.body;
+
+    // ✅ 1. Validate input
+    if (!apartmentOrder || !Array.isArray(apartmentOrder)) {
+      return reply.status(400).send({
+        success: false,
+        message: 'apartmentOrder must be an array of apartment names.'
+      });
+    }
+
+    // ✅ 2. Get Store ID
+    const storeId = await getStoreId(req);
+    if (!storeId) {
+      return reply.status(401).send({
+        success: false,
+        message: 'Authentication required.'
+      });
+    }
+
+    // ✅ 3. Check if area exists and belongs to store
+    const area = await Area.findOne({ _id: areaId, storeId });
+    if (!area) {
+      return reply.status(404).send({
+        success: false,
+        message: 'Area not found or does not belong to your store.'
+      });
+    }
+
+    // ✅ 4. Update apartment order
+    area.apartmentOrder = apartmentOrder;
+    await area.save();
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Apartment order updated successfully.',
+      data: {
+        id: area._id,
+        apartmentOrder: area.apartmentOrder
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating apartment order:', error.message);
+    return reply.status(500).send({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};

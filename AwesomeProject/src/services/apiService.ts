@@ -113,4 +113,14 @@ export const apiService = {
     return response;
   },
 
+  /**
+   * Save apartment order for an area
+   */
+  saveApartmentOrder: async (areaId: string, apartmentOrder: string[]) => {
+    const response = await axiosInstance.put(`/delivery/area/${areaId}/apartment-order`, {
+      apartmentOrder
+    });
+    return response;
+  },
+
 };
