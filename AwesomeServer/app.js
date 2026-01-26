@@ -45,7 +45,10 @@ import { admin, buildAdminRouter } from './src/config/setup.js';
 
 const start = async () => {
   await connectDB(process.env.MONGO_URI);
-  const app = fastify();
+  const app = fastify({
+    bodyLimit: 52428800, // 50MB limit for file uploads
+    connectionTimeout: 60000 // 60 seconds
+  });
 
   // Add rate limiting
   await app.register(rateLimit, {

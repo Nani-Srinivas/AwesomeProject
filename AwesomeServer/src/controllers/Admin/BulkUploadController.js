@@ -77,26 +77,33 @@ export const bulkUpload = async (req, reply) => {
         });
 
         // --- 1. Fetch Common Data Helpers ---
-        // Fetch all Areas
-        const allAreas = await Area.find().lean();
-
         // Fetch default store context first
         const defaultStore = await Store.findOne({ status: 'active' }).lean();
         if (!defaultStore) {
             throw new Error("No active store found.");
         }
 
-        // Fetch Products ONLY for this store to ensure correct pricing/IDs
-        const allProducts = await StoreProduct.find({ storeId: defaultStore._id }).lean();
+        // Fetch Areas ONLY for this store to prevent duplicates
+        const allAreas = await Area.find({ storeId: defaultStore._id }).lean();
+        console.log(`[BulkUpload] Loaded ${allAreas.length} areas for Store: ${defaultStore.name || 'Unknown'}`);
+        if (allAreas.length > 0) {
+            console.log(`[BulkUpload] Existing areas:`, allAreas.map(a => `"${a.name}"`).join(', '));
+        }
 
-        const areaMap = new Map(allAreas.map(a => [a.name.toLowerCase(), a]));
+        // Fetch Only for this store
+        const allProducts = await StoreProduct.find({ storeId: defaultStore._id }).lean();
+        console.log(`[BulkUpload] Loaded ${allProducts.length} products for Store: ${defaultStore.name || 'Unknown'}`);
+        if (allProducts.length > 0) {
+            console.log(`[BulkUpload] Sample Product: ${allProducts[0].name}`);
+        }
+
+        const areaMap = new Map(allAreas.map(a => [a.name.trim().toLowerCase(), a]));
         const productMap = new Map(allProducts.map(p => [p.name.toLowerCase(), p]));
 
         // (CSV parsing happened above)
+        console.log(`[BulkUpload] Parsed ${results.length} rows.`);
 
-        // (CSV parsing happened above)
-
-        for (const row of results) {
+        for (const [index, row] of results.entries()) {
             try {
                 // --- Normalize Keys ---
                 const stdRow = {};
@@ -105,6 +112,11 @@ export const bulkUpload = async (req, reply) => {
                     const cleanKey = k.trim().toLowerCase().replace(/^[\uFEFF\xA0]+|[\uFEFF\xA0]+$/g, '');
                     stdRow[cleanKey] = row[k];
                 });
+
+                if (index === 0) {
+                    console.log('[BulkUpload] First Row Raw Keys:', Object.keys(row));
+                    console.log('[BulkUpload] First Row Normalized Keys:', Object.keys(stdRow));
+                }
 
                 // --- Extract Fields (using normalized keys) ---
                 const areaName = stdRow['area'];
@@ -124,38 +136,75 @@ export const bulkUpload = async (req, reply) => {
                     if (!Phone) missing.push('Phone');
                     if (!ProductName) missing.push('ProductName');
 
-                    errors.push(`Row has missing fields: ${missing.join(', ')}. Data: ${JSON.stringify(row)}`);
+                    const errorMsg = `Row ${index + 1} skipped. Missing: ${missing.join(', ')}. Found: ${JSON.stringify(Object.keys(stdRow))}`;
+                    console.log(`[BulkUpload] ${errorMsg}`);
+                    errors.push(errorMsg);
                     continue;
                 }
 
                 // --- A. Handle Area ---
                 let areaId;
                 const normalizedArea = areaName.trim().toLowerCase();
+
+                if (index === 0) {
+                    console.log(`[BulkUpload] Row 1: Looking for area "${areaName}" (normalized: "${normalizedArea}")`);
+                    console.log(`[BulkUpload] Row 1: Map has area? ${areaMap.has(normalizedArea)}`);
+                    console.log(`[BulkUpload] Row 1: Map keys:`, Array.from(areaMap.keys()));
+                }
+
                 if (areaMap.has(normalizedArea)) {
                     areaId = areaMap.get(normalizedArea)._id;
+                    if (index === 0) console.log(`[BulkUpload] Row 1: ✓ Found existing area '${areaName}' (${areaId})`);
                 } else {
-                    // Create new Area
-                    const newArea = await Area.create({
-                        name: areaName.trim(),
-                        createdBy: req.user?._id,
-                    });
-                    areaMap.set(normalizedArea, newArea);
-                    areaId = newArea._id;
-                    logs.push(`Created Area: ${areaName}`);
+                    // Try to create new Area
+                    try {
+                        const newArea = await Area.create({
+                            name: areaName.trim(),
+                            storeId: defaultStore._id,
+                            createdBy: req.user?._id,
+                        });
+                        areaMap.set(normalizedArea, newArea);
+                        areaId = newArea._id;
+                        logs.push(`Created Area: ${areaName}`);
+                        if (index === 0) console.log(`[BulkUpload] Row 1: ✓ Created new area '${areaName}' (${areaId})`);
+                    } catch (areaError) {
+                        // If duplicate key error, try to find existing area
+                        if (areaError.code === 11000) {
+                            console.log(`[BulkUpload] Row ${index + 1}: Area "${areaName}" already exists (duplicate key), fetching...`);
+                            const existingArea = await Area.findOne({
+                                name: areaName.trim(),
+                                storeId: defaultStore._id
+                            });
+                            if (existingArea) {
+                                areaId = existingArea._id;
+                                areaMap.set(normalizedArea, existingArea);
+                                logs.push(`Using existing area: ${areaName}`);
+                            } else {
+                                throw new Error(`Area "${areaName}" duplicate key error but not found in database`);
+                            }
+                        } else {
+                            throw areaError;
+                        }
+                    }
                 }
 
                 // --- B. Handle Product ---
                 const normalizedProduct = ProductName.trim().toLowerCase();
                 const product = productMap.get(normalizedProduct);
                 if (!product) {
-                    errors.push(`Product not found: ${ProductName}`);
+                    const msg = `Product not found: '${ProductName}' (normalized: '${normalizedProduct}')`;
+                    console.log(`[BulkUpload] Row ${index + 1} Error: ${msg}`);
+                    errors.push(msg);
                     continue;
+                } else if (index === 0) {
+                    console.log(`[BulkUpload] Row 1: Found Product '${ProductName}' -> ID: ${product._id}`);
                 }
                 const productId = product._id;
 
                 // --- C. Handle Customer ---
                 let customer = await Customer.findOne({ phone: Phone });
                 if (!customer) {
+                    if (index === 0) console.log(`[BulkUpload] Row 1: Creating New Customer for Phone ${Phone}`);
                     // Create New Customer
                     customer = await Customer.create({
                         name: CustomerName,
@@ -178,6 +227,7 @@ export const bulkUpload = async (req, reply) => {
                     });
                     logs.push(`Created Customer: ${CustomerName}`);
                 } else {
+                    if (index === 0) console.log(`[BulkUpload] Row 1: Found Existing Customer ${customer.name} (${customer._id})`);
                     // Update existing Customer
                     let updated = false;
 
@@ -208,10 +258,15 @@ export const bulkUpload = async (req, reply) => {
                 }
 
                 // --- D. Handle Attendance (Dynamic Date Columns) ---
-                // Iterate over normalized keys that look like YYYY-MM-DD or DD/MM/YYYY
+                // Iterate over normalized keys that look like YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY
                 const dateKeys = Object.keys(stdRow).filter(k =>
-                    /^\d{4}-\d{2}-\d{2}$/.test(k) || /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(k)
+                    /^\d{4}-\d{2}-\d{2}$/.test(k) ||
+                    /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(k) ||
+                    /^\d{1,2}-\d{1,2}-\d{4}$/.test(k)
                 );
+
+                // Cache for logs to reduce DB calls
+                const logCache = new Map();
 
                 for (const dateStr of dateKeys) {
                     const rawValue = stdRow[dateStr];
@@ -227,44 +282,51 @@ export const bulkUpload = async (req, reply) => {
                         if (quantity > 0) status = 'delivered';
                     }
 
-                    // Parse Date correctly handles both formats
+                    // Parse Date correctly handles all formats
                     let date;
                     if (dateStr.includes('/')) {
                         // Handle DD/MM/YYYY
                         const [day, month, year] = dateStr.split('/').map(Number);
                         date = new Date(year, month - 1, day);
-                    } else {
-                        // Handle YYYY-MM-DD
-                        date = new Date(dateStr);
+                    } else if (dateStr.includes('-')) {
+                        const parts = dateStr.split('-').map(Number);
+                        if (parts[0] > 1000) {
+                            // Handle YYYY-MM-DD
+                            const [year, month, day] = parts;
+                            date = new Date(year, month - 1, day);
+                        } else {
+                            // Handle DD-MM-YYYY
+                            const [day, month, year] = parts;
+                            date = new Date(year, month - 1, day);
+                        }
                     }
 
-                    // Check if log exists for this Day + Area + Store
-                    const query = {
-                        date: {
-                            $gte: new Date(date.setHours(0, 0, 0, 0)),
-                            $lt: new Date(date.setHours(23, 59, 59, 999))
-                        },
-                        areaId: areaId,
-                        storeId: defaultStore?._id
-                    };
+                    const businessDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    const cacheKey = `${businessDate}-${areaId}`;
 
-                    let log = await AttendanceLog.findOne(query);
+                    // Check cache first
+                    let log = logCache.get(cacheKey);
 
                     if (!log) {
-                        // Create bucket if missing
-                        // Format date to YYYY-MM-DD for businessDate
-                        const year = date.getFullYear();
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const day = String(date.getDate()).padStart(2, '0');
-                        const businessDate = `${year}-${month}-${day}`;
-
-                        log = new AttendanceLog({
-                            storeId: defaultStore?._id,
-                            date: date,
-                            businessDate: businessDate,
+                        // Check DB
+                        const query = {
+                            businessDate: { $eq: businessDate },
                             areaId: areaId,
-                            attendance: []
-                        });
+                            storeId: defaultStore._id
+                        };
+                        log = await AttendanceLog.findOne(query);
+
+                        if (!log) {
+                            // Create new log
+                            log = new AttendanceLog({
+                                storeId: defaultStore._id,
+                                date: date,
+                                businessDate: businessDate,
+                                areaId: areaId,
+                                attendance: []
+                            });
+                        }
+                        logCache.set(cacheKey, log);
                     }
 
                     // Find Customer in Bucket
@@ -296,7 +358,10 @@ export const bulkUpload = async (req, reply) => {
                             }]
                         });
                     }
+                }
 
+                // Save all cached logs for this customer at once
+                for (const log of logCache.values()) {
                     await log.save();
                 }
 

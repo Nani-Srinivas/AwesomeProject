@@ -715,7 +715,7 @@ export const AddAttendance = () => {
 
       setTimeout(() => {
         navigation.goBack();
-      }, 1000); // 1 second delay
+      }, 2000); // 2 second delay to see the toast
     } catch (error) {
       console.error('Attendance submit error:', error);
 

@@ -383,7 +383,8 @@ export const getInvoice = async (request, reply) => {
     const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth(); // 0-indexed month
 
     const startDate = new Date(year, monthIndex, 1);
-    const endDate = new Date(year, monthIndex + 1, 0); // Last day of the month
+    // FIX: Set end date to end of day to include the last day's records that might be at 23:59:59
+    const endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999); // Last day of the month
 
     // Fetch customer details
     const customer = await Customer.findById(customerId)
@@ -404,8 +405,23 @@ export const getInvoice = async (request, reply) => {
     // Structure: Map of { date: { productId: quantity } }
     const dateWiseMap = new Map();
 
+    // FIX: De-duplicate records by date+area
+    // If multiple records exist for the same date (due to previous bug), pick the latest one
+    const uniqueRecordsMap = new Map();
+
     attendanceRecords.forEach((record) => {
-      const dateKey = record.date.toISOString().split("T")[0];
+      // FIX: Use businessDate for robust duplicate checking.
+      // Fallback to toISOString() split if businessDate is missing (legacy data safety)
+      const dateKey = record.businessDate || record.date.toISOString().split("T")[0];
+
+      // Since we sorted by date ASC, later records (corrections) will overwrite earlier ones 
+      // if they map to the same businessDate.
+      uniqueRecordsMap.set(dateKey, record);
+    });
+
+    // Now process only unique records
+    uniqueRecordsMap.forEach((record) => {
+      const dateKey = record.businessDate || record.date.toISOString().split("T")[0];
       const customerAttendance = record.attendance.find(
         (att) => att.customerId.toString() === customerId
       );

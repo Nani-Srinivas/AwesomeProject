@@ -1,4 +1,5 @@
 // controllers/areaController.js
+import mongoose from 'mongoose';
 import Area from '../../models/Delivery/Area.js';
 import { StoreManager } from '../../models/User/StoreManager.js';
 import Store from '../../models/Store/Store.js';
@@ -273,7 +274,16 @@ export const updateApartmentOrder = async (req, reply) => {
     }
 
     // ✅ 3. Check if area exists and belongs to store
-    const area = await Area.findOne({ _id: areaId, storeId });
+    let area;
+    if (mongoose.isValidObjectId(areaId)) {
+      area = await Area.findOne({ _id: areaId, storeId });
+    }
+
+    // If not found by ID or ID was invalid, try finding by name
+    if (!area) {
+      area = await Area.findOne({ name: areaId, storeId });
+    }
+
     if (!area) {
       return reply.status(404).send({
         success: false,

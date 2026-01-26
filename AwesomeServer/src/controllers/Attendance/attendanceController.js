@@ -462,8 +462,8 @@ export const getAttendance = async (request, reply) => {
 
     // Filter by storeId as well
     const attendanceRecords = await AttendanceLog.find(query)
-      .populate('customerId', 'name') // Populate customer name
-      .populate('products.productId', 'name'); // Populate product name
+      .populate('attendance.customerId', 'name') // Populate customer name
+      .populate('attendance.products.productId', 'name'); // Populate product name
 
     return reply.code(200).send({ success: true, data: attendanceRecords });
   } catch (error) {

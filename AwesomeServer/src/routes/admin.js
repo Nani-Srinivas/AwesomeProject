@@ -20,6 +20,8 @@ import {
   deleteBrand,
 } from "../controllers/Admin/BrandController.js";
 import { bulkUpload, getBulkUploadForm } from "../controllers/Admin/BulkUploadController.js";
+import { checkAttendanceLogs } from "../controllers/Admin/DebugController.js";
+import { cleanupArea, cleanupAreaContent } from "../controllers/Admin/CleanupController.js";
 
 export const adminRoutes = async (fastify, options) => {
   // Add custom parser specifically for this route context to avoid AdminJS conflicts
@@ -172,4 +174,17 @@ export const adminRoutes = async (fastify, options) => {
     },
     bulkUpload
   );
+
+  // DEBUG ROUTE
+  fastify.get('/admin/debug/attendance/:customerId', checkAttendanceLogs);
+
+  // CLEANUP ROUTE - Delete area and all related data
+  fastify.delete('/admin/cleanup/area/:areaId', {
+    preHandler: [verifyToken],
+  }, cleanupArea);
+
+  // NEW CLEANUP ROUTE - Delete ONLY Customers & Attendance (Keep Area)
+  fastify.delete('/admin/cleanup/area-content/:areaId', {
+    preHandler: [verifyToken],
+  }, cleanupAreaContent);
 };
