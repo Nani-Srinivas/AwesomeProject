@@ -446,7 +446,8 @@ export function AddStockScreen({ route, navigation }: any) {
               }
               inputRefs.current[item._id].price = ref;
             }}
-            style={styles.compactInput}
+            style={[styles.compactInput, { color: '#000000' }]}
+            placeholderTextColor="#666"
             value={inv.unitPrice === 0 ? '' : String(inv.unitPrice ?? item.costPrice ?? '')}
             onChangeText={(text) => {
               // Store raw text during typing to preserve decimal points
@@ -476,7 +477,8 @@ export function AddStockScreen({ route, navigation }: any) {
               }
               inputRefs.current[item._id].qty = ref;
             }}
-            style={styles.compactInput}
+            style={[styles.compactInput, { color: '#000000' }]}
+            placeholderTextColor="#666"
             value={inv.receivedQuantity === 0 ? '' : String(inv.receivedQuantity ?? '')}
             onChangeText={(text) => {
               // Allow empty string, numbers, and decimal points

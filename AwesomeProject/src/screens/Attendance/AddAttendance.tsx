@@ -83,6 +83,7 @@ export const AddAttendance = () => {
   const [feedbackMessageType, setFeedbackMessageType] = useState<'success' | 'error' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSummaryModalVisible, setIsSummaryModalVisible] = useState(false);
+  const [isAttendanceSubmitted, setIsAttendanceSubmitted] = useState(false);
 
   // States for Reconciliation
   const [totalDispatched, setTotalDispatched] = useState<string>('');
@@ -323,37 +324,27 @@ export const AddAttendance = () => {
           setExpandedSections(initialExpandedSections);
 
           // ------------------------------------------------------------------
-          // Data Loading Priority: Draft -> Server (History) -> Defaults
+          // Data Loading Priority: Server (Saved) -> Draft (Unsaved) -> Defaults
           // ------------------------------------------------------------------
 
-          // 1. Try Loading Draft
-          const draft = getDraft(selectedDate, selectedArea);
-          if (draft) {
-            console.log('Using local draft for:', selectedDate);
-            if (draft.totalDispatched !== undefined) setTotalDispatched(draft.totalDispatched);
-            if (draft.returnedExpression !== undefined) setReturnedExpression(draft.returnedExpression);
-            if (draft.attendance && Object.keys(draft.attendance).length > 0) {
-              setAttendance(draft.attendance);
-            } else {
-              // Fallback to defaults if draft attendance is empty
-              setAttendance(calculateDefaultAttendance(fetchedCustomers));
-            }
-            setIsDraftLoaded(true);
-            return;
-          }
+          console.log('🔄 Starting data load for date:', selectedDate, 'area:', selectedArea);
 
-          // 2. Fetch Server History (if no draft)
+          // 1. Check Server First (for submitted/saved attendance)
+          console.log('🌐 Checking server for saved attendance...');
           try {
+            console.log('📡 Calling API: /attendance with', { date: selectedDate, areaId: selectedArea });
             const historyResponse = await apiService.get('/attendance', {
               date: selectedDate, areaId: selectedArea
             });
+            console.log('📥 Server response:', historyResponse.data);
             const historyData = historyResponse.data.data; // Expecting array of records or single record
 
             // The API returns an array, we expect at most one record for (date, area, store)
             const existingRecord = Array.isArray(historyData) ? historyData[0] : historyData;
+            console.log('📊 Existing record:', existingRecord ? 'FOUND' : 'NOT FOUND');
 
             if (existingRecord) {
-              console.log('Found server history for:', selectedDate);
+              console.log('✅ Found server history for:', selectedDate, existingRecord);
               // Populate from Server
               setTotalDispatched(String(existingRecord.totalDispatched || 0));
               setReturnedExpression(existingRecord.returnedItems?.expression || '');
@@ -377,8 +368,6 @@ export const AddAttendance = () => {
               }
 
               // Merge with defaults to ensure missing customers are still present
-              // (Server might only store those who had orders? or typically all?
-              //  Safest is to start with defaults and override with server data)
               const defaultAtt = calculateDefaultAttendance(fetchedCustomers);
               const finalAttendance = { ...defaultAtt };
 
@@ -393,16 +382,45 @@ export const AddAttendance = () => {
               });
 
               setAttendance(finalAttendance);
+
+              // Clear any stale draft since we have server data
+              clearDraft(selectedDate, selectedArea);
+              console.log('🗑️ Cleared stale draft');
+
+              // Mark that attendance has been submitted
+              setIsAttendanceSubmitted(true);
+
               setIsDraftLoaded(true);
               return;
             }
-          } catch (historyError) {
-            console.log('No history found or error fetching history:', historyError);
-            // Verify 404 vs real error? Usually empty array just means no data.
+          } catch (historyError: any) {
+            console.error('❌ Error fetching history:', historyError);
+            console.error('Error details:', historyError?.response?.data || historyError?.message || historyError);
+            // Continue to check draft/defaults
+          }
+
+          // 2. Try Loading Draft (for unsaved changes)
+          console.log('📝 No server data, checking for local draft...');
+          const draft = getDraft(selectedDate, selectedArea);
+          console.log('📝 Draft check result:', draft ? 'FOUND' : 'NOT FOUND');
+          if (draft) {
+            console.log('✅ Using local draft for:', selectedDate, draft);
+            if (draft.totalDispatched !== undefined) setTotalDispatched(draft.totalDispatched);
+            if (draft.returnedExpression !== undefined) setReturnedExpression(draft.returnedExpression);
+            if (draft.attendance && Object.keys(draft.attendance).length > 0) {
+              setAttendance(draft.attendance);
+              setIsAttendanceSubmitted(false); // Draft = not submitted
+            } else {
+              // Fallback to defaults if draft attendance is empty
+              setAttendance(calculateDefaultAttendance(fetchedCustomers));
+            }
+            setIsDraftLoaded(true);
+            return;
           }
 
           // 3. Fallback to Defaults (New Day)
-          console.log('No draft or history, using defaults.');
+          console.log('⚠️ No server data or draft found, using defaults for new day');
+          setIsAttendanceSubmitted(false);
           setAttendance(calculateDefaultAttendance(fetchedCustomers));
 
           // Default Total Dispatched from Area
@@ -776,9 +794,11 @@ export const AddAttendance = () => {
             selectedValue={selectedArea}
             onValueChange={setSelectedArea}
             style={styles.picker}
+            dropdownIconColor={COLORS.primary}
+            mode="dropdown"
           >
             {areas.map(area => (
-              <Picker.Item key={area._id} label={area.name} value={area._id} />
+              <Picker.Item key={area._id} label={area.name} value={area._id} color="#000000" />
             ))}
           </Picker>
         </View>
@@ -994,7 +1014,30 @@ export const AddAttendance = () => {
 
           {customers.length > 0 && (
             <View style={styles.fixedFooter}>
-              {balance !== 0 && (
+              {/* Show status message for past dates or when submitted */}
+              {(selectedDate < new Date().toISOString().split('T')[0] || isAttendanceSubmitted) && (
+                <View style={{
+                  backgroundColor: isAttendanceSubmitted ? '#E8F5E9' : '#FFF3E0',
+                  padding: 12,
+                  borderRadius: 8,
+                  marginBottom: 12,
+                  borderLeftWidth: 4,
+                  borderLeftColor: isAttendanceSubmitted ? '#4CAF50' : '#FF9800'
+                }}>
+                  <Text style={{
+                    color: isAttendanceSubmitted ? '#2E7D32' : '#E65100',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    fontSize: 14
+                  }}>
+                    {isAttendanceSubmitted
+                      ? '✅ Attendance already marked for this date and area'
+                      : '⚠️ No attendance marked for this date and area'
+                    }
+                  </Text>
+                </View>
+              )}
+              {balance !== 0 && !isAttendanceSubmitted && (
                 <Text style={{
                   color: 'red',
                   textAlign: 'center',
@@ -1004,13 +1047,42 @@ export const AddAttendance = () => {
                   Balance ({balance}) must be 0 to submit.
                 </Text>
               )}
-              <Button
-                title={isLoading ? 'Submitting...' : 'Submit Attendance'}
-                onPress={handleSubmit}
-                loading={isLoading}
-                disabled={isLoading || balance !== 0}
-                style={{ opacity: (isLoading || balance !== 0) ? 0.5 : 1 }}
-              />
+              {/* For past dates OR already submitted: show Edit button */}
+              {(selectedDate < new Date().toISOString().split('T')[0] || isAttendanceSubmitted) ? (
+                <Button
+                  title={isAttendanceSubmitted ? "Edit Attendance" : "Mark Attendance"}
+                  onPress={() => {
+                    if (isAttendanceSubmitted) {
+                      Alert.alert(
+                        'Edit Attendance',
+                        'Do you want to modify this attendance? This will allow you to make changes and re-submit.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Yes, Edit',
+                            onPress: () => {
+                              setIsAttendanceSubmitted(false);
+                              Alert.alert('Edit Mode', 'You can now modify the attendance. Make sure the balance is 0 before submitting.');
+                            }
+                          }
+                        ]
+                      );
+                    } else {
+                      // For past dates with no attendance - enable form directly
+                      Alert.alert('Mark Attendance', 'You can now mark attendance for this past date. Make sure the balance is 0 before submitting.');
+                    }
+                  }}
+                  style={{ backgroundColor: '#FF9800' }}
+                />
+              ) : (
+                <Button
+                  title={isLoading ? 'Submitting...' : 'Submit Attendance'}
+                  onPress={handleSubmit}
+                  loading={isLoading}
+                  disabled={isLoading || balance !== 0}
+                  style={{ opacity: (isLoading || balance !== 0) ? 0.5 : 1 }}
+                />
+              )}
             </View>
           )}
 

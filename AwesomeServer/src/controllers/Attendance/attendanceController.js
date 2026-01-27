@@ -420,10 +420,12 @@ export const submitAttendance = async (request, reply) => {
     });
 
     // ✅ Populate references for response
-    const populatedRecord = await AttendanceLog.findById(newRecord._id)
-      .populate('areaId', 'name')
-      .populate('attendance.customerId', 'name email phone')
-      .populate('attendance.products.productId', 'name price');
+    // const populatedRecord = await AttendanceLog.findById(newRecord._id)
+    //   .populate('areaId', 'name')
+    //   .populate('attendance.customerId', 'name email phone')
+    //   .populate('attendance.products.productId', 'name price');
+
+    const populatedRecord = newRecord; // Return the record as is
 
     console.log('✅ Attendance submitted successfully for', attendance.length, 'customers');
     return reply.code(201).send({
@@ -455,15 +457,33 @@ export const getAttendance = async (request, reply) => {
       return reply.code(401).send({ message: 'Authentication required' });
     }
 
-    const query = { date: new Date(date), storeId };
+    // ✅ Use date range to handle timezone/precision issues
+    const { startOfDay, endOfDay } = getDateRange(date);
+
+    const query = {
+      date: { $gte: startOfDay, $lte: endOfDay },
+      storeId
+    };
     if (areaId) {
       query.areaId = areaId;
     }
 
+    console.log('🔍 Querying attendance with:', JSON.stringify(query, null, 2));
+
     // Filter by storeId as well
-    const attendanceRecords = await AttendanceLog.find(query)
-      .populate('attendance.customerId', 'name') // Populate customer name
-      .populate('attendance.products.productId', 'name'); // Populate product name
+    const attendanceRecords = await AttendanceLog.find(query);
+    // .populate({
+    //   path: 'attendance.customerId',
+    //   select: 'name',
+    //   strictPopulate: false
+    // }) // Populate customer name
+    // .populate({
+    //   path: 'attendance.products.productId',
+    //   select: 'name',
+    //   strictPopulate: false
+    // }); // Populate product name
+
+    console.log(`✅ Fetched ${attendanceRecords.length} attendance records for ${date} in area ${areaId}`);
 
     return reply.code(200).send({ success: true, data: attendanceRecords });
   } catch (error) {

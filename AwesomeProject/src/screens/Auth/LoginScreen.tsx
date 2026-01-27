@@ -7,6 +7,7 @@ import {
   Keyboard,
   TouchableOpacity,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {
   GestureHandlerRootView,
@@ -244,112 +245,118 @@ export const LoginScreen = ({ navigation }: { navigation: any }) => {
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <View style={styles.container}>
-        <CustomSafeAreaView>
-          <ProductSlider />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} // Adjust as needed
+      >
+        <View style={styles.container}>
+          <CustomSafeAreaView>
+            <ProductSlider />
 
-          <PanGestureHandler onHandlerStateChange={handleGesture}>
-            <Animated.ScrollView
-              bounces={false}
-              style={{ transform: [{ translateY: animatedValue }] }}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.subContainer}>
+            <PanGestureHandler onHandlerStateChange={handleGesture}>
+              <Animated.ScrollView
+                bounces={false}
+                style={{ transform: [{ translateY: animatedValue }] }}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.subContainer}>
 
-              <LinearGradient colors={bottomColors} style={styles.gradient} />
+                <LinearGradient colors={bottomColors} style={styles.gradient} />
 
-              <View style={styles.content}>
-                <Image
-                  source={require('../../assets/images/logo.jpeg')}
-                  style={styles.logo}
-                />
+                <View style={styles.content}>
+                  <Image
+                    source={require('../../assets/images/logo.jpeg')}
+                    style={styles.logo}
+                  />
 
-                <CustomText variant="h2" fontFamily={Fonts.Bold}>
-                  Grocery Delivery App
-                </CustomText>
-                <CustomText
-                  variant="h5"
-                  fontFamily={Fonts.SemiBold}
-                  style={styles.text}>
-                  Login to continue
-                </CustomText>
-
-
-                {renderInputs()}
-
-                <CustomButton
-                  disabled={
-                    role === 'Customer'
-                      ? phoneNumber?.length !== 10
-                      : role === 'StoreManager' && loginMethod === 'phone'
-                        ? phoneNumber?.length !== 10 || !password
-                        : (!email || !password)
-                  }
-                  onPress={() => handleLogin()}
-                  loading={loading}
-                  title="Login"
-                />
-
-                <View style={styles.signUpContainer}>
-                  <CustomText variant="h7" fontFamily={Fonts.Medium}>
-                    Don't have an account?{' '}
+                  <CustomText variant="h2" fontFamily={Fonts.Bold}>
+                    Grocery Delivery App
                   </CustomText>
-                  <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                    <CustomText variant="h7" fontFamily={Fonts.Bold} style={styles.signUpLink}>
-                      Sign Up
+                  <CustomText
+                    variant="h5"
+                    fontFamily={Fonts.SemiBold}
+                    style={styles.text}>
+                    Login to continue
+                  </CustomText>
+
+
+                  {renderInputs()}
+
+                  <CustomButton
+                    disabled={
+                      role === 'Customer'
+                        ? phoneNumber?.length !== 10
+                        : role === 'StoreManager' && loginMethod === 'phone'
+                          ? phoneNumber?.length !== 10 || !password
+                          : (!email || !password)
+                    }
+                    onPress={() => handleLogin()}
+                    loading={loading}
+                    title="Login"
+                  />
+
+                  <View style={styles.signUpContainer}>
+                    <CustomText variant="h7" fontFamily={Fonts.Medium}>
+                      Don't have an account?{' '}
+                    </CustomText>
+                    <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                      <CustomText variant="h7" fontFamily={Fonts.Bold} style={styles.signUpLink}>
+                        Sign Up
+                      </CustomText>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={{ marginTop: 10 }}>
+                    <CustomText variant="h7" fontFamily={Fonts.Medium} style={{ color: Colors.primary }}>
+                      Forgot Password?
                     </CustomText>
                   </TouchableOpacity>
                 </View>
+              </Animated.ScrollView>
+            </PanGestureHandler>
+          </CustomSafeAreaView>
 
-                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={{ marginTop: 10 }}>
-                  <CustomText variant="h7" fontFamily={Fonts.Medium} style={{ color: Colors.primary }}>
-                    Forgot Password?
-                  </CustomText>
-                </TouchableOpacity>
-              </View>
-            </Animated.ScrollView>
-          </PanGestureHandler>
-        </CustomSafeAreaView>
+          <View style={styles.footer}>
+            <CustomText fontSize={RFValue(6)}>
+              By Continuing, you agree to our Terms of Service & Privacy Policy
+            </CustomText>
+          </View>
 
-        <View style={styles.footer}>
-          <CustomText fontSize={RFValue(6)}>
-            By Continuing, you agree to our Terms of Service & Privacy Policy
-          </CustomText>
+          <TouchableOpacity
+            style={[
+              styles.absoluteSwitch,
+              styles.storeSwitch,
+              role === 'StoreManager' && styles.activeSwitch
+            ]}
+            onPress={() => setRole('StoreManager')}
+          >
+            <CustomText style={styles.emojiText}>🏪</CustomText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.absoluteSwitch,
+              styles.customerSwitch,
+              role === 'Customer' && styles.activeSwitch
+            ]}
+            onPress={() => setRole('Customer')}
+          >
+            <CustomText style={styles.emojiText}>👤</CustomText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.absoluteSwitch,
+              styles.deliverySwitch,
+              role === 'DeliveryPartner' && styles.activeSwitch
+            ]}
+            onPress={() => setRole('DeliveryPartner')}
+          >
+            <CustomText style={styles.emojiText}>🚴‍♂️</CustomText>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={[
-            styles.absoluteSwitch,
-            styles.storeSwitch,
-            role === 'StoreManager' && styles.activeSwitch
-          ]}
-          onPress={() => setRole('StoreManager')}
-        >
-          <CustomText style={styles.emojiText}>🏪</CustomText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.absoluteSwitch,
-            styles.customerSwitch,
-            role === 'Customer' && styles.activeSwitch
-          ]}
-          onPress={() => setRole('Customer')}
-        >
-          <CustomText style={styles.emojiText}>👤</CustomText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.absoluteSwitch,
-            styles.deliverySwitch,
-            role === 'DeliveryPartner' && styles.activeSwitch
-          ]}
-          onPress={() => setRole('DeliveryPartner')}
-        >
-          <CustomText style={styles.emojiText}>🚴‍♂️</CustomText>
-        </TouchableOpacity>
-      </View>
+      </KeyboardAvoidingView>
     </GestureHandlerRootView>
   );
 };
