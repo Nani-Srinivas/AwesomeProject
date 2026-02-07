@@ -4,7 +4,8 @@ import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../../constants/colors';
 import { ProductAttendanceItem } from './ProductAttendanceItem';
 
-export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion, attendance, onProductStatusChange, onProductQuantityChange, onEdit, onAdd, isPastDate, flatNumber }) => {
+export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion, attendance, onProductStatusChange, onProductQuantityChange, onDeleteProduct, onEdit, onAdd, isPastDate, flatNumber, isReadOnly }) => {
+  const isDisabled = isPastDate || isReadOnly;
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -15,11 +16,11 @@ export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion
           </Text>
         </View>
 
-        <TouchableOpacity onPress={isPastDate ? null : onEdit} style={styles.editButton} disabled={isPastDate}>
-          <Feather name="edit-2" size={20} color={isPastDate ? COLORS.lightGrey : COLORS.text} />
+        <TouchableOpacity onPress={isDisabled ? null : onEdit} style={styles.editButton} disabled={isDisabled}>
+          <Feather name="edit-2" size={20} color={isDisabled ? COLORS.lightGrey : COLORS.text} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={isPastDate ? null : onAdd} style={styles.addButton} disabled={isPastDate}>
-          <Feather name="plus-circle" size={20} color={isPastDate ? COLORS.lightGrey : COLORS.primary} />
+        <TouchableOpacity onPress={isDisabled ? null : onAdd} style={styles.addButton} disabled={isDisabled}>
+          <Feather name="plus-circle" size={20} color={isDisabled ? COLORS.lightGrey : COLORS.primary} />
         </TouchableOpacity>
       </View>
       {/* Products always shown inline when apartment is expanded */}
@@ -32,7 +33,8 @@ export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion
               status={attendance[item.product._id]?.status}
               onStatusChange={(newStatus) => onProductStatusChange(item.product._id, newStatus)}
               onQuantityChange={(newQuantity) => onProductQuantityChange(item.product._id, newQuantity)}
-              isDisabled={isPastDate}
+              onDelete={() => onDeleteProduct && onDeleteProduct(item.product._id)}
+              isDisabled={isDisabled}
             />
           ))}
         </View>

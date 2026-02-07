@@ -26,6 +26,11 @@ const storeManagerSchema = new mongoose.Schema({
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'MasterProduct' }],
     default: undefined  // Don't auto-initialize to []
   },
+  upiId: {
+    type: String,
+    trim: true,
+    default: null  // UPI ID for receiving payments from customers
+  },
 }, baseUserSchemaOptions);
 
 storeManagerSchema.index({ location: '2dsphere' });

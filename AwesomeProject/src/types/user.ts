@@ -25,6 +25,7 @@ export interface User {
   selectedProductIds?: string[]; // For StoreManager
   hasAddedProductPricing?: boolean; // For StoreManager
   additionalDetailsCompleted?: boolean; // For StoreManager
+  upiId?: string; // UPI ID for receiving payments (For StoreManager)
 }
 
 export interface LoginResponse {

@@ -7,6 +7,7 @@ import {
   refreshToken,
   logout,
   fetchUser,
+  updateUserProfile,
   testEndpoint,
   // refresh,
 } from "../controllers/auth/auth.js";
@@ -38,4 +39,5 @@ export const authRoutes = async (fastify, options) => {
   fastify.post("/auth/logout", logout); // No rate limit on logout
   // fastify.post('/refresh', refresh);
   fastify.get("/user", { preHandler: [verifyToken] }, fetchUser);
+  fastify.patch("/user/profile", { preHandler: [verifyToken] }, updateUserProfile);
 };

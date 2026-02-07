@@ -337,7 +337,8 @@ export const AddExtraProductBottomSheet: React.FC<AddExtraProductModalProps> = (
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.get('/products/all');
+      const response = await apiService.get('/product/store');
+      // The controller returns { success: true, data: [...] }
       const data = response.data.data.map((p: any) => ({
         ...p,
         _id: p._id ?? p.id,

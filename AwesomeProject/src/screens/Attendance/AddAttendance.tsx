@@ -84,6 +84,8 @@ export const AddAttendance = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSummaryModalVisible, setIsSummaryModalVisible] = useState(false);
   const [isAttendanceSubmitted, setIsAttendanceSubmitted] = useState(false);
+  const [attendanceRecordId, setAttendanceRecordId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(true); // Allow editing by default for new dates
 
   // States for Reconciliation
   const [totalDispatched, setTotalDispatched] = useState<string>('');
@@ -160,6 +162,7 @@ export const AddAttendance = () => {
   // --- Persistence Logic ---
   const { setDraft, getDraft, clearDraft, setApartmentOrder, getApartmentOrder } = useAttendanceStore();
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+  const [modifiedCustomerIds, setModifiedCustomerIds] = useState<Set<string>>(new Set());
 
   // Load Draft
   const loadDraft = useCallback(() => {
@@ -184,15 +187,25 @@ export const AddAttendance = () => {
     // specific check to avoid saving empty state over draft if something weird happens
     // but relies on isDraftLoaded being true only after we attempted load.
     const timeoutId = setTimeout(() => {
+      // Construct modifiedProductLists
+      const modifiedProductLists = {};
+      modifiedCustomerIds.forEach(id => {
+        const customer = customers.find(c => c._id === id);
+        if (customer) {
+          modifiedProductLists[id] = customer.requiredProduct;
+        }
+      });
+
       setDraft(selectedDate, selectedArea, {
         totalDispatched,
         returnedExpression,
-        attendance
+        attendance,
+        modifiedProductLists: Object.keys(modifiedProductLists).length > 0 ? modifiedProductLists : undefined
       });
     }, 500); // Debounce 500ms
 
     return () => clearTimeout(timeoutId);
-  }, [totalDispatched, returnedExpression, attendance, selectedDate, selectedArea, isDraftLoaded, setDraft]);
+  }, [totalDispatched, returnedExpression, attendance, selectedDate, selectedArea, isDraftLoaded, setDraft, customers, modifiedCustomerIds]);
 
   // ✅ fetch areas
   useEffect(() => {
@@ -221,228 +234,6 @@ export const AddAttendance = () => {
     useCallback(() => {
       if (!selectedArea) return;
 
-      const fetchCustomers = async () => {
-        try {
-          const response = await apiService.get(`/customer/area/${selectedArea}`);
-          const fetchedCustomers = response.data.data;
-          if (!Array.isArray(fetchedCustomers)) {
-            setCustomers([]);
-            setAttendance({});
-            return;
-          }
-
-          // ✅ Sort customers by Apartment, then by Flat Number
-          const sortedCustomers = fetchedCustomers.sort((a, b) => {
-            // Get apartment names (case-insensitive)
-            const apartmentA = (a.address?.Apartment || '').toLowerCase();
-            const apartmentB = (b.address?.Apartment || '').toLowerCase();
-
-            // First, sort by apartment name
-            if (apartmentA !== apartmentB) {
-              return apartmentA.localeCompare(apartmentB);
-            }
-
-            // If same apartment, sort by flat number numerically
-            const flatA = a.address?.FlatNo || '';
-            const flatB = b.address?.FlatNo || '';
-
-            // Extract numeric part from flat number (handles formats like "101", "A-101", "Flat 101")
-            const numA = parseInt(flatA.replace(/\D/g, '')) || 0;
-            const numB = parseInt(flatB.replace(/\D/g, '')) || 0;
-
-            // Compare numbers first
-            if (numA !== numB) {
-              return numA - numB;
-            }
-
-            // If numbers are same, fall back to string comparison (for cases like "101A" vs "101B")
-            return flatA.localeCompare(flatB);
-          });
-
-          setCustomers(sortedCustomers);
-
-          // ✅ Group customers into sections by apartment
-          const sectionsMap: { [apartment: string]: Customer[] } = {};
-          sortedCustomers.forEach((customer) => {
-            const apartment = customer.address?.Apartment || 'No Apartment Info';
-            if (!sectionsMap[apartment]) {
-              sectionsMap[apartment] = [];
-            }
-            sectionsMap[apartment].push(customer);
-          });
-
-          // Get saved order from backend first, fallback to local storage
-          let savedOrder = null;
-
-          // Try to fetch the order from backend (from Area model)
-          try {
-            const areaResponse = await apiService.get(`/delivery/area`);
-            const areaData = areaResponse.data.data;
-            const currentAreaData = areaData?.find((a: any) => a._id === selectedArea);
-
-            if (currentAreaData?.apartmentOrder && currentAreaData.apartmentOrder.length > 0) {
-              savedOrder = currentAreaData.apartmentOrder;
-              // Also save to local store for offline access
-              setApartmentOrder(selectedArea, savedOrder);
-              console.log('Loaded apartment order from backend:', savedOrder);
-            }
-          } catch (error) {
-            console.log('Could not fetch apartment order from backend, using local:', error);
-          }
-
-          // Fallback to local storage if backend didn't have it
-          if (!savedOrder) {
-            savedOrder = getApartmentOrder(selectedArea);
-            console.log('Using local apartment order:', savedOrder);
-          }
-
-          const apartments = Object.keys(sectionsMap);
-
-          let orderedApartments: string[];
-          if (savedOrder && apartments.every(apt => savedOrder.includes(apt))) {
-            // Use saved order, filtering to only current apartments
-            orderedApartments = savedOrder.filter(apt => apartments.includes(apt));
-          } else {
-            // Default alphabetical order, with 'No Apartment Info' at the end
-            orderedApartments = apartments.sort((a, b) => {
-              if (a === 'No Apartment Info') return 1;
-              if (b === 'No Apartment Info') return -1;
-              return a.localeCompare(b);
-            });
-          }
-
-          const sections: { title: string; data: Customer[] }[] = orderedApartments.map(apt => ({
-            title: apt,
-            data: sectionsMap[apt],
-          }));
-
-          setCustomerSections(sections);
-
-          // Initialize expanded sections
-          const initialExpandedSections: { [apartment: string]: boolean } = {};
-          sections.forEach(section => { initialExpandedSections[section.title] = true; });
-          setExpandedSections(initialExpandedSections);
-
-          // ------------------------------------------------------------------
-          // Data Loading Priority: Server (Saved) -> Draft (Unsaved) -> Defaults
-          // ------------------------------------------------------------------
-
-          console.log('🔄 Starting data load for date:', selectedDate, 'area:', selectedArea);
-
-          // 1. Check Server First (for submitted/saved attendance)
-          console.log('🌐 Checking server for saved attendance...');
-          try {
-            console.log('📡 Calling API: /attendance with', { date: selectedDate, areaId: selectedArea });
-            const historyResponse = await apiService.get('/attendance', {
-              date: selectedDate, areaId: selectedArea
-            });
-            console.log('📥 Server response:', historyResponse.data);
-            const historyData = historyResponse.data.data; // Expecting array of records or single record
-
-            // The API returns an array, we expect at most one record for (date, area, store)
-            const existingRecord = Array.isArray(historyData) ? historyData[0] : historyData;
-            console.log('📊 Existing record:', existingRecord ? 'FOUND' : 'NOT FOUND');
-
-            if (existingRecord) {
-              console.log('✅ Found server history for:', selectedDate, existingRecord);
-              // Populate from Server
-              setTotalDispatched(String(existingRecord.totalDispatched || 0));
-              setReturnedExpression(existingRecord.returnedItems?.expression || '');
-
-              // Convert Server Attendance Array -> Map
-              const serverAttendanceMap = {};
-              if (Array.isArray(existingRecord.attendance)) {
-                existingRecord.attendance.forEach((entry: any) => {
-                  const cId = entry.customerId._id || entry.customerId; // Handle populated or unpopulated
-                  serverAttendanceMap[cId] = {};
-                  if (Array.isArray(entry.products)) {
-                    entry.products.forEach((p: any) => {
-                      const pId = p.productId._id || p.productId;
-                      serverAttendanceMap[cId][pId] = {
-                        quantity: p.quantity,
-                        status: p.status
-                      };
-                    });
-                  }
-                });
-              }
-
-              // Merge with defaults to ensure missing customers are still present
-              const defaultAtt = calculateDefaultAttendance(fetchedCustomers);
-              const finalAttendance = { ...defaultAtt };
-
-              // Overlay server data
-              Object.keys(serverAttendanceMap).forEach(cId => {
-                if (finalAttendance[cId]) {
-                  finalAttendance[cId] = { ...finalAttendance[cId], ...serverAttendanceMap[cId] };
-                } else {
-                  // If customer exists in history but not in current list (maybe deleted?), optionally add them or ignore.
-                  // For now, let's ignore to avoid crashes if they aren't in `customers` list.
-                }
-              });
-
-              setAttendance(finalAttendance);
-
-              // Clear any stale draft since we have server data
-              clearDraft(selectedDate, selectedArea);
-              console.log('🗑️ Cleared stale draft');
-
-              // Mark that attendance has been submitted
-              setIsAttendanceSubmitted(true);
-
-              setIsDraftLoaded(true);
-              return;
-            }
-          } catch (historyError: any) {
-            console.error('❌ Error fetching history:', historyError);
-            console.error('Error details:', historyError?.response?.data || historyError?.message || historyError);
-            // Continue to check draft/defaults
-          }
-
-          // 2. Try Loading Draft (for unsaved changes)
-          console.log('📝 No server data, checking for local draft...');
-          const draft = getDraft(selectedDate, selectedArea);
-          console.log('📝 Draft check result:', draft ? 'FOUND' : 'NOT FOUND');
-          if (draft) {
-            console.log('✅ Using local draft for:', selectedDate, draft);
-            if (draft.totalDispatched !== undefined) setTotalDispatched(draft.totalDispatched);
-            if (draft.returnedExpression !== undefined) setReturnedExpression(draft.returnedExpression);
-            if (draft.attendance && Object.keys(draft.attendance).length > 0) {
-              setAttendance(draft.attendance);
-              setIsAttendanceSubmitted(false); // Draft = not submitted
-            } else {
-              // Fallback to defaults if draft attendance is empty
-              setAttendance(calculateDefaultAttendance(fetchedCustomers));
-            }
-            setIsDraftLoaded(true);
-            return;
-          }
-
-          // 3. Fallback to Defaults (New Day)
-          console.log('⚠️ No server data or draft found, using defaults for new day');
-          setIsAttendanceSubmitted(false);
-          setAttendance(calculateDefaultAttendance(fetchedCustomers));
-
-          // Default Total Dispatched from Area
-          const currentArea = areas.find(a => a._id === selectedArea);
-          if (currentArea?.totalSubscribedItems) {
-            setTotalDispatched(String(currentArea.totalSubscribedItems));
-          } else {
-            setTotalDispatched('0');
-          }
-          setReturnedExpression('');
-
-          setIsDraftLoaded(true);
-
-
-        } catch (error) {
-          console.error('Error in data loading sequence:', error);
-          setCustomers([]);
-          setAttendance({});
-          setIsDraftLoaded(true);
-        }
-      };
-
       // Helper to calculate defaults
       const calculateDefaultAttendance = (custs: Customer[]) => {
         const initial = {};
@@ -461,6 +252,237 @@ export const AddAttendance = () => {
         });
         return initial;
       };
+
+      const fetchCustomers = async () => {
+        try {
+          const response = await apiService.get(`/customer/area/${selectedArea}`);
+          const fetchedCustomers = response.data.data;
+
+          if (!Array.isArray(fetchedCustomers)) {
+            setCustomers([]);
+            setAttendance({});
+            return;
+          }
+
+          // --- Helper to Sort, Group, and Set State ---
+          const processAndSetCustomers = async (customersToProcess: Customer[]) => {
+            // 1. Sort
+            const sortedCustomers = customersToProcess.sort((a, b) => {
+              const apartmentA = (a.address?.Apartment || '').toLowerCase();
+              const apartmentB = (b.address?.Apartment || '').toLowerCase();
+              if (apartmentA !== apartmentB) return apartmentA.localeCompare(apartmentB);
+              const flatA = a.address?.FlatNo || '';
+              const flatB = b.address?.FlatNo || '';
+              const numA = parseInt(flatA.replace(/\D/g, '')) || 0;
+              const numB = parseInt(flatB.replace(/\D/g, '')) || 0;
+              if (numA !== numB) return numA - numB;
+              return flatA.localeCompare(flatB);
+            });
+
+            setCustomers(sortedCustomers);
+
+            // 2. Group
+            const sectionsMap: { [apartment: string]: Customer[] } = {};
+            sortedCustomers.forEach((customer) => {
+              const apartment = customer.address?.Apartment || 'No Apartment Info';
+              if (!sectionsMap[apartment]) sectionsMap[apartment] = [];
+              sectionsMap[apartment].push(customer);
+            });
+
+            // 3. Order Sections (Try Backend -> Local -> Default)
+            const apartments = Object.keys(sectionsMap);
+            let orderedApartments: string[] = [];
+            let savedOrder: string[] | null = null;
+
+            // Check Backend/Local for order
+            try {
+              const areaResponse = await apiService.get(`/delivery/area`);
+              const areaData = areaResponse.data.data;
+              const currentAreaData = areaData?.find((a: any) => a._id === selectedArea);
+              if (currentAreaData?.apartmentOrder?.length > 0) {
+                savedOrder = currentAreaData.apartmentOrder;
+                setApartmentOrder(selectedArea, savedOrder);
+              }
+            } catch (e) {
+              // Fallback to local
+              savedOrder = getApartmentOrder(selectedArea);
+            }
+
+            if (!savedOrder) savedOrder = getApartmentOrder(selectedArea);
+
+            if (savedOrder && apartments.every(apt => savedOrder!.includes(apt))) {
+              orderedApartments = savedOrder.filter(apt => apartments.includes(apt));
+            } else {
+              orderedApartments = apartments.sort((a, b) => {
+                if (a === 'No Apartment Info') return 1;
+                if (b === 'No Apartment Info') return -1;
+                return a.localeCompare(b);
+              });
+            }
+
+            const sections = orderedApartments.map(apt => ({
+              title: apt,
+              data: sectionsMap[apt],
+            }));
+
+            setCustomerSections(sections);
+            const initialExpandedSections: { [apartment: string]: boolean } = {};
+            sections.forEach(section => { initialExpandedSections[section.title] = true; });
+            setExpandedSections(initialExpandedSections);
+          };
+
+          // --- Logic Start ---
+          console.log('🔄 Starting data load for date:', selectedDate, 'area:', selectedArea);
+
+          // 1. Check Server (Submitted Attendance)
+          console.log('🌐 Checking server for saved attendance...');
+          try {
+            const historyResponse = await apiService.get('/attendance', {
+              date: selectedDate, areaId: selectedArea
+            });
+            const historyData = historyResponse.data.data;
+            const existingRecord = Array.isArray(historyData) ? historyData[0] : historyData;
+
+            if (existingRecord) {
+              console.log('✅ Found server history');
+              setAttendanceRecordId(existingRecord._id);
+
+              setTotalDispatched(String(existingRecord.totalDispatched || 0));
+              setReturnedExpression(existingRecord.returnedItems?.expression || '');
+
+              const serverAttendanceMap = {};
+
+              // Map server attendance to local Map & Restore Extra Products
+              if (Array.isArray(existingRecord.attendance)) {
+                existingRecord.attendance.forEach((entry: any) => {
+                  const cId = entry.customerId._id || entry.customerId;
+
+                  // Restore Extra Products Logic
+                  const customerIndex = fetchedCustomers.findIndex(c => c._id === cId);
+                  if (customerIndex !== -1) {
+                    const customer = fetchedCustomers[customerIndex];
+                    const existingProductIds = new Set(customer.requiredProduct.map(p => p.product._id));
+
+                    serverAttendanceMap[cId] = {}; // Init map for this customer
+
+                    if (Array.isArray(entry.products)) {
+                      entry.products.forEach((p: any) => {
+                        // Handle case where populated productId is null (deleted product)
+                        const pId = p.productId ? (p.productId._id || p.productId) : p._id;
+
+                        if (!pId) return; // Skip if no ID at all
+
+                        serverAttendanceMap[cId][pId] = { quantity: p.quantity, status: p.status };
+
+                        if (!existingProductIds.has(pId)) {
+                          // Restore missing product
+                          console.log(`♻️ Restoring extra product for ${customer.address?.FlatNo}`);
+                          customer.requiredProduct.push({
+                            product: {
+                              _id: pId,
+                              name: p.productId?.name || 'Unknown Product',
+                              price: p.productId?.price || 0
+                            },
+                            quantity: p.quantity,
+                            // isPartial or isDeleted flag could be added here for UI styling
+                          });
+                          // Track modification
+                          setModifiedCustomerIds(prev => new Set(prev).add(cId));
+                        }
+                      });
+                    }
+                  }
+                });
+              }
+
+              // Merge with Defaults (so we don't lose customers who have no attendance record yet?)
+              // Actually server record should be authoritative for that day if it exists.
+              // But we usually want to show all customers even if they were skipped?
+              // Yes, calculateDefaultAttendance gives structure for ALL customers.
+              const defaultAtt = calculateDefaultAttendance(fetchedCustomers);
+              const finalAttendance = { ...defaultAtt };
+
+              // Overlay Server Data
+              Object.keys(serverAttendanceMap).forEach(cId => {
+                // Only overlay if customer exists in current list (already filtered/handled above)
+                if (finalAttendance[cId]) {
+                  finalAttendance[cId] = { ...finalAttendance[cId], ...serverAttendanceMap[cId] };
+                }
+              });
+
+              setAttendance(finalAttendance);
+              clearDraft(selectedDate, selectedArea);
+              setIsAttendanceSubmitted(true);
+              setIsEditing(false); // Disable editing for submitted attendance
+
+              // Finalize UI
+              await processAndSetCustomers(fetchedCustomers);
+              setIsDraftLoaded(true);
+              return;
+            }
+          } catch (historyError) {
+            console.log('❌ Server history check failed (or empty), checking draft...');
+          }
+
+          // 2. Check Draft
+          console.log('📝 Checking for local draft...');
+          const draft = getDraft(selectedDate, selectedArea);
+          if (draft) {
+            console.log('✅ Found draft');
+            if (draft.totalDispatched !== undefined) setTotalDispatched(draft.totalDispatched);
+            if (draft.returnedExpression !== undefined) setReturnedExpression(draft.returnedExpression);
+            if (draft._id) setAttendanceRecordId(draft._id);
+
+            // Restore Modified Lists from Draft
+            if (draft.modifiedProductLists) {
+              const modifiedIds = Object.keys(draft.modifiedProductLists);
+              setModifiedCustomerIds(new Set(modifiedIds));
+              fetchedCustomers.forEach(customer => {
+                if (draft.modifiedProductLists![customer._id]) {
+                  customer.requiredProduct = draft.modifiedProductLists![customer._id];
+                }
+              });
+            }
+
+            if (draft.attendance && Object.keys(draft.attendance).length > 0) {
+              setAttendance(draft.attendance);
+              setIsAttendanceSubmitted(false);
+              setIsEditing(true); // Allow editing for draft
+            } else {
+              setAttendance(calculateDefaultAttendance(fetchedCustomers));
+            }
+
+            await processAndSetCustomers(fetchedCustomers);
+            setIsDraftLoaded(true);
+            return;
+          }
+
+          // 3. Fallback to Defaults (New Day)
+          console.log('⚠️ Using defaults (New Day)');
+          setIsAttendanceSubmitted(false);
+          setAttendanceRecordId(null);
+          setIsEditing(true); // Allow editing for new dates
+          setAttendance(calculateDefaultAttendance(fetchedCustomers));
+
+          await processAndSetCustomers(fetchedCustomers);
+
+          // Default Area Total
+          if (areas.length > 0) {
+            const currentArea = areas.find(a => a._id === selectedArea);
+            setTotalDispatched(currentArea?.totalSubscribedItems ? String(currentArea.totalSubscribedItems) : '0');
+          }
+          setReturnedExpression('');
+
+          setIsDraftLoaded(true);
+
+        } catch (error) {
+          console.error('Fatal fetchCustomers error:', error);
+          setCustomers([]);
+          setIsDraftLoaded(true);
+        }
+      };
+
+
 
       // Reset draft loaded state when needs refresh
       setIsDraftLoaded(false);
@@ -566,6 +588,75 @@ export const AddAttendance = () => {
     }));
   };
 
+  const handleDeleteProduct = (customerId, productId) => {
+    Alert.alert(
+      "Delete Product",
+      "Are you sure you want to remove this product from the list?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: 'destructive',
+          onPress: () => {
+            // 1. Update Customers State (Remove from requiredProduct)
+            let updatedCustomer: Customer | null = null;
+
+            setCustomers(prevCustomers => {
+              return prevCustomers.map(customer => {
+                if (customer._id === customerId) {
+                  const updatedRequiredProducts = customer.requiredProduct.filter(
+                    p => p.product._id !== productId
+                  );
+
+                  updatedCustomer = {
+                    ...customer,
+                    requiredProduct: updatedRequiredProducts
+                  };
+                  return updatedCustomer;
+                }
+                return customer;
+              });
+            });
+
+            // ✅ Track modification
+            setModifiedCustomerIds(prev => new Set(prev).add(customerId));
+
+            // 2. Update Customer Sections (Sync with Customers)
+            // We use a timeout to ensure 'updatedCustomer' is captured or simply re-derive logic 
+            // because setCustomers is async. Better to replicate logic safely.
+
+            setCustomerSections(prevSections =>
+              prevSections.map(section => ({
+                ...section,
+                data: section.data.map(c => {
+                  if (c._id === customerId) {
+                    return {
+                      ...c,
+                      requiredProduct: c.requiredProduct.filter(p => p.product._id !== productId)
+                    };
+                  }
+                  return c;
+                })
+              }))
+            );
+
+            // 3. Update Attendance State (Remove from attendance object)
+            setAttendance(prev => {
+              const customerAttendance = { ...prev[customerId] };
+              if (customerAttendance) {
+                delete customerAttendance[productId];
+              }
+              return {
+                ...prev,
+                [customerId]: customerAttendance
+              };
+            });
+          }
+        }
+      ]
+    );
+  };
+
   const openEditModal = customer => {
     setSelectedCustomer(customer);
     setIsEditModalVisible(true);
@@ -600,60 +691,92 @@ export const AddAttendance = () => {
   };
 
   const handleSaveAttendance = (customerId, editedRequiredProducts, addedExtraProducts) => {
-    setCustomers(prevCustomers =>
-      prevCustomers.map(customer => {
-        if (customer._id === customerId) {
-          // Create a mutable copy of the products to work with
-          let allProducts = [...editedRequiredProducts];
+    // 1. Calculate the new products list for the target customer
+    let updatedCustomer: Customer | null = null;
+    let newRequiredProducts: any[] = [];
 
-          // Handle the newly added products, which is an array
-          if (Array.isArray(addedExtraProducts)) {
-            addedExtraProducts.forEach(newProduct => {
-              if (newProduct.quantity > 0) {
-                // Normalize the new product to match the structure of existing ones
-                const normalizedProduct = {
-                  product: { _id: newProduct.productId, name: newProduct.name },
-                  quantity: newProduct.quantity,
-                };
+    // Helper to get normalized products
+    // We need to do this calculation *outside* the setCustomers callback 
+    // so we can use the result to update customerSections too.
 
-                // Check if this product already exists in the list
-                const existingIndex = allProducts.findIndex(
-                  p => p.product._id === normalizedProduct.product._id
-                );
+    // Find the current customer to get their current data
+    const currentCustomer = customers.find(c => c._id === customerId);
+    if (!currentCustomer) return;
 
-                if (existingIndex !== -1) {
-                  // If it exists, update the quantity
-                  allProducts[existingIndex].quantity = normalizedProduct.quantity;
-                } else {
-                  // Otherwise, add it to the list
-                  allProducts.push(normalizedProduct);
-                }
-              }
-            });
+    // Start with the edited list (which might just be the current list if not edited)
+    let allProducts = [...editedRequiredProducts];
+
+    // Handle the newly added products
+    if (Array.isArray(addedExtraProducts) && addedExtraProducts.length > 0) {
+      addedExtraProducts.forEach(newProduct => {
+        if (newProduct.quantity > 0) {
+          // Normalize the new product
+          const normalizedProduct = {
+            product: { _id: newProduct.productId, name: newProduct.name },
+            quantity: newProduct.quantity,
+          };
+
+          // Check if this product already exists in the list
+          const existingIndex = allProducts.findIndex(
+            p => p.product._id === normalizedProduct.product._id
+          );
+
+          if (existingIndex !== -1) {
+            // Update quantity
+            allProducts[existingIndex] = {
+              ...allProducts[existingIndex],
+              quantity: normalizedProduct.quantity
+            };
+          } else {
+            // Add new
+            allProducts.push(normalizedProduct);
           }
-
-          // Update the attendance state for the customer
-          const newAttendanceForCustomer = {};
-          allProducts.forEach(p => {
-            if (p.product && p.product._id) {
-              newAttendanceForCustomer[p.product._id] = {
-                quantity: p.quantity,
-                status: p.status || 'delivered',
-              };
-            }
-          });
-
-          setAttendance(prev => ({
-            ...prev,
-            [customerId]: newAttendanceForCustomer,
-          }));
-
-          // Return the updated customer object
-          return { ...customer, requiredProduct: allProducts };
         }
-        return customer;
-      })
+      });
+    }
+
+    newRequiredProducts = allProducts;
+
+    // 2. Prepare the updated customer object
+    updatedCustomer = {
+      ...currentCustomer,
+      requiredProduct: newRequiredProducts
+    };
+
+    // 3. Update 'customers' state
+    setCustomers(prevCustomers =>
+      prevCustomers.map(c => c._id === customerId ? updatedCustomer! : c)
     );
+
+    // ✅ Track modification if products were added or list modified
+    if (addedExtraProducts.length > 0 || editedRequiredProducts.length !== currentCustomer.requiredProduct.length) {
+      setModifiedCustomerIds(prev => new Set(prev).add(customerId));
+    }
+
+    // 4. Update 'customerSections' state
+    // We must update the data inside the specific section without changing section order
+    setCustomerSections(prevSections =>
+      prevSections.map(section => ({
+        ...section,
+        data: section.data.map(c => c._id === customerId ? updatedCustomer! : c)
+      }))
+    );
+
+    // 5. Update attendance state
+    const newAttendanceForCustomer = {};
+    newRequiredProducts.forEach(p => {
+      if (p.product && p.product._id) {
+        newAttendanceForCustomer[p.product._id] = {
+          quantity: p.quantity,
+          status: p.status || 'delivered',
+        };
+      }
+    });
+
+    setAttendance(prev => ({
+      ...prev,
+      [customerId]: newAttendanceForCustomer,
+    }));
 
     // Close the modals
     closeEditModal();
@@ -666,7 +789,8 @@ export const AddAttendance = () => {
 
     const today = new Date().toISOString().split('T')[0];
 
-    if (selectedDate < today) {
+    // Allow modification of past dates ONLY if we are in explicit Edit Mode for a record that was already started/submitted
+    if (selectedDate < today && !isEditing) {
       setFeedbackMessage('Cannot modify attendance for past dates.');
       setFeedbackMessageType('error');
       setIsLoading(false);
@@ -717,19 +841,34 @@ export const AddAttendance = () => {
   const submitData = async (payload) => {
     try {
       if (isEditModalVisible) closeEditModal();
-      const response = await apiService.postWithConfig('/attendance', payload, {
-        headers: { 'X-Suppress-Global-Error-Alert': true },
-      });
+
+      let response;
+      if (attendanceRecordId) {
+        console.log('Updating existing attendance:', attendanceRecordId);
+        response = await apiService.put(`/attendance/${attendanceRecordId}`, payload);
+      } else {
+        console.log('Creating new attendance');
+        response = await apiService.postWithConfig('/attendance', payload, {
+          headers: { 'X-Suppress-Global-Error-Alert': true },
+        });
+      }
 
       setFeedbackMessage(response.data.message || 'Attendance submitted successfully!');
       setFeedbackMessageType('success');
 
       setCustomers(prev => prev.map(c => ({ ...c, submitted: true })));
 
+      // Sync customerSections with the submitted status
+      setCustomerSections(prev => prev.map(section => ({
+        ...section,
+        data: section.data.map(c => ({ ...c, submitted: true }))
+      })));
+
       // ✅ Clear draft on successful submit
       if (selectedDate && selectedArea) {
         clearDraft(selectedDate, selectedArea);
       }
+      setIsEditing(false); // Lock it back after successful submit
 
       setTimeout(() => {
         navigation.goBack();
@@ -913,9 +1052,11 @@ export const AddAttendance = () => {
                   onProductQuantityChange={(productId: string, newQuantity: number) =>
                     handleProductQuantityChange(customer._id, productId, newQuantity)
                   }
+                  onDeleteProduct={(productId: string) => handleDeleteProduct(customer._id, productId)}
                   onAdd={() => openAddExtraProductModal(customer)}
                   onEdit={() => openEditModal(customer)}
                   isPastDate={selectedDate < new Date().toISOString().split('T')[0]}
+                  isReadOnly={!isEditing}
                   flatNumber={customer.address?.FlatNo}
                 />
               ))}
@@ -1037,7 +1178,7 @@ export const AddAttendance = () => {
                   </Text>
                 </View>
               )}
-              {balance !== 0 && !isAttendanceSubmitted && (
+              {(balance !== 0 && (!isAttendanceSubmitted || isEditing)) && (
                 <Text style={{
                   color: 'red',
                   textAlign: 'center',
@@ -1048,29 +1189,24 @@ export const AddAttendance = () => {
                 </Text>
               )}
               {/* For past dates OR already submitted: show Edit button */}
-              {(selectedDate < new Date().toISOString().split('T')[0] || isAttendanceSubmitted) ? (
+              {!isEditing && isAttendanceSubmitted ? (
                 <Button
-                  title={isAttendanceSubmitted ? "Edit Attendance" : "Mark Attendance"}
+                  title="Edit Attendance"
                   onPress={() => {
-                    if (isAttendanceSubmitted) {
-                      Alert.alert(
-                        'Edit Attendance',
-                        'Do you want to modify this attendance? This will allow you to make changes and re-submit.',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Yes, Edit',
-                            onPress: () => {
-                              setIsAttendanceSubmitted(false);
-                              Alert.alert('Edit Mode', 'You can now modify the attendance. Make sure the balance is 0 before submitting.');
-                            }
+                    Alert.alert(
+                      'Edit Attendance',
+                      'Do you want to modify this attendance? This will allow you to make changes and re-submit.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Yes, Edit',
+                          onPress: () => {
+                            setIsEditing(true);
+                            Alert.alert('Edit Mode', 'You can now modify the attendance. Make sure the balance is 0 before submitting.');
                           }
-                        ]
-                      );
-                    } else {
-                      // For past dates with no attendance - enable form directly
-                      Alert.alert('Mark Attendance', 'You can now mark attendance for this past date. Make sure the balance is 0 before submitting.');
-                    }
+                        }
+                      ]
+                    );
                   }}
                   style={{ backgroundColor: '#FF9800' }}
                 />

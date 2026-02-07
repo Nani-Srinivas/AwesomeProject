@@ -64,6 +64,7 @@ export type MainStackParamList = {
   // Disconnected Screens (Commented out in MainStack)
   // Dashboard: undefined;
   Details: { customer: any };
+  ProfileSettings: undefined;
   // Calendar: undefined;
   // SideMenu: undefined;
   // PayableTemp: undefined;

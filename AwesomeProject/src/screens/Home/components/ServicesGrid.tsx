@@ -18,6 +18,9 @@ const services = [
   // Needs Customers (who need Area + Delivery Boy)
   { name: 'Attendance', icon: '✅', screen: 'AddAttendance' },
 
+  // Needs Attendance (for billing)
+  { name: 'Cust. Bills', icon: '🧾', screen: 'Bills' },
+
   // Operational views (need existing data)
   { name: 'Dispatch', icon: '🚚', screen: 'DispatchSummary' },
 

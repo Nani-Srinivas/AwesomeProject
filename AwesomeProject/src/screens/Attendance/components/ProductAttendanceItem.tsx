@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
 import { COLORS } from '../../../constants/colors';
 
 const statusConfig = {
@@ -11,7 +12,7 @@ const statusConfig = {
 
 const statusCycle = ['delivered', 'not_delivered'];
 
-export const ProductAttendanceItem = ({ product, status, onStatusChange, onQuantityChange, isDisabled }) => {
+export const ProductAttendanceItem = ({ product, status, onStatusChange, onQuantityChange, onDelete, isDisabled }) => {
   if (!product || !product.product) {
     return null;
   }
@@ -41,6 +42,11 @@ export const ProductAttendanceItem = ({ product, status, onStatusChange, onQuant
       <TouchableOpacity onPress={handlePress} disabled={isDisabled} style={[styles.statusButton, { backgroundColor: color }]}>
         <Text style={styles.statusText}>{label}</Text>
       </TouchableOpacity>
+      {!isDisabled && onDelete && (
+        <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
+          <Feather name="trash-2" size={20} color={COLORS.error} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -76,5 +82,9 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  deleteButton: {
+    marginLeft: 10,
+    padding: 5,
   },
 });

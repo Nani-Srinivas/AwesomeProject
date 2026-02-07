@@ -52,8 +52,8 @@ export const SideMenu = ({ isVisible, onClose, onLogout }: SideMenuProps) => {
                     <Feather name="x" size={24} color={COLORS.text} />
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity 
-                  style={styles.menuItem} 
+                <TouchableOpacity
+                  style={styles.menuItem}
                   onPress={() => {
                     navigation.navigate('Bills');
                     onClose();
@@ -62,6 +62,18 @@ export const SideMenu = ({ isVisible, onClose, onLogout }: SideMenuProps) => {
                   <Feather name="file-text" size={20} color={COLORS.text} />
                   <Text style={styles.menuItemText}>Bills</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    navigation.navigate('ProfileSettings');
+                    onClose();
+                  }}
+                >
+                  <Feather name="user" size={20} color={COLORS.text} />
+                  <Text style={styles.menuItemText}>Profile Settings</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity style={styles.menuItem} onPress={onLogout}>
                   <Feather name="log-out" size={20} color={COLORS.text} />
                   <Text style={styles.menuItemText}>Logout</Text>

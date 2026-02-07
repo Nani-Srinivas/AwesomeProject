@@ -471,17 +471,17 @@ export const getAttendance = async (request, reply) => {
     console.log('🔍 Querying attendance with:', JSON.stringify(query, null, 2));
 
     // Filter by storeId as well
-    const attendanceRecords = await AttendanceLog.find(query);
-    // .populate({
-    //   path: 'attendance.customerId',
-    //   select: 'name',
-    //   strictPopulate: false
-    // }) // Populate customer name
-    // .populate({
-    //   path: 'attendance.products.productId',
-    //   select: 'name',
-    //   strictPopulate: false
-    // }); // Populate product name
+    const attendanceRecords = await AttendanceLog.find(query)
+      .populate({
+        path: 'attendance.customerId',
+        select: 'name',
+        strictPopulate: false
+      }) // Populate customer name
+      .populate({
+        path: 'attendance.products.productId',
+        select: 'name price',
+        strictPopulate: false
+      }); // Populate product name & price
 
     console.log(`✅ Fetched ${attendanceRecords.length} attendance records for ${date} in area ${areaId}`);
 
@@ -507,58 +507,66 @@ export const updateAttendance = async (request, reply) => {
       return reply.code(401).send({ message: 'Authentication required' });
     }
 
-    if (!date || !areaId || !attendance || !Array.isArray(attendance)) {
-      return reply.code(400).send({ success: false, message: 'Date, areaId, and attendance array are required.' });
+    if (!date && !areaId && !attendance && totalDispatched === undefined && returnedItems === undefined) {
+      return reply.code(400).send({ success: false, message: 'No fields to update provided.' });
     }
 
-    const requestDate = new Date(date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (requestDate < today) {
-      return reply.code(400).send({ success: false, message: 'Cannot modify attendance for past dates.' });
+    // Logic for Date/Area update (if provided)
+    let requestDate;
+    if (date) {
+      requestDate = new Date(date);
+      const { startOfDay: todayStart } = getDateRange(new Date().toISOString().split('T')[0]);
+      if (requestDate < todayStart) {
+        return reply.code(400).send({ success: false, message: 'Cannot modify attendance for past dates.' });
+      }
     }
 
-    // Validate each attendance entry
-    for (const customerAttendance of attendance) {
-      if (!customerAttendance.customerId || !customerAttendance.products) {
-        return reply.code(400).send({
-          success: false,
-          message: 'Each customer attendance entry must have customerId and products.',
-        });
+    // Validate attendance array IF provided
+    if (attendance) {
+      if (!Array.isArray(attendance)) {
+        return reply.code(400).send({ success: false, message: 'Attendance must be an array.' });
       }
-
-      // Validate customer existence
-      const existingCustomer = await Customer.findById(customerAttendance.customerId);
-      if (!existingCustomer) {
-        return reply.code(400).send({
-          success: false,
-          message: `Customer with ID ${customerAttendance.customerId} not found.`,
-        });
-      }
-
-      // Validate products
-      for (const product of customerAttendance.products) {
-        if (!product.productId || product.quantity == null) {
+      // Validate each attendance entry
+      for (const customerAttendance of attendance) {
+        if (!customerAttendance.customerId || !customerAttendance.products) {
           return reply.code(400).send({
             success: false,
-            message: 'Each product must have productId and quantity.',
+            message: 'Each customer attendance entry must have customerId and products.',
           });
         }
 
-        if (product.quantity <= 0) {
+        // Validate customer existence
+        const existingCustomer = await Customer.findById(customerAttendance.customerId);
+        if (!existingCustomer) {
           return reply.code(400).send({
             success: false,
-            message: `Product quantity for ${product.productId} must be positive.`,
+            message: `Customer with ID ${customerAttendance.customerId} not found.`,
           });
         }
 
-        const existingProduct = await StoreProduct.findById(product.productId);
-        if (!existingProduct) {
-          return reply.code(400).send({
-            success: false,
-            message: `StoreProduct with ID ${product.productId} not found.`,
-          });
+        // Validate products
+        for (const product of customerAttendance.products) {
+          if (!product.productId || product.quantity == null) {
+            return reply.code(400).send({
+              success: false,
+              message: 'Each product must have productId and quantity.',
+            });
+          }
+
+          if (product.quantity < 0) { // Fix: Allow 0, disallow negative
+            return reply.code(400).send({
+              success: false,
+              message: `Product quantity for ${product.productId} must be positive.`,
+            });
+          }
+
+          const existingProduct = await StoreProduct.findById(product.productId);
+          if (!existingProduct) {
+            return reply.code(400).send({
+              success: false,
+              message: `StoreProduct with ID ${product.productId} not found.`,
+            });
+          }
         }
       }
     }
@@ -569,15 +577,17 @@ export const updateAttendance = async (request, reply) => {
       return reply.code(404).send({ success: false, message: 'Attendance record not found or does not belong to your store.' });
     }
 
+    // Construct Update Object
+    const updateData = {};
+    if (date) updateData.date = requestDate;
+    if (areaId) updateData.areaId = areaId;
+    if (attendance) updateData.attendance = attendance.map(({ customerId, products }) => ({ customerId, products }));
+    if (totalDispatched !== undefined) updateData.totalDispatched = totalDispatched;
+    if (returnedItems !== undefined) updateData.returnedItems = returnedItems;
+
     const updatedAttendance = await AttendanceLog.findByIdAndUpdate(
       attendanceId,
-      {
-        date: requestDate,
-        areaId,
-        attendance: attendance.map(({ customerId, products }) => ({ customerId, products })),
-        totalDispatched: totalDispatched || 0,
-        returnedItems: returnedItems || { quantity: 0, expression: '' }
-      },
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 
@@ -588,6 +598,68 @@ export const updateAttendance = async (request, reply) => {
     });
   } catch (error) {
     console.error('Error updating attendance:', error);
+    return reply.code(500).send({
+      success: false,
+      message: error.message || 'Internal server error.',
+    });
+  }
+};
+
+// ✅ DELETE Attendance by Date
+export const deleteAttendanceByDate = async (request, reply) => {
+  try {
+    const { date } = request.params;
+
+    if (!date) {
+      return reply.code(400).send({
+        success: false,
+        message: 'Date parameter is required (format: YYYY-MM-DD).',
+      });
+    }
+
+    // ✅ Get Store ID
+    const storeId = await getStoreId(request);
+    if (!storeId) {
+      return reply.code(401).send({
+        success: false,
+        message: 'Authentication required or Store not found.'
+      });
+    }
+
+    // ✅ Validate date format
+    const requestDate = new Date(date);
+    if (isNaN(requestDate.getTime())) {
+      return reply.code(400).send({
+        success: false,
+        message: 'Invalid date format. Use YYYY-MM-DD (e.g., 2026-02-01).',
+      });
+    }
+
+    // ✅ Get date range for the entire day
+    const { startOfDay, endOfDay } = getDateRange(date);
+
+    // ✅ Find and delete all attendance records for this date and store
+    const deleteResult = await AttendanceLog.deleteMany({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      storeId // Only delete records for this store
+    });
+
+    if (deleteResult.deletedCount === 0) {
+      return reply.code(404).send({
+        success: false,
+        message: `No attendance records found for date: ${date}`,
+      });
+    }
+
+    console.log(`✅ Deleted ${deleteResult.deletedCount} attendance records for ${date}`);
+
+    return reply.code(200).send({
+      success: true,
+      message: `Successfully deleted ${deleteResult.deletedCount} attendance record(s) for ${date}`,
+      deletedCount: deleteResult.deletedCount,
+    });
+  } catch (error) {
+    console.error('❌ Error deleting attendance:', error);
     return reply.code(500).send({
       success: false,
       message: error.message || 'Internal server error.',

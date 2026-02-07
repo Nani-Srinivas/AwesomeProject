@@ -5,6 +5,7 @@ import { apiService } from '../../services/apiService';
 import { COLORS } from '../../constants/colors';
 import Feather from 'react-native-vector-icons/Feather';
 import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 
 interface Invoice {
   _id: string;
@@ -104,9 +105,36 @@ export const InvoiceHistoryScreen = () => {
     }
   };
 
-  const handleShareInvoice = (invoice: Invoice) => {
-    // For now, just show an alert - in a real app, implement actual sharing
-    Alert.alert('Share Invoice', `Sharing functionality for ${invoice.billNo} would go here.`);
+  const handleShareInvoice = async (invoice: Invoice) => {
+    if (!invoice.url) {
+      console.warn('No invoice URL available');
+      return;
+    }
+
+    try {
+      const fileName = `Invoice_${invoice.billNo.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+
+      const download = RNFS.downloadFile({
+        fromUrl: invoice.url,
+        toFile: filePath,
+      });
+
+      const result = await download.promise;
+
+      if (result.statusCode === 200) {
+        await Share.open({
+          url: Platform.OS === 'android' ? `file://${filePath}` : filePath,
+          title: `Invoice - ${invoice.period}`,
+          message: `Invoice ${invoice.billNo} - ${invoice.period}`,
+          type: 'application/pdf',
+        });
+      } else {
+        console.warn('Failed to download invoice for sharing.');
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+    }
   };
 
   if (loading) {
@@ -132,7 +160,7 @@ export const InvoiceHistoryScreen = () => {
         <Text style={styles.headerText}>Invoice History</Text>
         <Text style={styles.subHeaderText}>Customer: {customerId}</Text>
       </View>
-      
+
       <FlatList
         data={invoices}
         keyExtractor={(item) => item._id}
@@ -146,21 +174,21 @@ export const InvoiceHistoryScreen = () => {
               <Text style={styles.invoicePeriod}>{item.period}</Text>
               <Text style={styles.invoiceDate}>Generated: {new Date(item.generatedAt).toLocaleDateString()}</Text>
             </View>
-            
+
             <View style={styles.invoiceActions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleViewInvoice(item)}
               >
                 <Feather name="eye" size={20} color={COLORS.primary} />
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleShareInvoice(item)}
               >
                 <Feather name="share-2" size={20} color={COLORS.primary} />
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleDownloadPDF(item.url, item.billNo)}
               >

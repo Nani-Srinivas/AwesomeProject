@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     Modal,
     ScrollView,
+    Alert,
 } from 'react-native';
 import { CalendarProvider, ExpandableCalendar } from 'react-native-calendars';
 import Feather from 'react-native-vector-icons/Feather';
@@ -40,17 +41,52 @@ export const DispatchSummaryScreen = () => {
     // STORE
     const { drafts, setDraft } = useAttendanceStore();
 
+    const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+
     /* -----------------------------
-       FETCH AREAS
+       FETCH AREAS & ATTENDANCE
     ----------------------------- */
     useEffect(() => {
-        const fetchAreas = async () => {
-            const res = await apiService.get('/delivery/area');
-            const list: Area[] = res.data.data || [];
-            setAreas(list);
+        const fetchData = async () => {
+            try {
+                // 1. Fetch Areas
+                const areaRes = await apiService.get('/delivery/area');
+                const list: Area[] = areaRes.data.data || [];
+                setAreas(list);
+
+                // 2. Fetch Attendance for Selected Date (All Areas)
+                // Note: The backend GET /attendance?date=... returns records for the store/date
+                const attRes = await apiService.get('/attendance', { date: selectedDate });
+                const attData = attRes.data.data || [];
+                setAttendanceRecords(attData);
+
+                // 3. Pre-populate drafts from server data if draft is empty
+                // This ensures we start with server data
+                list.forEach(area => {
+                    const existingRecord = attData.find((r: any) => r.areaId === area._id);
+                    if (existingRecord) {
+                        const draftKey = `${selectedDate}_${area._id}`;
+                        const existingDraft = drafts[draftKey];
+
+                        // If no draft exists, or if we want to ensure we have the ID:
+                        // We'll update the draft with server data.
+                        // Be careful not to overwrite user unsaved changes if they exist?
+                        // But on mount, assuming we want latest server state.
+
+                        setDraft(selectedDate, area._id, {
+                            totalDispatched: existingDraft?.totalDispatched ?? String(existingRecord.totalDispatched || 0),
+                            returnedExpression: existingDraft?.returnedExpression ?? (existingRecord.returnedItems?.expression || ''),
+                            _id: existingRecord._id // Store ID for updates
+                        });
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error fetching dispatch data:', error);
+            }
         };
-        fetchAreas();
-    }, []);
+        fetchData();
+    }, [selectedDate]);
 
     /* -----------------------------
        HELPERS
@@ -64,7 +100,6 @@ export const DispatchSummaryScreen = () => {
                 .split('+')
                 .reduce((sum, part) => {
                     const nums = part.split('-').map(n => parseFloat(n || '0')); // Use parseFloat
-                    // Hande simple numbers or subtraction chains
                     if (nums.length === 0) return sum;
                     const first = nums[0];
                     const rest = nums.slice(1);
@@ -81,6 +116,49 @@ export const DispatchSummaryScreen = () => {
 
     const handleUpdateExpression = (areaId: string, value: string) => {
         setDraft(selectedDate, areaId, { returnedExpression: value });
+    };
+
+    const handleSave = async (areaId: string) => {
+        const draftKey = `${selectedDate}_${areaId}`;
+        const draft = drafts[draftKey] || {};
+
+        // Find existing record ID locally or in draft
+        let recordId = draft._id;
+        if (!recordId) {
+            const existing = attendanceRecords.find(r => r.areaId === areaId);
+            if (existing) recordId = existing._id;
+        }
+
+        if (!recordId) {
+            Alert.alert('Error', 'Please submit attendance for this area first.');
+            return;
+        }
+
+        try {
+            const body = {
+                totalDispatched: parseFloat(draft.totalDispatched || '0'),
+                returnedItems: {
+                    expression: draft.returnedExpression || '',
+                    quantity: calculateReturned(draft.returnedExpression || '')
+                }
+            };
+            console.log('Saving dispatch:', body);
+
+            await apiService.put(`/attendance/${recordId}`, body);
+            Alert.alert('Success', 'Dispatch updated successfully!');
+
+            // Refresh logic: Update attendanceRecords locally to reflect change
+            setAttendanceRecords(prev => prev.map(r => {
+                if (r._id === recordId) {
+                    return { ...r, ...body };
+                }
+                return r;
+            }));
+
+        } catch (error) {
+            console.error('Error saving dispatch:', error);
+            Alert.alert('Error', 'Failed to save changes.');
+        }
     };
 
     /* -----------------------------
@@ -171,9 +249,14 @@ export const DispatchSummaryScreen = () => {
 
                         return (
                             <View key={area._id} style={styles.areaCard}>
-                                <Text style={styles.areaTitle}>
-                                    {area.name}
-                                </Text>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text style={styles.areaTitle}>
+                                        {area.name}
+                                    </Text>
+                                    <TouchableOpacity onPress={() => handleSave(area._id)}>
+                                        <Feather name="save" size={20} color={COLORS.primary} />
+                                    </TouchableOpacity>
+                                </View>
 
                                 <View style={styles.row}>
                                     <View style={styles.field}>
@@ -182,6 +265,7 @@ export const DispatchSummaryScreen = () => {
                                             style={styles.input}
                                             value={totalDispatched}
                                             onChangeText={val => handleUpdateGiven(area._id, val)}
+                                            keyboardType="numeric"
                                         />
                                     </View>
 

@@ -593,3 +593,67 @@ export const fetchUser = async (req, reply) => {
     });
   }
 };
+
+// ✅ Update User Profile
+export const updateUserProfile = async (req, reply) => {
+  console.log("Update User Profile API is called");
+  const { roles, id } = req.user; // user comes from auth middleware
+  const { name, upiId } = req.body;
+
+  const role = roles[0]; // Primary role
+  const discriminator = {
+    Customer: Customer,
+    StoreManager: StoreManager,
+    DeliveryPartner: DeliveryPartner,
+    Admin: Admin,
+  }[role];
+
+  if (!discriminator) {
+    return reply.code(400).send({
+      success: false,
+      message: 'Invalid role'
+    });
+  }
+
+  try {
+    // Find user
+    let user = await discriminator.findById(id);
+
+    if (!user || !user.roles.includes(role)) {
+      return reply.code(404).send({
+        success: false,
+        message: 'User not found or role mismatch'
+      });
+    }
+
+    // Update allowed fields
+    if (name !== undefined && name.trim()) {
+      user.name = name.trim();
+    }
+
+    // Only update UPI ID for StoreManagers
+    if (role === 'StoreManager' && upiId !== undefined) {
+      user.upiId = upiId ? upiId.trim() : null;
+    }
+
+    // Save changes
+    await user.save();
+
+    // Return updated user (exclude password)
+    const updatedUser = await discriminator.findById(id).select('-password');
+
+    return reply.code(200).send({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedUser,
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating profile:', error);
+    return reply.code(500).send({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};

@@ -35,6 +35,7 @@ import VendorSelectionScreen from '../../screens/VendorSelection/VendorSelection
 import { DispatchSummaryScreen } from '../../screens/Delivery/DispatchSummaryScreen';
 import { ManageProductsScreen } from '../../screens/Products/ManageProductsScreen';
 import { AddEditProductScreen } from '../../screens/Products/AddEditProductScreen';
+import { ProfileSettingsScreen } from '../../screens/Profile/ProfileSettingsScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -61,7 +62,7 @@ export const MainStack = () => {
       <Stack.Screen name="DispatchSummary" component={DispatchSummaryScreen} options={{ headerShown: false }} />
 
       {/* ===== BILLING & PAYABLES (KEEP FOR NOW) ===== */}
-      {/* <Stack.Screen name="Bills" component={BillsScreen} options={{ title: 'Customer Bills' }} /> */}
+      <Stack.Screen name="Bills" component={BillsScreen} options={{ title: 'Customer Bills' }} />
       <Stack.Screen name="StatementPeriodSelection" component={StatementPeriodSelection} options={{ title: 'Bills' }} />
       <Stack.Screen name="Invoice" component={InvoiceScreen} options={{ title: 'Invoice' }} />
       <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} options={{ title: 'Invoice History' }} />
@@ -74,6 +75,9 @@ export const MainStack = () => {
       {/* <Stack.Screen name="VendorSelectionForInventory" component={VendorSelectionForInventoryScreen} options={{ title: 'Select Vendor for Inventory' }} /> */}
       <Stack.Screen name="InventoryReceipt" component={InventoryReceiptScreen} options={{ title: 'Record Inventory Receipt' }} />
       <Stack.Screen name="VendorSelection" component={VendorSelectionScreen} options={{ title: 'Select Vendor' }} />
+
+      {/* ===== PROFILE & SETTINGS ===== */}
+      <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} options={{ headerShown: false }} />
 
       {/* ===== Store Onboarding Screens ===== */}
       <Stack.Screen name="StoreCreation" component={StoreCreationScreen} options={{ title: 'Create Store' }} />

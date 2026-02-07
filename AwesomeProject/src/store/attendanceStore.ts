@@ -19,7 +19,9 @@ interface AttendanceDraft {
     totalDispatched: string;
     returnedExpression: string;
     attendance: AttendanceState;
+    modifiedProductLists?: Record<string, any[]>; // Key: customerId, Value: list of products
     timestamp: number;
+    _id?: string;
 }
 
 interface AttendanceStore {
