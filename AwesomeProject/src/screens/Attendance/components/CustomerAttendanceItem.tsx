@@ -5,7 +5,8 @@ import { COLORS } from '../../../constants/colors';
 import { ProductAttendanceItem } from './ProductAttendanceItem';
 
 export const CustomerAttendanceItem = ({ customer, isExpanded, onToggleExpansion, attendance, onProductStatusChange, onProductQuantityChange, onDeleteProduct, onEdit, onAdd, isPastDate, flatNumber, isReadOnly }) => {
-  const isDisabled = isPastDate || isReadOnly;
+  // Use isReadOnly directly. The parent component handles the logic for past dates + isEditing.
+  const isDisabled = isReadOnly;
   return (
     <View style={styles.container}>
       <View style={styles.header}>

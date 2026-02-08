@@ -297,6 +297,9 @@ export const submitAttendance = async (request, reply) => {
     }
 
     // ❌ Prevent editing past attendance (today onwards only)
+    // REMOVED to allow backfilling of past attendance. 
+    // Frontend handles the "Edit Mode" lock for existing records.
+    /*
     const { startOfDay: todayStart } = getDateRange(new Date().toISOString().split('T')[0]);
     if (requestDate < todayStart) {
       return reply.code(400).send({
@@ -304,6 +307,7 @@ export const submitAttendance = async (request, reply) => {
         message: 'Cannot modify attendance for past dates.',
       });
     }
+    */
 
     // 🧠 Step 1: Check if attendance record already exists for this date & area & store
     const { startOfDay } = getDateRange(date);
@@ -465,7 +469,7 @@ export const getAttendance = async (request, reply) => {
       storeId
     };
     if (areaId) {
-      query.areaId = areaId;
+      query.areaId = new mongoose.Types.ObjectId(areaId);
     }
 
     console.log('🔍 Querying attendance with:', JSON.stringify(query, null, 2));
@@ -515,10 +519,13 @@ export const updateAttendance = async (request, reply) => {
     let requestDate;
     if (date) {
       requestDate = new Date(date);
+      // REMOVED to allow backfilling/editing of past attendance.
+      /*
       const { startOfDay: todayStart } = getDateRange(new Date().toISOString().split('T')[0]);
       if (requestDate < todayStart) {
         return reply.code(400).send({ success: false, message: 'Cannot modify attendance for past dates.' });
       }
+      */
     }
 
     // Validate attendance array IF provided

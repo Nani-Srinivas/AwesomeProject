@@ -42,6 +42,7 @@ export const DispatchSummaryScreen = () => {
     const { drafts, setDraft } = useAttendanceStore();
 
     const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+    const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
 
     /* -----------------------------
        FETCH AREAS & ATTENDANCE
@@ -118,9 +119,9 @@ export const DispatchSummaryScreen = () => {
         setDraft(selectedDate, areaId, { returnedExpression: value });
     };
 
-    const handleSave = async (areaId: string) => {
+    const handleSave = async (areaId: string, customDraft?: any) => {
         const draftKey = `${selectedDate}_${areaId}`;
-        const draft = drafts[draftKey] || {};
+        const draft = customDraft || drafts[draftKey] || {};
 
         // Find existing record ID locally or in draft
         let recordId = draft._id;
@@ -130,10 +131,11 @@ export const DispatchSummaryScreen = () => {
         }
 
         if (!recordId) {
-            Alert.alert('Error', 'Please submit attendance for this area first.');
+            // console.log('Skipping auto-save: No record ID found for area', areaId);
             return;
         }
 
+        setIsSaving(prev => ({ ...prev, [areaId]: true }));
         try {
             const body = {
                 totalDispatched: parseFloat(draft.totalDispatched || '0'),
@@ -142,10 +144,10 @@ export const DispatchSummaryScreen = () => {
                     quantity: calculateReturned(draft.returnedExpression || '')
                 }
             };
-            console.log('Saving dispatch:', body);
+            console.log('Auto-saving dispatch for area', areaId, ':', body);
 
             await apiService.put(`/attendance/${recordId}`, body);
-            Alert.alert('Success', 'Dispatch updated successfully!');
+            // Alert.alert('Success', 'Dispatch updated successfully!'); // Removed alert for auto-save
 
             // Refresh logic: Update attendanceRecords locally to reflect change
             setAttendanceRecords(prev => prev.map(r => {
@@ -156,10 +158,43 @@ export const DispatchSummaryScreen = () => {
             }));
 
         } catch (error) {
-            console.error('Error saving dispatch:', error);
-            Alert.alert('Error', 'Failed to save changes.');
+            console.error('Error auto-saving dispatch:', error);
+            // Alert.alert('Error', 'Failed to save changes.'); // Maybe a toast instead?
+        } finally {
+            setIsSaving(prev => ({ ...prev, [areaId]: false }));
         }
     };
+
+    // Auto-save debounced effect
+    useEffect(() => {
+        const timers: Record<string, any> = {};
+
+        // Check for modified areas that need saving
+        Object.keys(drafts).forEach(key => {
+            if (key.startsWith(selectedDate)) {
+                const areaId = key.split('_')[1];
+                const draft = drafts[key];
+
+                // If this draft belongs to our date and looks different from our records, queue a save
+                const record = attendanceRecords.find(r => r.areaId === areaId);
+                const hasChanges = record && (
+                    parseFloat(draft.totalDispatched || '0') !== record.totalDispatched ||
+                    (draft.returnedExpression || '') !== (record.returnedItems?.expression || '')
+                );
+
+                if (hasChanges) {
+                    if (timers[areaId]) clearTimeout(timers[areaId]);
+                    timers[areaId] = setTimeout(() => {
+                        handleSave(areaId, draft);
+                    }, 1000); // 1s debounce
+                }
+            }
+        });
+
+        return () => {
+            Object.values(timers).forEach(t => clearTimeout(t));
+        };
+    }, [drafts, selectedDate, attendanceRecords]);
 
     /* -----------------------------
        TRUE INTERNAL CALENDAR HEADER
@@ -253,9 +288,19 @@ export const DispatchSummaryScreen = () => {
                                     <Text style={styles.areaTitle}>
                                         {area.name}
                                     </Text>
-                                    <TouchableOpacity onPress={() => handleSave(area._id)}>
-                                        <Feather name="save" size={20} color={COLORS.primary} />
-                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        {isSaving[area._id] && (
+                                            <Text style={{ fontSize: 10, color: COLORS.primary, fontStyle: 'italic' }}>
+                                                Saving...
+                                            </Text>
+                                        )}
+                                        <Feather
+                                            name={isSaving[area._id] ? "refresh-cw" : "check-circle"}
+                                            size={16}
+                                            color={isSaving[area._id] ? COLORS.primary : "#4CAF50"}
+                                            style={{ opacity: isSaving[area._id] ? 0.6 : 1 }}
+                                        />
+                                    </View>
                                 </View>
 
                                 <View style={styles.row}>

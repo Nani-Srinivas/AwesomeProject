@@ -68,6 +68,7 @@ interface AttendanceState {
 
 export const AddAttendance = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
+
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export const AddAttendance = () => {
   const [isAttendanceSubmitted, setIsAttendanceSubmitted] = useState(false);
   const [attendanceRecordId, setAttendanceRecordId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(true); // Allow editing by default for new dates
+  const isReadOnly = !isEditing;
 
   // States for Reconciliation
   const [totalDispatched, setTotalDispatched] = useState<string>('');
@@ -790,7 +792,8 @@ export const AddAttendance = () => {
     const today = new Date().toISOString().split('T')[0];
 
     // Allow modification of past dates ONLY if we are in explicit Edit Mode for a record that was already started/submitted
-    if (selectedDate < today && !isEditing) {
+    // If it's a NEW record (not submitted), allow it (Backfilling scenario)
+    if (selectedDate < today && isAttendanceSubmitted && !isEditing) {
       setFeedbackMessage('Cannot modify attendance for past dates.');
       setFeedbackMessageType('error');
       setIsLoading(false);
@@ -877,9 +880,23 @@ export const AddAttendance = () => {
       console.error('Attendance submit error:', error);
 
       if (error.response?.status === 409) {
-        setFeedbackMessage(error.response.data.message || 'Attendance already exists for this date.');
+        Alert.alert(
+          'Attendance Exists',
+          'Attendance for this date and area already exists. Would you like to load it?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Load',
+              onPress: () => {
+                // Trigger reload
+                processAndSetCustomers([]); // Clear current
+                fetchCustomers(selectedArea); // Re-fetch
+              }
+            }
+          ]
+        );
+        setFeedbackMessage('Attendance already exists. Please load the existing record.');
         setFeedbackMessageType('error');
-        setCustomers(prev => prev.map(c => ({ ...c, submitted: true })));
       } else {
         setFeedbackMessage(
           error.response?.data?.message ||
@@ -959,10 +976,16 @@ export const AddAttendance = () => {
         <View style={[styles.topInputGroup, { flex: 1 }]}>
           <Text style={styles.topLabel}>Given</Text>
           <TextInput
-            style={[styles.topInput, { backgroundColor: '#f0f0f0', color: '#666' }]}
+            style={[styles.topInput, isReadOnly && { backgroundColor: '#f0f0f0', color: '#666' }]}
             value={totalDispatched}
-            // onChangeText={setTotalDispatched} // Read-only from Store
-            editable={false}
+            onChangeText={(text) => {
+              setTotalDispatched(text);
+              setDraft(selectedDate, selectedArea, {
+                totalDispatched: text,
+                returnedExpression: returnedExpression
+              });
+            }}
+            editable={!isReadOnly}
             placeholder="0"
             placeholderTextColor="#999"
           />
@@ -970,10 +993,16 @@ export const AddAttendance = () => {
         <View style={[styles.topInputGroup, { flex: 1 }]}>
           <Text style={styles.topLabel}>Adj (+/-)</Text>
           <TextInput
-            style={[styles.topInput, { backgroundColor: '#f0f0f0', color: '#666' }]}
+            style={[styles.topInput, isReadOnly && { backgroundColor: '#f0f0f0', color: '#666' }]}
             value={returnedExpression}
-            // onChangeText={setReturnedExpression} // Read-only from Store
-            editable={false}
+            onChangeText={(text) => {
+              setReturnedExpression(text);
+              setDraft(selectedDate, selectedArea, {
+                totalDispatched: totalDispatched,
+                returnedExpression: text
+              });
+            }}
+            editable={!isReadOnly}
             placeholder="e.g. +3 or -5"
             placeholderTextColor="#999"
           />
