@@ -7,6 +7,15 @@ import StoreProduct from '../../models/Product/StoreProduct.js';
 import { AttendanceLog } from '../../models/AttendanceLog.js';
 import Store from '../../models/Store/Store.js';
 
+// Helper to get storeId securely from JWT token
+const getStoreId = async (req) => {
+  if (req.user?.storeId) return req.user.storeId;
+  const ownerId = req.user?.id;
+  if (!ownerId) return null;
+  const store = await Store.findOne({ ownerId });
+  return store?._id;
+};
+
 export const getBulkUploadForm = async (req, reply) => {
     const html = `
     <!DOCTYPE html>
@@ -77,10 +86,15 @@ export const bulkUpload = async (req, reply) => {
         });
 
         // --- 1. Fetch Common Data Helpers ---
-        // Fetch default store context first
-        const defaultStore = await Store.findOne({ status: 'active' }).lean();
+        // Fetch dynamic store context logically derived from the logged-in user
+        const storeId = await getStoreId(req);
+        if (!storeId) {
+            return reply.code(401).send({ message: "Store Manager authentication required." });
+        }
+
+        const defaultStore = await Store.findOne({ _id: storeId, status: 'active' }).lean();
         if (!defaultStore) {
-            throw new Error("No active store found.");
+            throw new Error(`Active store ID ${storeId} not found.`);
         }
 
         // Fetch Areas ONLY for this store to prevent duplicates
@@ -202,7 +216,15 @@ export const bulkUpload = async (req, reply) => {
                 const productId = product._id;
 
                 // --- C. Handle Customer ---
-                let customer = await Customer.findOne({ phone: Phone });
+                
+                // Determine if we should subscribe the customer permanently
+                const parsedDefaultQty = parseFloat(DefaultQuantity);
+                const shouldSubscribe = !isNaN(parsedDefaultQty) && parsedDefaultQty > 0;
+                const requiredProductEntry = shouldSubscribe ? [{ product: productId, quantity: parsedDefaultQty }] : [];
+
+                // Scope customer lookup STRICTLY to the current store only.
+                // We must NOT match customers from other stores, even if the phone number is the same.
+                let customer = await Customer.findOne({ phone: Phone, store: defaultStore._id });
                 if (!customer) {
                     if (index === 0) console.log(`[BulkUpload] Row 1: Creating New Customer for Phone ${Phone}`);
                     // Create New Customer
@@ -215,10 +237,7 @@ export const bulkUpload = async (req, reply) => {
                             Apartment: Apartment,
                             FlatNo: FlatNo,
                         },
-                        requiredProduct: [{
-                            product: productId,
-                            quantity: parseFloat(DefaultQuantity) || 1
-                        }],
+                        requiredProduct: requiredProductEntry,
                         deliveryCost: parseFloat(DeliveryCost) || 0,
                         roles: ['Customer'],
                         isSubscribed: true,
@@ -237,15 +256,17 @@ export const bulkUpload = async (req, reply) => {
                         updated = true;
                     }
 
-                    // 2. Add Product if missing
-                    const existingProdIndex = customer.requiredProduct.findIndex(p => String(p.product) === String(productId));
-                    if (existingProdIndex === -1) {
-                        customer.requiredProduct.push({
-                            product: productId,
-                            quantity: parseFloat(DefaultQuantity) || 1
-                        });
-                        updated = true;
-                        logs.push(`Added product ${ProductName} to Customer ${CustomerName}`);
+                    // 2. Add Product if missing AND requested via > 0 default quantity
+                    if (shouldSubscribe) {
+                        const existingProdIndex = customer.requiredProduct.findIndex(p => String(p.product) === String(productId));
+                        if (existingProdIndex === -1) {
+                            customer.requiredProduct.push({
+                                product: productId,
+                                quantity: parsedDefaultQty
+                            });
+                            updated = true;
+                            logs.push(`Added product ${ProductName} to Customer ${CustomerName}`);
+                        }
                     }
 
                     // 3. Update Delivery Cost if zero (optional decision, assume CSV might have better info)

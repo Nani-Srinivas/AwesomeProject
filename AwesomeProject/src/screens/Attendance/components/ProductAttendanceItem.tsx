@@ -6,11 +6,11 @@ import { COLORS } from '../../../constants/colors';
 const statusConfig = {
   delivered: { label: 'Delivered', color: COLORS.success },
   not_delivered: { label: 'Not Delivered', color: COLORS.grey },
-  // skipped: { label: 'Skipped', color: COLORS.warning },
+  skipped: { label: 'Skipped', color: COLORS.warning },
   // out_of_stock: { label: 'Out of Stock', color: COLORS.error },
 };
 
-const statusCycle = ['delivered', 'not_delivered'];
+const statusCycle = ['delivered', 'not_delivered', 'skipped'];
 
 export const ProductAttendanceItem = ({ product, status, onStatusChange, onQuantityChange, onDelete, isDisabled }) => {
   if (!product || !product.product) {

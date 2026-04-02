@@ -122,3 +122,80 @@ export const cleanupAreaContent = async (req, reply) => {
         });
     }
 };
+
+/**
+ * PATCH /admin/cleanup/fix-duplicate-products/:areaId
+ * Scans all customers in the given area and removes duplicate requiredProduct entries.
+ * A duplicate is identified when the same product ObjectId appears more than once.
+ * The FIRST occurrence (lowest index) is always kept.
+ * Use this to fix customers corrupted by a previous cross-store bulk upload bug.
+ */
+export const fixDuplicateProducts = async (req, reply) => {
+    try {
+        const { areaId } = req.params;
+
+        if (!areaId) {
+            return reply.code(400).send({ message: 'Area ID is required' });
+        }
+
+        const area = await Area.findById(areaId);
+        if (!area) {
+            return reply.code(404).send({ message: `Area with ID "${areaId}" not found` });
+        }
+
+        console.log(`[FixDuplicates] Scanning customers in area: "${area.name}" (${area._id})`);
+
+        // Find all customers in this area
+        const customers = await Customer.find({ area: areaId });
+        console.log(`[FixDuplicates] Found ${customers.length} customers to scan`);
+
+        const summary = [];
+        let totalDuplicatesRemoved = 0;
+
+        for (const customer of customers) {
+            const seenProductIds = new Set();
+            const originalCount = customer.requiredProduct.length;
+
+            // Keep only the first occurrence of each unique product ID
+            customer.requiredProduct = customer.requiredProduct.filter(p => {
+                const pid = String(p.product);
+                if (seenProductIds.has(pid)) {
+                    return false; // duplicate — remove it
+                }
+                seenProductIds.add(pid);
+                return true;
+            });
+
+            const removedCount = originalCount - customer.requiredProduct.length;
+
+            if (removedCount > 0) {
+                await customer.save();
+                totalDuplicatesRemoved += removedCount;
+                console.log(`[FixDuplicates] Customer "${customer.name}" (${customer._id}): removed ${removedCount} duplicate(s)`);
+                summary.push({
+                    customerId: customer._id,
+                    customerName: customer.name,
+                    phone: customer.phone,
+                    duplicatesRemoved: removedCount,
+                    remainingProducts: customer.requiredProduct.length
+                });
+            }
+        }
+
+        return reply.code(200).send({
+            message: `Duplicate product cleanup complete for area "${area.name}"`,
+            totalCustomersScanned: customers.length,
+            totalCustomersFixed: summary.length,
+            totalDuplicatesRemoved,
+            details: summary
+        });
+
+    } catch (error) {
+        console.error('[FixDuplicates] Error:', error);
+        return reply.code(500).send({
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+

@@ -21,7 +21,7 @@ import {
 } from "../controllers/Admin/BrandController.js";
 import { bulkUpload, getBulkUploadForm } from "../controllers/Admin/BulkUploadController.js";
 import { checkAttendanceLogs } from "../controllers/Admin/DebugController.js";
-import { cleanupArea, cleanupAreaContent } from "../controllers/Admin/CleanupController.js";
+import { cleanupArea, cleanupAreaContent, fixDuplicateProducts } from "../controllers/Admin/CleanupController.js";
 
 export const adminRoutes = async (fastify, options) => {
   // Add custom parser specifically for this route context to avoid AdminJS conflicts
@@ -170,7 +170,7 @@ export const adminRoutes = async (fastify, options) => {
   fastify.post(
     "/admin/bulk-upload",
     {
-      // preHandler: [verifyToken], // Uncomment if you want auth
+      preHandler: [verifyToken], // Ensure auth is enforced
     },
     bulkUpload
   );
@@ -187,4 +187,9 @@ export const adminRoutes = async (fastify, options) => {
   fastify.delete('/admin/cleanup/area-content/:areaId', {
     preHandler: [verifyToken],
   }, cleanupAreaContent);
+
+  // FIX DUPLICATE PRODUCTS - Deduplicates requiredProduct entries for all customers in an area
+  fastify.patch('/admin/cleanup/fix-duplicate-products/:areaId', {
+    preHandler: [verifyToken],
+  }, fixDuplicateProducts);
 };
