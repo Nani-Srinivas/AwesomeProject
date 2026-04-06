@@ -46,6 +46,7 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
     const [productName, setProductName] = useState('');
     const [description, setDescription] = useState('');
     const [costPrice, setCostPrice] = useState('');
+    const [commission, setCommission] = useState('');
     const [sellingPrice, setSellingPrice] = useState('');
     const [stock, setStock] = useState('');
     const [status, setStatus] = useState<'active' | 'inactive' | 'out_of_stock'>('active');
@@ -96,6 +97,7 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
         setProductName('');
         setDescription('');
         setCostPrice('');
+        setCommission('');
         setSellingPrice('');
         setStock('');
         setStatus('active');
@@ -218,6 +220,7 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                 name: productName.trim(),
                 description: description.trim() || undefined,
                 costPrice: parseFloat(costPrice),
+                commission: commission ? parseFloat(commission) : 0,
                 sellingPrice: parseFloat(sellingPrice),
                 stock: stock ? parseInt(stock, 10) : 0,
                 status,
@@ -306,6 +309,16 @@ export const AddProductBottomSheet: React.FC<AddProductBottomSheetProps> = ({
                                 />
                             </View>
                         </View>
+                        
+                        <Text style={styles.label}>Deferred Commission (Optional)</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={commission}
+                            onChangeText={setCommission}
+                            placeholder="0.00"
+                            keyboardType="decimal-pad"
+                            placeholderTextColor={COLORS.gray}
+                        />
 
                         <View style={styles.row}>
                             <View style={styles.halfWidth}>

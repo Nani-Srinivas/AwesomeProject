@@ -26,6 +26,7 @@ interface PricingItem {
     name: string;
     basePrice: number;
     costPrice: string;
+    commission: string;
     sellingPrice: string;
 }
 
@@ -58,6 +59,7 @@ export const PricingConfigScreen = ({ route, navigation }: PricingConfigScreenPr
                 name: p.name,
                 basePrice: p.basePrice || 0,
                 costPrice: '', // User must enter
+                commission: p.commission?.toString() || '',
                 sellingPrice: (p.basePrice || 0).toString(), // Default to base price
             }));
 
@@ -70,7 +72,7 @@ export const PricingConfigScreen = ({ route, navigation }: PricingConfigScreenPr
         }
     };
 
-    const updatePrice = (index: number, field: 'costPrice' | 'sellingPrice', value: string) => {
+    const updatePrice = (index: number, field: 'costPrice' | 'sellingPrice' | 'commission', value: string) => {
         const newItems = [...pricingItems];
         newItems[index] = { ...newItems[index], [field]: value };
         setPricingItems(newItems);
@@ -93,6 +95,7 @@ export const PricingConfigScreen = ({ route, navigation }: PricingConfigScreenPr
             const productsWithPricing = pricingItems.map(item => ({
                 masterProductId: item.productId,
                 costPrice: parseFloat(item.costPrice),
+                commission: item.commission ? parseFloat(item.commission) : 0,
                 sellingPrice: parseFloat(item.sellingPrice),
             }));
 
@@ -157,6 +160,16 @@ export const PricingConfigScreen = ({ route, navigation }: PricingConfigScreenPr
                                     onChangeText={(text) => updatePrice(index, 'costPrice', text)}
                                     keyboardType="numeric"
                                     placeholder="0.00"
+                                />
+                            </View>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Commission (₹)</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={item.commission}
+                                    onChangeText={(text) => updatePrice(index, 'commission', text)}
+                                    keyboardType="numeric"
+                                    placeholder="0"
                                 />
                             </View>
                             <View style={styles.inputGroup}>

@@ -24,9 +24,10 @@ export const listDailyFinancial = async (req, reply) => {
         acc.totalPayable += doc.totalPayable || 0;
         acc.totalProfit += doc.totalProfit || 0;
         acc.totalQuantity += doc.totalQuantity || 0;
+        acc.totalCommission += doc.totalCommission || 0;
         return acc;
       },
-      { totalPayable: 0, totalProfit: 0, totalQuantity: 0 }
+      { totalPayable: 0, totalProfit: 0, totalQuantity: 0, totalCommission: 0 }
     );
 
     return reply.send({
@@ -55,7 +56,8 @@ export const getMonthSummary = async (req, reply) => {
           _id: '$category',
           totalQty:     { $sum: '$totalQuantity' },
           totalPayable: { $sum: '$totalPayable' },
-          totalProfit:  { $sum: '$totalProfit' }
+          totalProfit:  { $sum: '$totalProfit' },
+          totalCommission: { $sum: '$totalCommission' }
       }},
       { $lookup: {
           from: 'categories',
@@ -68,7 +70,7 @@ export const getMonthSummary = async (req, reply) => {
           _id: 0,
           categoryId: '$_id',
           categoryName: '$category.name',
-          totalQty: 1, totalPayable:1, totalProfit:1
+          totalQty: 1, totalPayable:1, totalProfit:1, totalCommission:1
       }}
     ]);
     return reply.send(summary);

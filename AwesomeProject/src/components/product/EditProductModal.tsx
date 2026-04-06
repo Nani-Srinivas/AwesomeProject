@@ -15,6 +15,7 @@ const { height } = Dimensions.get('window');
 export const EditProductModal = ({ isVisible, onClose, product, onSave }: EditProductModalProps) => {
   const [name, setName] = useState('');
   const [costPrice, setCostPrice] = useState('');
+  const [commission, setCommission] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
   const slideAnim = useRef(new Animated.Value(height)).current;
 
@@ -22,6 +23,7 @@ export const EditProductModal = ({ isVisible, onClose, product, onSave }: EditPr
     if (isVisible && product) {
       setName(product.name);
       setCostPrice(product.costPrice?.toString() || '');
+      setCommission(product.commission?.toString() || '');
       setSellingPrice(product.sellingPrice?.toString() || '');
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -37,6 +39,7 @@ export const EditProductModal = ({ isVisible, onClose, product, onSave }: EditPr
         // Reset fields after animation
         setName('');
         setCostPrice('');
+        setCommission('');
         setSellingPrice('');
       });
     }
@@ -56,6 +59,7 @@ export const EditProductModal = ({ isVisible, onClose, product, onSave }: EditPr
         ...product,
         name,
         costPrice: costPriceNum,
+        commission: commission ? parseFloat(commission) : 0,
         sellingPrice: sellingPriceNum,
       });
     }
@@ -86,6 +90,14 @@ export const EditProductModal = ({ isVisible, onClose, product, onSave }: EditPr
                   placeholder="Cost Price (₹)"
                   value={costPrice}
                   onChangeText={setCostPrice}
+                  keyboardType="numeric"
+                  placeholderTextColor={COLORS.text}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Deferred Commission (₹, optional)"
+                  value={commission}
+                  onChangeText={setCommission}
                   keyboardType="numeric"
                   placeholderTextColor={COLORS.text}
                 />

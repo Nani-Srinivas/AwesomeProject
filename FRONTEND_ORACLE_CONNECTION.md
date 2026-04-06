@@ -71,10 +71,10 @@ Your Oracle instance needs to allow incoming traffic on port 3000:
 
 ```env
 # Local Development
-# API_URL=http://192.168.1.100:8000
+API_URL=http://192.168.1.5:3000/api
 
 # Production - Oracle Cloud
-API_URL=http://132.145.XXX.XXX:3000
+# API_URL=http://132.145.XXX.XXX:3000
 
 # Replace XXX.XXX with your actual Oracle instance IP
 ```

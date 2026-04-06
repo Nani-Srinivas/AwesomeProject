@@ -1948,6 +1948,13 @@ interface InvoiceData {
   billNo: string;
   fromDate: string;
   toDate: string;
+  billingSummary?: Array<{
+    days: number;
+    label: string;
+    price: number;
+    total: number;
+    type: 'default' | 'extra' | 'deduction';
+  }>;
   company: {
     name: string;
     address: string;
@@ -1997,27 +2004,42 @@ export const InvoiceScreen = () => {
     }
   }, [customerId, period]);
 
+  const money = (val: any) => {
+    return `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const generateHTML = (data: InvoiceData): string => {
+    const summaryHTML = (data.billingSummary || [])
+      .map(s => {
+        const dayLabel = s.days < 0 ? `- ${Math.abs(s.days)} day(s)` : `${s.days} day(s)`;
+        return `
+          <tr>
+            <td style="padding:8px;border:1px solid #ddd">${dayLabel}</td>
+            <td style="padding:8px;border:1px solid #ddd">${s.label} @ ${money(s.price)}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;${s.total < 0 ? 'color:#c00;' : ''}">${s.total < 0 ? '-' : ''}${money(Math.abs(s.total))}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const summaryTotal = (data.billingSummary || []).reduce((sum, s) => sum + s.total, 0);
+
     const productsHTML = data.items.map(item => {
       const productsDetails = item.products.map(product => `
-        <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0;">
-          <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${product.name}</div>
-          <div style="font-size: 12px; color: #666;">
-            ${product.quantity} qty × ₹${product.price.toFixed(2)} = ₹${product.itemTotal.toFixed(2)}
-          </div>
+        <div style="margin-bottom: 4px; color: #333;">
+          ${product.name} (${product.quantity} × ${money(product.price)})
         </div>
       `).join('');
 
       return `
         <tr>
-          <td style="border: 1px solid #ddd; padding: 12px; text-align: center; vertical-align: top;">
-            ${item.date}
+          <td style="border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: top;">
+            ${new Date(item.date).toLocaleDateString('en-IN')}
           </td>
-          <td style="border: 1px solid #ddd; padding: 12px;">
+          <td style="border: 1px solid #ddd; padding: 10px;">
             ${productsDetails}
           </td>
-          <td style="border: 1px solid #ddd; padding: 12px; text-align: center; vertical-align: top; font-weight: 600;">
-            ₹${item.total}
+          <td style="border: 1px solid #ddd; padding: 10px; text-align: right; vertical-align: top; font-weight: 600;">
+            ${money(item.total)}
           </td>
         </tr>
       `;
@@ -2028,121 +2050,77 @@ export const InvoiceScreen = () => {
       <html>
         <head>
           <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              font-family: Arial, sans-serif;
-              padding: 20px;
-              background: white;
-            }
-            .invoice-container {
-              max-width: 800px;
-              margin: 0 auto;
-            }
-            .header {
-              text-align: right;
-              margin-bottom: 20px;
-            }
-            .header h1 {
-              font-size: 24px;
-              margin-bottom: 8px;
-            }
-            .header p {
-              font-size: 14px;
-              margin: 4px 0;
-            }
-            .info-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 20px;
-            }
-            .info-box {
-              flex: 1;
-            }
-            .info-box h3 {
-              font-size: 16px;
-              margin-bottom: 8px;
-            }
-            .info-box p {
-              font-size: 14px;
-              margin: 4px 0;
-            }
-            .label {
-              font-weight: 600;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            th {
-              background-color: #333;
-              color: white;
-              padding: 12px;
-              text-align: center;
-              font-weight: 700;
-            }
-            .summary {
-              text-align: right;
-              margin-top: 20px;
-            }
-            .summary p {
-              font-size: 14px;
-              margin: 8px 0;
-            }
-            .summary .total {
-              font-size: 18px;
-              font-weight: 700;
-              margin-top: 12px;
-            }
+            body { font-family: Arial, sans-serif; padding: 20px; color: #222; line-height: 1.4; }
+            .invoice { max-width: 800px; margin: 0 auto; }
+            .header { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+            .company { font-size: 18px; font-weight: 700; color: #333; }
+            .section-title { font-size: 16px; font-weight: 700; margin: 20px 0 10px 0; color: #444; border-left: 4px solid #333; padding-left: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background: #f8f8f8; font-weight: 700; }
+            .totals { margin-top: 15px; text-align: right; border-top: 2px solid #eee; padding-top: 10px; }
+            .grand-total { font-size: 18px; font-weight: 700; color: #000; margin-top: 5px; }
           </style>
         </head>
         <body>
-          <div class="invoice-container">
-            <!-- Header -->
+          <div class="invoice">
             <div class="header">
-              <h1>Bill</h1>
-              <p>Bill #: ${data.billNo}</p>
-              <p>Dates #: ${data.fromDate} to ${data.toDate}</p>
-            </div>
-
-            <!-- Company and Customer Info -->
-            <div class="info-row">
-              <div class="info-box">
-                <h3>${data.company.name}</h3>
-                <p>${data.company.address}</p>
-                <p>P: ${data.company.phone}</p>
+              <div>
+                <div class="company">${data.company.name}</div>
+                <div style="font-size:12px;">${data.company.address}</div>
+                <div style="font-size:12px;">Phone: ${data.company.phone}</div>
               </div>
-              <div class="info-box">
-                <p><span class="label">Bill to #:</span> ${data.customer.name}</p>
-                <p><span class="label">Address #:</span> ${data.customer.address}</p>
-                <p><span class="label">Phone #:</span> ${data.customer.phone}</p>
+              <div style="text-align:right">
+                <div style="font-weight:700; font-size:14px;">Bill#: ${data.billNo}</div>
+                <div style="font-size:12px; color:#666;">Period: ${new Date(data.fromDate).toLocaleDateString('en-IN')} → ${new Date(data.toDate).toLocaleDateString('en-IN')}</div>
               </div>
             </div>
 
-            <!-- Table -->
+            <div style="margin-bottom:20px;">
+              <div style="font-weight:700; color:#555; margin-bottom:4px; font-size:12px;">Bill To:</div>
+              <div style="font-size:14px; font-weight:700;">${data.customer.name}</div>
+              <div style="font-size:12px;">${data.customer.address}</div>
+              <div style="font-size:12px;">Phone: ${data.customer.phone}</div>
+            </div>
+
+            ${summaryHTML ? `
+              <div class="section-title">Billing Summary</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:120px;">Days</th>
+                    <th>Product @ Price</th>
+                    <th style="text-align:right;width:120px;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${summaryHTML}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="2" style="text-align:right;font-weight:700;border:1px solid #ddd;padding:8px;background:#f8f8f8;">Subtotal</td>
+                    <td style="text-align:right;font-weight:700;border:1px solid #ddd;padding:8px;background:#f8f8f8;">${money(summaryTotal)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            ` : ''}
+
+            <div class="section-title">Day-wise Delivery Details</div>
             <table>
               <thead>
                 <tr>
-                  <th style="width: 20%;">Date</th>
-                  <th style="width: 55%;">Products</th>
-                  <th style="width: 25%;">Total</th>
+                  <th style="width:100px;">Date</th>
+                  <th>Delivered Products</th>
+                  <th style="text-align:right; width:100px;">Total</th>
                 </tr>
               </thead>
-              <tbody>
-                ${productsHTML}
-              </tbody>
+              <tbody>${productsHTML}</tbody>
             </table>
 
-            <!-- Summary -->
-            <div class="summary">
-              <p>Delivery Charges: ₹${data.deliveryCharges}</p>
-              <p class="total">Grand Total: ₹${data.grandTotal}</p>
+            <div class="totals">
+              <div style="color:#666; font-size:13px;">Delivery Charges: ${money(data.deliveryCharges)}</div>
+              <div class="grand-total">Grand Total: ${money(data.grandTotal)}</div>
             </div>
           </div>
         </body>

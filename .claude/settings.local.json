@@ -1,0 +1,14 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+    "ANTHROPIC_AUTH_TOKEN": "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",
+    "ANTHROPIC_API_KEY": "",
+    "ANTHROPIC_MODEL": "qwen/qwen3.6-plus:free"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(node -c AwesomeServer/src/controllers/invoiceController.js)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

@@ -17,7 +17,11 @@ const StoreProductSchema = new Schema({
     required: true,
   },
   description: String,
-  description: String,
+  commission: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
   costPrice: {
     type: Number,
     min: 0,

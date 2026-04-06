@@ -14,6 +14,7 @@ const dailyFinancialSchema = new mongoose.Schema({
     totalQuantity: { type: Number, required: true },   // Σ qty received
     totalPayable: { type: Number, required: true },   // Σ costPrice × qty
     totalProfit: { type: Number, required: true },   // Σ (sellingPrice – costPrice) × qty
+    totalCommission: { type: Number, default: 0 },
     stockEntry: { type: Schema.Types.ObjectId, ref: 'Stock' },
     createdAt: { type: Date, default: Date.now }
 });

@@ -1,5 +1,13 @@
 // Invoice-related TypeScript interfaces
 
+export interface BillingSummaryRow {
+  days: number;
+  label: string;
+  price: number;
+  total: number;
+  type: 'default' | 'extra' | 'deduction';
+}
+
 export interface Invoice {
   id: string;
   billNo: string;

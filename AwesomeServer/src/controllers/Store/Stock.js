@@ -66,17 +66,18 @@ export const addStock = async (req, reply) => {
 
       const catId = sp.masterProductId.category._id.toString();
       console.log("catId", catId)
-      const cp = sp.costPrice, spx = sp.sellingPrice;
-      console.log("cp", cp, "spx", spx)
+      const cp = sp.costPrice, spx = sp.sellingPrice, commission = sp.commission || 0;
+      console.log("cp", cp, "spx", spx, "commission", commission)
 
       if (!byCat[catId]) {
-        byCat[catId] = { totalQuantity: 0, totalPayable: 0, totalProfit: 0 };
+        byCat[catId] = { totalQuantity: 0, totalPayable: 0, totalProfit: 0, totalCommission: 0 };
         console.log("byCat", byCat)
       }
 
       byCat[catId].totalQuantity += quantity;
       byCat[catId].totalPayable += cp * quantity;
-      byCat[catId].totalProfit += (spx - cp) * quantity;
+      byCat[catId].totalProfit += ((spx - cp) * quantity) + (commission * quantity);
+      byCat[catId].totalCommission += (commission * quantity);
     });
 
     // 4) upsert DailyFinancial per category
@@ -88,6 +89,7 @@ export const addStock = async (req, reply) => {
             totalQuantity: sums.totalQuantity,
             totalPayable: sums.totalPayable,
             totalProfit: sums.totalProfit,
+            totalCommission: sums.totalCommission,
             stockEntry: stock._id,
             storeId // Ensure storeId is saved
           }

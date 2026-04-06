@@ -23,6 +23,7 @@ export interface Product {
   description: string;
   price: number; // Deprecated, kept for backwards compatibility
   costPrice: number;
+  commission?: number;
   sellingPrice: number;
   stock: number;
   status: 'active' | 'inactive' | 'out_of_stock';

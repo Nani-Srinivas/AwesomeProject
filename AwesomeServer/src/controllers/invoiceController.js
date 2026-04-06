@@ -1612,6 +1612,97 @@ export const generateInvoice = async (request, reply) => {
     }
 
     const deliveryCharges = parseFloat(customer.deliveryCost || 0);
+    
+    // ------------------------------
+    // 📊 Billing Summary – unified day-wise rows
+    // ------------------------------
+    const subscriptionProducts = customer.requiredProduct?.filter(rp => rp.quantity > 0) || [];
+    
+    // Fix day calculation: endDate is already end of day (23:59:59), use floor to get the correct number of days.
+    // (endDate - startDate) = 30 days, 23:59:59. Math.floor results in 30. 30 + 1 = 31.
+    const totalDaysInPeriod = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Aggregate actual delivered quantity per product across all dates
+    const productTotals = new Map();
+    for (const dateItem of invoiceItems) {
+      for (const prod of dateItem.products) {
+        const current = productTotals.get(prod.name) || 0;
+        productTotals.set(prod.name, current + prod.quantity);
+      }
+    }
+
+    const billingSummary = [];
+
+    // 1) Subscription products
+    for (const sub of subscriptionProducts) {
+      const pId = String(sub.product);
+      const productInfo = productMap.get(pId);
+      const productName = productInfo ? productInfo.name : "Default Product";
+      const unitPrice = sub.specialPrice != null ? sub.specialPrice : (productInfo ? productInfo.sellingPrice : 0);
+      const defaultQty = sub.quantity || 0;
+      
+      const totalExpectedQty = defaultQty * totalDaysInPeriod;
+      const actualDeliveredQty = productTotals.get(productName) || 0;
+      
+      // per-day price = unitPrice * defaultQty
+      const perDayPrice = unitPrice * defaultQty;
+
+      // Base Monthly Entry
+      billingSummary.push({
+        days: totalDaysInPeriod,
+        label: `${productName} (Base: ${defaultQty}L/day)`,
+        price: perDayPrice,
+        total: totalExpectedQty * unitPrice,
+        type: "base"
+      });
+
+      // Adjustments (based on quantity difference)
+      const qtyDiff = actualDeliveredQty - totalExpectedQty;
+      if (Math.abs(qtyDiff) > 0.001) { // Floating point safety
+        if (qtyDiff > 0) {
+          // Addition
+          billingSummary.push({
+            days: 0,
+            label: `Additions: Extra ${qtyDiff.toFixed(2)}L delivered`,
+            price: unitPrice,
+            total: qtyDiff * unitPrice,
+            type: "addition"
+          });
+        } else {
+          // Deduction
+          billingSummary.push({
+            days: 0,
+            label: `Deductions: ${Math.abs(qtyDiff).toFixed(2)}L not delivered/skipped`,
+            price: unitPrice,
+            total: qtyDiff * unitPrice, // Will be negative
+            type: "deduction"
+          });
+        }
+      }
+    }
+
+    // 2) Non-subscription products that were delivered (not in requiredProduct)
+    for (const [name, actualQty] of productTotals.entries()) {
+      const isSubscribed = subscriptionProducts.some(s => {
+        const pInfo = productMap.get(String(s.product));
+        return pInfo && pInfo.name === name;
+      });
+      if (!isSubscribed && actualQty > 0) {
+        // Find price from first occurrence in invoice items
+        const firstOccurrence = invoiceItems.find(ii => ii.products.some(p => p.name === name))
+                                  ?.products.find(p => p.name === name);
+        const unitPrice = firstOccurrence ? firstOccurrence.price : 0;
+        
+        billingSummary.push({
+          days: 0,
+          label: `${name} (Total Qty: ${actualQty.toFixed(2)})`,
+          price: unitPrice,
+          total: actualQty * unitPrice,
+          type: "extra"
+        });
+      }
+    }
+
     const grandTotal = totalItemsAmount + deliveryCharges;
 
     const invoiceData = {
@@ -1619,6 +1710,7 @@ export const generateInvoice = async (request, reply) => {
       period: normalizedPeriod,
       fromDate: startDate,
       toDate: endDate,
+      billingSummary, // New field for the summary section
       company: {
         name: process.env.COMPANY_NAME || "Your Company",
         address: process.env.COMPANY_ADDRESS || "Company address",
@@ -1941,6 +2033,21 @@ function money(val) {
 }
 
 function buildHtmlFromInvoiceData(data) {
+  const summaryHTML = (data.billingSummary || [])
+    .map(s => {
+      const dayLabel = s.days === 0 ? "—" : `${s.days} day(s)`;
+      const priceLabel = s.days === 0 ? `${money(s.price)}/L` : `${money(s.price)}/day`;
+      return `
+        <tr>
+          <td style="padding:8px;border:1px solid #ddd;text-align:center;">${escapeHtml(dayLabel)}</td>
+          <td style="padding:8px;border:1px solid #ddd">${escapeHtml(s.label)} @ ${priceLabel}</td>
+          <td style="padding:8px;border:1px solid #ddd;text-align:right;${s.total < 0 ? "color:#c00;" : ""}">${s.total < 0 ? "-" : ""}${money(Math.abs(s.total))}</td>
+        </tr>`;
+    })
+    .join("");
+
+  const summaryTotal = (data.billingSummary || []).reduce((sum, s) => sum + s.total, 0);
+
   const productsHTML = data.items
     .map(i => `
       <tr>
@@ -1950,21 +2057,23 @@ function buildHtmlFromInvoiceData(data) {
         .map(p => `${escapeHtml(p.name)} (${p.quantity} × ${money(p.price)})`)
         .join("<br/>")}
         </td>
-        <td style="vertical-align:top;padding:8px;border:1px solid #ddd">${money(i.total)}</td>
+        <td style="vertical-align:top;padding:8px;border:1px solid #ddd;text-align:right">${money(i.total)}</td>
       </tr>`)
     .join("");
 
   return `<!DOCTYPE html>
   <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
   <style>
-    body{font-family:Arial,Helvetica,sans-serif;color:#222;padding:20px;}
+    body{font-family:Arial,Helvetica,sans-serif;color:#222;padding:20px;line-height:1.4;}
     .invoice{max-width:800px;margin:0 auto;}
-    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
-    .company{font-weight:700}
-    table{width:100%;border-collapse:collapse;margin-top:12px;}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:2px solid #eee;padding-bottom:10px;}
+    .company{font-size:18px;font-weight:700;color:#333;}
+    .section-title{font-size:16px;font-weight:700;margin:20px 0 10px 0;color:#444;border-left:4px solid #333;padding-left:8px;}
+    table{width:100%;border-collapse:collapse;margin-top:5px;font-size:13px;}
     th,td{border:1px solid #ddd;padding:8px;text-align:left;}
-    th{background:#f2f2f2;}
-    .totals{margin-top:12px;text-align:right;}
+    th{background:#f8f8f8;font-weight:700;}
+    .totals{margin-top:15px;text-align:right;border-top:2px solid #eee;padding-top:10px;}
+    .grand-total{font-size:18px;font-weight:700;color:#000;margin-top:5px;}
   </style></head><body>
   <div class="invoice">
     <div class="header">
@@ -1974,27 +2083,62 @@ function buildHtmlFromInvoiceData(data) {
         <div>Phone: ${escapeHtml(data.company.phone)}</div>
       </div>
       <div style="text-align:right">
-        ${data.company.logo ? `<img src="${escapeHtml(data.company.logo)}" alt="logo" style="max-height:80px" />` : ""}
-        <div>Bill#: ${escapeHtml(data.billNo)}</div>
-        <div>Period: ${escapeHtml(data.fromDate)} → ${escapeHtml(data.toDate)}</div>
+        ${data.company.logo ? `<img src="${escapeHtml(data.company.logo)}" alt="logo" style="max-height:60px" />` : ""}
+        <div style="font-weight:700;font-size:14px;margin-top:5px;">Bill#: ${escapeHtml(data.billNo)}</div>
+        <div style="color:#666;">Period: ${new Date(data.fromDate).toLocaleDateString('en-IN')} → ${new Date(data.toDate).toLocaleDateString('en-IN')}</div>
       </div>
     </div>
 
-    <div>
-      <strong>Bill To:</strong> ${escapeHtml(data.customer.name)} <br/>
-      <strong>Address:</strong> ${escapeHtml(data.customer.address)} <br/>
-      <strong>Phone:</strong> ${escapeHtml(data.customer.phone)}
+    <div style="margin-bottom:20px;">
+      <div style="font-weight:700;color:#555;margin-bottom:4px;">Bill To:</div>
+      <div style="font-size:15px;font-weight:700;">${escapeHtml(data.customer.name)}</div>
+      <div>${escapeHtml(data.customer.address)}</div>
+      <div>Phone: ${escapeHtml(data.customer.phone)}</div>
     </div>
 
+    ${summaryHTML ? `
+    <div class="section-title">Billing Summary</div>
     <table>
-      <thead><tr><th>Date</th><th>Products</th><th>Total</th></tr></thead>
+      <thead>
+        <tr>
+          <th style="width:120px;">Days</th>
+          <th>Product @ Price</th>
+          <th style="text-align:right;width:120px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${summaryHTML}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" style="text-align:right;font-weight:700;border:1px solid #ddd;padding:8px;background:#f8f8f8;">Subtotal</td>
+          <td style="text-align:right;font-weight:700;border:1px solid #ddd;padding:8px;background:#f8f8f8;">${money(summaryTotal)}</td>
+        </tr>
+      </tfoot>
+    </table>
+    ` : ""}
+
+    <div class="section-title">Day-wise Delivery Details</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:100px;">Date</th>
+          <th>Delivered Products</th>
+          <th style="text-align:right;width:100px;">Total</th>
+        </tr>
+      </thead>
       <tbody>${productsHTML}</tbody>
     </table>
 
     <div class="totals">
-      <div>Delivery Charges: ${money(data.deliveryCharges)}</div>
-      <div style="font-size:18px;font-weight:700;">Grand Total: ${money(data.grandTotal)}</div>
+      <div style="color:#666;">Delivery Charges: ${money(data.deliveryCharges)}</div>
+      <div class="grand-total">Grand Total: ${money(data.grandTotal)}</div>
+    </div>
+
+    <div style="margin-top:30px;font-size:11px;color:#888;text-align:center;border-top:1px solid #eee;padding-top:10px;">
+      This is a computer generated invoice and does not require a signature.
     </div>
   </div>
   </body></html>`;
 }
+
